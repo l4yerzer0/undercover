@@ -18,6 +18,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.undercover.vpn.compose.screen.configuration.NewProfileScreen
 import com.undercover.vpn.compose.screen.connections.ConnectionDetailsRoute
+import com.undercover.vpn.compose.screen.connections.ConnectionsConfigsScreen
 import com.undercover.vpn.compose.screen.connections.ConnectionsPage
 import com.undercover.vpn.compose.screen.connections.ConnectionsViewModel
 import com.undercover.vpn.compose.screen.dashboard.DashboardScreen
@@ -165,6 +166,20 @@ fun SFANavHost(
         }
 
         composable(Screen.Connections.route) {
+            ConnectionsConfigsScreen(
+                navController = navController,
+                dashboardViewModel = dashboardViewModel,
+                onOpenNewProfile = onOpenNewProfile,
+            )
+        }
+
+        composable(
+            route = "tools/connections",
+            enterTransition = slideInFromRight,
+            exitTransition = slideOutToLeft,
+            popEnterTransition = slideInFromLeft,
+            popExitTransition = slideOutToRight,
+        ) {
             if (connectionsViewModel != null) {
                 ConnectionsPage(
                     serviceStatus = serviceStatus,

@@ -52,6 +52,7 @@ sealed class Screen(val route: String, @StringRes val titleRes: Int, val icon: I
 val bottomNavigationScreens =
     listOf(
         Screen.Dashboard,
+        Screen.Connections,
         Screen.Tools,
         Screen.Settings,
     )

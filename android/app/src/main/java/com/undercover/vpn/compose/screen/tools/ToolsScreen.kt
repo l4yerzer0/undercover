@@ -104,6 +104,12 @@ fun ToolsScreen(
                 onClick = { navController.navigate("tools/stun_test") },
             )
 
+            DossierToolRow(
+                title = "Активные сессии",
+                subtitle = "Мониторинг текущих TCP и UDP соединений в туннеле",
+                onClick = { navController.navigate("tools/connections") },
+            )
+
             Spacer(modifier = Modifier.height(64.dp))
         }
     }

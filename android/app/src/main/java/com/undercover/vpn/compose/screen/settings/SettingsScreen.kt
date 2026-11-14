@@ -48,6 +48,8 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.undercover.vpn.BuildConfig
 import com.undercover.vpn.R
+import com.undercover.vpn.database.Settings
+import com.undercover.vpn.shared.ui.components.DossierSwitch
 import com.undercover.vpn.bg.CrashReportManager
 import com.undercover.vpn.bg.OOMReportManager
 import com.undercover.vpn.compose.topbar.OverrideTopBar
@@ -178,12 +180,6 @@ fun SettingsScreen(navController: NavController) {
             )
 
             DossierSettingRow(
-                title = stringResource(R.string.service),
-                subtitle = "Режим работы VPN и автозапуск",
-                onClick = { navController.navigate("settings/service") },
-            )
-
-            DossierSettingRow(
                 title = stringResource(R.string.routing),
                 subtitle = "Правила маршрутизации и обход сайтов",
                 onClick = { navController.navigate("settings/routing") },
@@ -241,6 +237,18 @@ fun SettingsScreen(navController: NavController) {
                         title = stringResource(R.string.core),
                         subtitle = "Параметры ядра sing-box",
                         onClick = { navController.navigate("settings/core") },
+                    )
+
+                    var allowBypass by remember { mutableStateOf(Settings.allowBypass) }
+
+                    DossierSettingToggleRow(
+                        title = stringResource(R.string.allow_bypass),
+                        subtitle = "Разрешить спец. приложениям обходить туннель напрямую в сеть",
+                        checked = allowBypass,
+                        onCheckedChange = { checked ->
+                            allowBypass = checked
+                            Settings.allowBypass = checked
+                        },
                     )
 
                     DossierSettingRow(
@@ -370,6 +378,49 @@ private fun DossierSettingRow(
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
             )
         }
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)),
+    )
+}
+
+@Composable
+private fun DossierSettingToggleRow(
+    title: String,
+    subtitle: String? = null,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(vertical = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            if (subtitle != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                )
+            }
+        }
+        DossierSwitch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+        )
     }
     Box(
         modifier = Modifier

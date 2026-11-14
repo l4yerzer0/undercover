@@ -945,11 +945,9 @@ class MainActivity :
         val railScreens =
             buildList {
                 add(Screen.Dashboard)
+                add(Screen.Connections)
                 if (showGroupsInNav) {
                     add(Screen.Groups)
-                }
-                if (showConnectionsInNav) {
-                    add(Screen.Connections)
                 }
                 add(Screen.Tools)
                 add(Screen.Settings)
@@ -958,14 +956,12 @@ class MainActivity :
         val allowedRoutes =
             buildList {
                 add(Screen.Dashboard.route)
+                add(Screen.Connections.route)
                 add(Screen.Settings.route)
                 add(Screen.Tools.route)
                 add("onboarding")
                 if (showGroupsInNav) {
                     add(Screen.Groups.route)
-                }
-                if (showConnectionsInNav) {
-                    add(Screen.Connections.route)
                 }
                 add(Screen.Log.route)
                 add("settings/log")

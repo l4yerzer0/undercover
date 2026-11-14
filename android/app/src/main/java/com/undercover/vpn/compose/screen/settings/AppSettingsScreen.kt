@@ -7,9 +7,12 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.text.format.Formatter
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -38,6 +41,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.outlined.AdminPanelSettings
 import androidx.compose.material.icons.outlined.Autorenew
+import androidx.compose.material.icons.outlined.BatteryChargingFull
 import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Download
@@ -188,6 +192,26 @@ fun AppSettingsScreen(
     var cacheSize by remember { mutableStateOf(0L) }
     var cacheSizeText by remember { mutableStateOf("") }
 
+    var isBatteryOptimizationIgnored by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val pm = context.getSystemService(PowerManager::class.java)
+                pm?.isIgnoringBatteryOptimizations(context.packageName) == true
+            } else true
+        )
+    }
+
+    val requestBatteryOptimizationLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.StartActivityForResult(),
+        ) { _ ->
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val pm = context.getSystemService(PowerManager::class.java)
+                isBatteryOptimizationIgnored =
+                    pm?.isIgnoringBatteryOptimizations(context.packageName) == true
+            }
+        }
+
     fun refreshCacheSize() {
         scope.launch(Dispatchers.IO) {
             val size = calculateDirSize(context.cacheDir)
@@ -206,6 +230,11 @@ fun AppSettingsScreen(
     // Re-check states when returning from background (e.g., after granting permission)
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         HookStatusClient.refresh()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val pm = context.getSystemService(PowerManager::class.java)
+            isBatteryOptimizationIgnored =
+                pm?.isIgnoringBatteryOptimizations(context.packageName) == true
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Application.notification.createNotificationChannel(
                 NotificationChannel(
@@ -715,6 +744,85 @@ fun AppSettingsScreen(
             }
         }
 
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "СИСТЕМА И БАТАРЕЯ",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp),
+        )
+
+        Card(
+            modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            colors =
+            CardDefaults.cardColors(
+                containerColor = Color.Transparent,
+            ),
+        ) {
+            Column {
+                DossierListItem(
+                    headlineContent = {
+                        Text(
+                            stringResource(R.string.background_permission),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    },
+                    supportingContent = {
+                        Text(
+                            if (isBatteryOptimizationIgnored) {
+                                "Оптимизация батареи отключена. Система не будет завершать работу службы в фоне."
+                            } else {
+                                stringResource(R.string.background_permission_description)
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    },
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.Outlined.BatteryChargingFull,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    },
+                    trailingContent = {
+                        if (isBatteryOptimizationIgnored) {
+                            Text(
+                                text = "[ OK ]",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        } else {
+                            Text(
+                                text = "[ ОТКЛЮЧИТЬ ]",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    },
+                    modifier =
+                    Modifier
+                        .clickable {
+                            if (!isBatteryOptimizationIgnored && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                val intent =
+                                    Intent(
+                                        android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                        Uri.parse("package:${context.packageName}"),
+                                    )
+                                requestBatteryOptimizationLauncher.launch(intent)
+                            }
+                        },
+                    colors =
+                    ListItemDefaults.colors(
+                        containerColor = Color.Transparent,
+                    ),
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 
