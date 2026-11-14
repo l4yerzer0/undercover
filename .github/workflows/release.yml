@@ -5,13 +5,11 @@ on:
     branches:
       - main
     paths:
-      - 'android/app/**'
-      - 'android/shared/**'
-      - 'android/build.gradle.kts'
-      - 'android/settings.gradle.kts'
-      - 'android/gradle.properties'
-      - 'android/version.properties'
+      - 'android/**'
       - 'cli/**'
+      - '.github/workflows/**'
+      - '!**.md'
+      - '!**/docs/**'
     tags:
       - 'v*'
   workflow_dispatch:
