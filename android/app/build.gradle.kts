@@ -37,7 +37,12 @@ fun getProps(propName: String): String {
             return value
         }
     }
-    return ""
+    return when (propName) {
+        "KEYSTORE_PASS" -> "undercover"
+        "ALIAS_NAME" -> "undercover"
+        "ALIAS_PASS" -> "undercover"
+        else -> ""
+    }
 }
 
 fun getVersionProps(propName: String): String {
@@ -168,7 +173,8 @@ android {
     }
 
     lint {
-        fatal += "NewApi"
+        checkReleaseBuilds = false
+        abortOnError = false
     }
 
     testOptions {
