@@ -42,7 +42,7 @@ class GitHubUpdateChecker : Closeable {
                     } else null
                 } ?: continue
 
-            if (!isNewerThanCurrent(metadata.versionName)) {
+            if (!isNewerThanCurrent(metadata)) {
                 continue
             }
             val currentBest = selected
@@ -98,7 +98,15 @@ class GitHubUpdateChecker : Closeable {
         }
     }
 
-    private fun isNewerThanCurrent(versionName: String): Boolean = Libbox.compareSemver(versionName, BuildConfig.VERSION_NAME)
+    private fun isNewerThanCurrent(metadata: VersionMetadata): Boolean {
+        if (Libbox.compareSemver(metadata.versionName, BuildConfig.VERSION_NAME)) {
+            return true
+        }
+        if (Libbox.compareSemver(BuildConfig.VERSION_NAME, metadata.versionName)) {
+            return false
+        }
+        return metadata.versionCode > BuildConfig.VERSION_CODE
+    }
 
     private fun isBetterVersion(version: VersionMetadata, other: VersionMetadata): Boolean {
         if (Libbox.compareSemver(version.versionName, other.versionName)) {
