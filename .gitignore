@@ -1,0 +1,77 @@
+# Documentation & Internal Specs
+docs/
+*/docs/
+*/*docs/
+*.md
+!/README.md
+!**/LICENSE.md
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+
+# IDE & Editors
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+*.swp
+*.swo
+*~
+
+# AI & Agent metadata
+.agents/
+.gemini/
+.claude/
+CLAUDE.md
+
+# Logs & Temporary files
+*.log
+*.tmp
+*.bak
+*.pyc
+
+# Go / CLI
+bin/
+*/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Android & Gradle
+.gradle/
+*/.gradle/
+*/*/.gradle/
+build/
+*/build/
+*/*/*/build/
+.cxx/
+*/.cxx/
+*/*/.cxx/
+*/*/*/.cxx/
+.externalNativeBuild/
+*/.externalNativeBuild/
+*/*/.externalNativeBuild/
+local.properties
+*/local.properties
+.kotlin/
+*/.kotlin/
+captures/
+*/captures/
+*.apk
+*.aab
+*.ap_
+*.dex
+output.json
+
+# Local keys / secrets (except release.keystore if required)
+debug.keystore
+service-account-credentials.json
