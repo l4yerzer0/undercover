@@ -14,8 +14,9 @@ import java.io.Closeable
 
 class GitHubUpdateChecker : Closeable {
     companion object {
-        private const val RELEASES_URL = "https://api.github.com/repos/l4yerzer0/undercover-2.0/releases"
+        private const val RELEASES_URL = "https://api.github.com/repos/l4yerzer0/undercover/releases"
         private const val METADATA_FILENAME = "SFA-version-metadata.json"
+        private const val ALT_METADATA_FILENAME = "version-metadata.json"
     }
 
     private val client = Libbox.newHTTPClient().apply {
@@ -33,7 +34,14 @@ class GitHubUpdateChecker : Closeable {
             if (!isReleaseInTrack(release, track)) {
                 continue
             }
-            val metadata = runCatching { downloadMetadata(release) }.getOrNull() ?: continue
+            val metadata = runCatching { downloadMetadata(release) }.getOrNull()
+                ?: run {
+                    val cleanTag = release.tagName.removePrefix("v").trim()
+                    if (cleanTag.isNotEmpty()) {
+                        VersionMetadata(versionCode = 0, versionName = cleanTag)
+                    } else null
+                } ?: continue
+
             if (!isNewerThanCurrent(metadata.versionName)) {
                 continue
             }
@@ -51,7 +59,7 @@ class GitHubUpdateChecker : Closeable {
             asset.name.endsWith(".apk") &&
                 !asset.name.contains("play") &&
                 asset.name.contains("legacy-android-5") == isLegacy
-        }
+        } ?: release.assets.find { it.name.endsWith(".apk") }
 
         return UpdateInfo(
             versionCode = metadata.versionCode,
@@ -103,7 +111,7 @@ class GitHubUpdateChecker : Closeable {
     }
 
     private fun downloadMetadata(release: GitHubRelease): VersionMetadata? {
-        val metadataAsset = release.assets.find { it.name == METADATA_FILENAME }
+        val metadataAsset = release.assets.find { it.name == METADATA_FILENAME || it.name == ALT_METADATA_FILENAME }
             ?: return null
 
         val request = client.newRequest()

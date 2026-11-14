@@ -114,11 +114,10 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        val isDark = isSystemInDarkTheme()
                         Image(
-                            painter = painterResource(if (isDark) R.drawable.ic_undercover_logo_light else R.drawable.ic_undercover_logo),
+                            painter = painterResource(R.drawable.ic_undercover_logo_light),
                             contentDescription = null,
-                            colorFilter = ColorFilter.tint(if (isDark) DossierCream else DossierInk),
+                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary),
                             modifier = Modifier
                                 .size(96.dp)
                                 .padding(bottom = 32.dp)
@@ -150,11 +149,10 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        val isDark = isSystemInDarkTheme()
                         Image(
-                            painter = painterResource(if (isDark) R.drawable.ic_undercover_logo_light else R.drawable.ic_undercover_logo),
+                            painter = painterResource(R.drawable.ic_undercover_logo_light),
                             contentDescription = null,
-                            colorFilter = ColorFilter.tint(if (isDark) DossierCream else DossierInk),
+                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary),
                             modifier = Modifier
                                 .size(112.dp)
                                 .padding(bottom = 24.dp)

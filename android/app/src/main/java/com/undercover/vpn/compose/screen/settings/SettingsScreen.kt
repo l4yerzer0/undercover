@@ -4,6 +4,11 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,6 +32,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -111,11 +119,10 @@ fun SettingsScreen(navController: NavController) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                val isDark = isSystemInDarkTheme()
                 Image(
-                    painter = painterResource(if (isDark) R.drawable.ic_undercover_logo_light else R.drawable.ic_undercover_logo),
+                    painter = painterResource(R.drawable.ic_undercover_logo_light),
                     contentDescription = "Undercover Logo",
-                    colorFilter = ColorFilter.tint(if (isDark) DossierCream else DossierInk),
+                    colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary),
                     modifier = Modifier.size(72.dp),
                 )
 
@@ -209,32 +216,81 @@ fun SettingsScreen(navController: NavController) {
                 onClick = { navController.navigate("settings/privilege") },
             )
 
-            // Section 2: For Developers
-            DossierSectionHeader(title = "DEVELOPER // CORE & DIAGNOSTICS")
+            // Section 2: For Developers (Collapsible, closed by default)
+            var isDeveloperExpanded by remember { mutableStateOf(false) }
 
-            DossierSettingRow(
-                title = stringResource(R.string.core),
-                subtitle = "Параметры ядра sing-box",
-                onClick = { navController.navigate("settings/core") },
+            DossierCollapsibleSectionHeader(
+                title = "DEVELOPER // CORE & DIAGNOSTICS",
+                isExpanded = isDeveloperExpanded,
+                onToggle = { isDeveloperExpanded = !isDeveloperExpanded },
             )
 
-            DossierSettingRow(
-                title = stringResource(R.string.crash_report),
-                subtitle = "Журнал неожиданных падений",
-                badgeText = if (crashUnreadCount > 0) "$crashUnreadCount" else null,
-                onClick = { navController.navigate("tools/crash_report") },
-            )
+            AnimatedVisibility(
+                visible = isDeveloperExpanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut(),
+            ) {
+                Column {
+                    DossierSettingRow(
+                        title = stringResource(R.string.core),
+                        subtitle = "Параметры ядра sing-box",
+                        onClick = { navController.navigate("settings/core") },
+                    )
 
-            DossierSettingRow(
-                title = stringResource(R.string.oom_report),
-                subtitle = "Отчеты о нехватке памяти",
-                badgeText = if (oomUnreadCount > 0) "$oomUnreadCount" else null,
-                onClick = { navController.navigate("tools/oom_report") },
-            )
+                    DossierSettingRow(
+                        title = stringResource(R.string.crash_report),
+                        subtitle = "Журнал неожиданных падений",
+                        badgeText = if (crashUnreadCount > 0) "$crashUnreadCount" else null,
+                        onClick = { navController.navigate("tools/crash_report") },
+                    )
+
+                    DossierSettingRow(
+                        title = stringResource(R.string.oom_report),
+                        subtitle = "Отчеты о нехватке памяти",
+                        badgeText = if (oomUnreadCount > 0) "$oomUnreadCount" else null,
+                        onClick = { navController.navigate("tools/oom_report") },
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(64.dp))
         }
     }
+}
+
+@Composable
+private fun DossierCollapsibleSectionHeader(
+    title: String,
+    isExpanded: Boolean,
+    onToggle: () -> Unit,
+) {
+    Spacer(modifier = Modifier.height(36.dp))
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onToggle() }
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        )
+        Text(
+            text = if (isExpanded) "[ − СВЕРНУТЬ ]" else "[ + РАЗВЕРНУТЬ ]",
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
+    Spacer(modifier = Modifier.height(8.dp))
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)),
+    )
 }
 
 @Composable
