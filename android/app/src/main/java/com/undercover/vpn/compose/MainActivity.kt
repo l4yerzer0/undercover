@@ -18,6 +18,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -77,6 +78,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.os.ConfigurationCompat
@@ -684,7 +686,26 @@ class MainActivity :
                     Settings.updateCheckPrompted = true
                     showUpdateCheckPrompt = false
                 },
-                title = { Text(stringResource(R.string.check_update)) },
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp),
+                containerColor = MaterialTheme.colorScheme.background,
+                tonalElevation = 0.dp,
+                modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+                title = {
+                    Column {
+                        Text(
+                            text = "DOSSIER // UPDATE CHECK",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            letterSpacing = 2.sp,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.check_update),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                },
                 text = {
                     MarkdownText(
                         markdown = stringResource(
@@ -711,7 +732,11 @@ class MainActivity :
                             }
                         }
                     }) {
-                        Text(stringResource(R.string.ok))
+                        Text(
+                            text = "[ ${stringResource(R.string.ok).uppercase()} ]",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary,
+                        )
                     }
                 },
                 dismissButton = {
@@ -719,7 +744,11 @@ class MainActivity :
                         Settings.updateCheckPrompted = true
                         showUpdateCheckPrompt = false
                     }) {
-                        Text(stringResource(R.string.no_thanks))
+                        Text(
+                            text = "[ ${stringResource(R.string.no_thanks).uppercase()} ]",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        )
                     }
                 },
             )

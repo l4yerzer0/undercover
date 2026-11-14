@@ -195,11 +195,8 @@ fun SettingsScreen(navController: NavController) {
                 onClick = { navController.navigate("settings/byedpi") },
             )
 
-            DossierSettingRow(
-                title = stringResource(R.string.profile_override),
-                subtitle = "DNS, MTU и переопределение профилей",
-                onClick = { navController.navigate("settings/profile_override") },
-            )
+            // Section 2: For Developers (Collapsible, closed by default)
+            var isDeveloperExpanded by remember { mutableStateOf(false) }
 
             val privilegeBadgeText = when {
                 hasPendingPrivilegeDowngrade -> "DOWNGRADE"
@@ -208,19 +205,8 @@ fun SettingsScreen(navController: NavController) {
             }
             val privilegeBadgeColor = if (hasPendingPrivilegeDowngrade) MaterialTheme.colorScheme.error else Color(0xFFFFC107)
 
-            DossierSettingRow(
-                title = stringResource(R.string.privilege_settings),
-                subtitle = "Root-права и системные хуки",
-                badgeText = privilegeBadgeText,
-                badgeColor = privilegeBadgeColor,
-                onClick = { navController.navigate("settings/privilege") },
-            )
-
-            // Section 2: For Developers (Collapsible, closed by default)
-            var isDeveloperExpanded by remember { mutableStateOf(false) }
-
             DossierCollapsibleSectionHeader(
-                title = "DEVELOPER // CORE & DIAGNOSTICS",
+                title = "DEVELOPER // ROOT & DIAGNOSTICS",
                 isExpanded = isDeveloperExpanded,
                 onToggle = { isDeveloperExpanded = !isDeveloperExpanded },
             )
@@ -231,6 +217,20 @@ fun SettingsScreen(navController: NavController) {
                 exit = shrinkVertically() + fadeOut(),
             ) {
                 Column {
+                    DossierSettingRow(
+                        title = stringResource(R.string.profile_override),
+                        subtitle = "DNS, MTU и перезапись профиля",
+                        onClick = { navController.navigate("settings/profile_override") },
+                    )
+
+                    DossierSettingRow(
+                        title = stringResource(R.string.privilege_settings),
+                        subtitle = "Привилегированное расширение и хуки",
+                        badgeText = privilegeBadgeText,
+                        badgeColor = privilegeBadgeColor,
+                        onClick = { navController.navigate("settings/privilege") },
+                    )
+
                     DossierSettingRow(
                         title = stringResource(R.string.core),
                         subtitle = "Параметры ядра sing-box",

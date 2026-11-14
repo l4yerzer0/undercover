@@ -62,8 +62,8 @@ class UpdateWorker(private val appContext: Context, params: WorkerParameters) : 
 
         return try {
             val updateInfo = when (UpdateSource.fromString(Settings.updateSource)) {
-                UpdateSource.FDROID -> checkFDroidUpdate(appContext)
-                UpdateSource.GITHUB -> {
+                // UpdateSource.FDROID -> checkFDroidUpdate(appContext) // Disabled for now
+                else -> {
                     val track = UpdateTrack.fromString(Settings.updateTrack)
                     GitHubUpdateChecker().use { it.checkUpdate(track, Settings.githubToken) }
                 }

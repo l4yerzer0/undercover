@@ -13,6 +13,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
@@ -84,10 +85,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.Lifecycle
@@ -856,17 +859,7 @@ fun AppSettingsScreen(
                         count
                     }
 
-                var updateItemIndex = 0
-                fun updateItemModifier(): Modifier {
-                    val index = updateItemIndex++
-                    return when {
-                        updateItemCount == 1 -> Modifier.clip(RoundedCornerShape(12.dp))
-                        index == 0 -> Modifier.clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
-                        index == updateItemCount - 1 ->
-                            Modifier.clip(RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp))
-                        else -> Modifier
-                    }
-                }
+                fun updateItemModifier(): Modifier = Modifier
 
                 if (Vendor.updateSources.size > 1) {
                     DossierListItem(
@@ -1324,13 +1317,6 @@ fun AppSettingsScreen(
                     },
                     modifier =
                     Modifier
-                        .clip(
-                            if (hasUpdate) {
-                                RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
-                            } else {
-                                RoundedCornerShape(12.dp)
-                            },
-                        )
                         .clickable(enabled = !isChecking) {
                             scope.launch {
                                 UpdateState.isChecking.value = true
@@ -1384,7 +1370,6 @@ fun AppSettingsScreen(
                         },
                         modifier =
                         Modifier
-                            .clip(RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp))
                             .clickable {
                                 showUpdateAvailableDialog = true
                             },
@@ -1412,27 +1397,47 @@ private fun UpdateSourceDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.update_source)) },
+        shape = RoundedCornerShape(0.dp),
+        containerColor = MaterialTheme.colorScheme.background,
+        tonalElevation = 0.dp,
+        modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+        title = {
+            Column {
+                Text(
+                    text = "DOSSIER // UPDATE SOURCE",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    letterSpacing = 2.sp,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.update_source),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        },
         text = {
             Column {
                 sources.forEach { (value, label) ->
+                    val isSelected = currentSource == value
                     Row(
-                        modifier =
-                        Modifier
+                        modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
                             .clickable { onSourceSelected(value) }
-                            .padding(vertical = 8.dp),
+                            .padding(vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        RadioButton(
-                            selected = currentSource == value,
-                            onClick = { onSourceSelected(value) },
+                        Text(
+                            text = if (isSelected) "[ X ]" else "[   ]",
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                         )
                         Text(
                             text = label,
                             style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.padding(start = 8.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(start = 12.dp),
                         )
                     }
                 }
@@ -1440,7 +1445,11 @@ private fun UpdateSourceDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(android.R.string.cancel))
+                Text(
+                    text = "[ ${stringResource(android.R.string.cancel).uppercase()} ]",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                )
             }
         },
     )
@@ -1459,27 +1468,47 @@ private fun UpdateTrackDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.update_track)) },
+        shape = RoundedCornerShape(0.dp),
+        containerColor = MaterialTheme.colorScheme.background,
+        tonalElevation = 0.dp,
+        modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+        title = {
+            Column {
+                Text(
+                    text = "DOSSIER // UPDATE TRACK",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    letterSpacing = 2.sp,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.update_track),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        },
         text = {
             Column {
                 tracks.forEach { (value, label) ->
+                    val isSelected = currentTrack == value
                     Row(
-                        modifier =
-                        Modifier
+                        modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
                             .clickable { onTrackSelected(value) }
-                            .padding(vertical = 8.dp),
+                            .padding(vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        RadioButton(
-                            selected = currentTrack == value,
-                            onClick = { onTrackSelected(value) },
+                        Text(
+                            text = if (isSelected) "[ X ]" else "[   ]",
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                         )
                         Text(
                             text = label,
                             style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.padding(start = 8.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(start = 12.dp),
                         )
                     }
                 }
@@ -1487,7 +1516,11 @@ private fun UpdateTrackDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(android.R.string.cancel))
+                Text(
+                    text = "[ ${stringResource(android.R.string.cancel).uppercase()} ]",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                )
             }
         },
     )
@@ -1504,7 +1537,26 @@ private fun GitHubTokenDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.github_token)) },
+        shape = RoundedCornerShape(0.dp),
+        containerColor = MaterialTheme.colorScheme.background,
+        tonalElevation = 0.dp,
+        modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+        title = {
+            Column {
+                Text(
+                    text = "DOSSIER // ACCESS TOKEN",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    letterSpacing = 2.sp,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.github_token),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        },
         text = {
             OutlinedTextField(
                 value = token,
@@ -1525,12 +1577,20 @@ private fun GitHubTokenDialog(
         },
         confirmButton = {
             TextButton(onClick = { onSave(token.trim()) }) {
-                Text(stringResource(R.string.save))
+                Text(
+                    text = "[ ${stringResource(R.string.save).uppercase()} ]",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary,
+                )
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
+                Text(
+                    text = "[ ${stringResource(R.string.cancel).uppercase()} ]",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                )
             }
         },
     )

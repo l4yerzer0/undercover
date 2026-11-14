@@ -5,7 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import androidx.camera.core.ImageAnalysis
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import androidx.appcompat.app.AlertDialog
 import com.undercover.vpn.Application
 import com.undercover.vpn.R
 import com.undercover.vpn.bg.RootClient
@@ -62,7 +62,7 @@ object Vendor : VendorInterface {
             }
         }
 
-        MaterialAlertDialogBuilder(activity)
+        AlertDialog.Builder(activity)
             .setTitle(R.string.check_update)
             .setMessage(message)
             .setPositiveButton(R.string.update) { _, _ ->
@@ -74,7 +74,7 @@ object Vendor : VendorInterface {
     }
 
     private fun showNoUpdatesDialog(activity: Activity) {
-        MaterialAlertDialogBuilder(activity)
+        AlertDialog.Builder(activity)
             .setTitle(R.string.check_update)
             .setMessage(R.string.no_updates_available)
             .setPositiveButton(R.string.ok, null)
@@ -82,7 +82,7 @@ object Vendor : VendorInterface {
     }
 
     private fun showTrackNotSupportedDialog(activity: Activity) {
-        MaterialAlertDialogBuilder(activity)
+        AlertDialog.Builder(activity)
             .setTitle(R.string.check_update)
             .setMessage(R.string.update_track_not_supported)
             .setPositiveButton(R.string.ok, null)
@@ -97,11 +97,12 @@ object Vendor : VendorInterface {
 
     override val hasCustomUpdate = true
 
-    override val updateSources = listOf(UpdateSource.GITHUB, UpdateSource.FDROID)
+    // F-Droid update source is disabled for now (kept for future use)
+    override val updateSources = listOf(UpdateSource.GITHUB)
 
     override fun checkUpdateAsync(): UpdateInfo? = when (UpdateSource.fromString(Settings.updateSource)) {
-        UpdateSource.FDROID -> checkFDroidUpdate(Application.application)
-        UpdateSource.GITHUB -> {
+        // UpdateSource.FDROID -> checkFDroidUpdate(Application.application) // Disabled for now
+        else -> {
             val track = UpdateTrack.fromString(Settings.updateTrack)
             GitHubUpdateChecker().use { checker ->
                 checker.checkUpdate(track, Settings.githubToken)
