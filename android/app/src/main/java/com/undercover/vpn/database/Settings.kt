@@ -101,6 +101,11 @@ object Settings {
 
     var routingDirectList by dataStore.stringSet(SettingsKey.ROUTING_DIRECT_LIST) { emptySet() }
     var routingByeDpiList by dataStore.stringSet(SettingsKey.ROUTING_BYEDPI_LIST) { emptySet() }
+    var routingDirectRuSites by dataStore.boolean(SettingsKey.ROUTING_DIRECT_RU_SITES) { true }
+    var routingByeDpiYouTube by dataStore.boolean(SettingsKey.ROUTING_BYEDPI_YOUTUBE) { false }
+    var routingByeDpiDiscord by dataStore.boolean(SettingsKey.ROUTING_BYEDPI_DISCORD) { false }
+    var routingCustomDirectDomains by dataStore.stringSet(SettingsKey.ROUTING_CUSTOM_DIRECT_DOMAINS) { emptySet() }
+    var routingCustomByeDpiDomains by dataStore.stringSet(SettingsKey.ROUTING_CUSTOM_BYEDPI_DOMAINS) { emptySet() }
 
     fun routingList(section: RoutingSection): Set<String> = when (section) {
         RoutingSection.DIRECT -> routingDirectList

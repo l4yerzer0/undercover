@@ -6,70 +6,151 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Generates the per-app routing rules from the UI selection and injects them into
- * the profile on its way to the core.
+ * Generates per-app and per-domain routing rules from the UI settings and injects them
+ * into the profile on its way to the core.
  *
- * The profile on disk is never touched: rules are added to an in-memory copy at
+ * The profile on disk is never touched directly: rules are added to an in-memory copy at
  * every start and reload, so the user's JSON stays theirs and nothing
  * accumulates across restarts. That also lets the ByeDPI outbound carry a port
  * that is only known at runtime.
- *
- * Split tunnelling is done entirely here rather than through
- * `VpnService.addDisallowedApplication` — see docs/per-app-bypass.md for why.
  */
 object RoutingConfig {
     private const val TAG = "RoutingConfig"
     private const val BYEDPI_ADDRESS = "127.0.0.1"
 
+    val RU_DOMAINS_PRESET = listOf(
+        "ru",
+        "su",
+        "xn--p1ai", // .рф
+        "by",
+        "kz",
+        "yandex.ru",
+        "yandex.net",
+        "ya.ru",
+        "vk.com",
+        "vkuser.net",
+        "vk-cdn.net",
+        "vkvideo.ru",
+        "mycdn.me",
+        "userapi.com",
+        "ok.ru",
+        "mail.ru",
+        "imgsmail.ru",
+        "gosuslugi.ru",
+        "mos.ru",
+        "sberbank.ru",
+        "sber.ru",
+        "tbank.ru",
+        "tinkoff.ru",
+        "alfabank.ru",
+        "vtb.ru",
+        "ozon.ru",
+        "ozonusercontent.com",
+        "wildberries.ru",
+        "wb.ru",
+        "wbstatic.net",
+        "avito.ru",
+        "avito.st",
+        "kinopoisk.ru",
+        "rutube.ru",
+        "dzen.ru",
+        "2gis.ru",
+        "2gis.com",
+        "hh.ru",
+        "cian.ru",
+        "auto.ru",
+        "pochta.ru",
+        "nalog.gov.ru",
+        "pfr.gov.ru",
+        "rambler.ru",
+        "lenta.ru",
+        "rbc.ru",
+        "ria.ru",
+        "kp.ru",
+        "kommersant.ru",
+        "kinopoisk-ru.clstorage.net",
+        "yastatic.net",
+    )
+
+    val YOUTUBE_DOMAINS_PRESET = listOf(
+        "youtube.com",
+        "googlevideo.com",
+        "ytimg.com",
+        "youtu.be",
+        "ggpht.com",
+        "yt.be",
+        "youtubeeducation.com",
+        "youtubekids.com",
+    )
+
+    val DISCORD_DOMAINS_PRESET = listOf(
+        "discord.com",
+        "discordapp.com",
+        "discord.gg",
+        "discord.media",
+        "discordapp.net",
+        "discordstatus.com",
+        "dis.gd",
+    )
+
     /**
      * Returns [configJson] with generated outbounds and route rules.
-     *
-     * [byeDpiPort] is the port the embedded proxy is listening on, or null when
-     * ByeDPI is off or failed to start; in that case the ByeDPI section is
-     * skipped entirely and its apps fall through to the profile's own rules.
      */
     fun apply(configJson: String, byeDpiPort: Int?): String {
-        val direct = Settings.routingList(RoutingSection.DIRECT)
-        val byeDpi = if (byeDpiPort != null) {
+        val directApps = Settings.routingList(RoutingSection.DIRECT)
+        val byeDpiApps = if (byeDpiPort != null) {
             Settings.routingList(RoutingSection.BYEDPI)
         } else {
             emptySet()
         }
 
+        val directDomains = mutableListOf<String>()
+        if (Settings.routingDirectRuSites) {
+            directDomains.addAll(RU_DOMAINS_PRESET)
+        }
+        directDomains.addAll(Settings.routingCustomDirectDomains)
+
+        val byeDpiDomains = mutableListOf<String>()
+        if (byeDpiPort != null) {
+            if (Settings.routingByeDpiYouTube) {
+                byeDpiDomains.addAll(YOUTUBE_DOMAINS_PRESET)
+            }
+            if (Settings.routingByeDpiDiscord) {
+                byeDpiDomains.addAll(DISCORD_DOMAINS_PRESET)
+            }
+            byeDpiDomains.addAll(Settings.routingCustomByeDpiDomains)
+        }
+
         return try {
             val config = JSONObject(configJson)
             stripGenerated(config)
-            if (direct.isNotEmpty()) ensureDirectOutbound(config)
-            if (byeDpi.isNotEmpty()) ensureByeDpiOutbound(config, byeDpiPort!!)
-            insertRules(config, direct, byeDpi)
-            Log.i(TAG, "routing applied: direct=${direct.size} byedpi=${byeDpi.size}")
+            if (directApps.isNotEmpty() || directDomains.isNotEmpty()) ensureDirectOutbound(config)
+            if ((byeDpiApps.isNotEmpty() || byeDpiDomains.isNotEmpty()) && byeDpiPort != null) {
+                ensureByeDpiOutbound(config, byeDpiPort)
+            }
+            insertRules(config, directApps, byeDpiApps, directDomains.distinct(), byeDpiDomains.distinct())
+            Log.i(
+                TAG,
+                "routing applied: directApps=${directApps.size} directDomains=${directDomains.size} " +
+                    "byedpiApps=${byeDpiApps.size} byedpiDomains=${byeDpiDomains.size}",
+            )
             config.toString()
         } catch (e: Exception) {
-            // A malformed profile is the user's to fix; running it unmodified gives
-            // them the core's own error rather than one from us.
             Log.e(TAG, "failed to inject routing rules, running profile unmodified", e)
             configJson
         }
     }
 
     /**
-     * Removes rules and outbounds this object generated on an earlier run, so that
-     * regenerating is idempotent and unassigning an app in the UI actually drops
-     * its rule from the profile.
-     *
-     * Generated rules are recognised by shape rather than by a marker: sing-box
-     * rejects unknown fields in rules, so there is nowhere to stamp one. A rule
-     * counts as ours when it carries `package_name` together with one of our
-     * outbound tags, or is the QUIC reject we emit alongside the ByeDPI rule. A
-     * hand-written rule of exactly that shape would be swallowed — the profile is
-     * generated from the UI, so that is the intended trade.
+     * Removes rules and outbounds generated on an earlier run.
      */
     private fun stripGenerated(config: JSONObject) {
         val tags = RoutingSection.entries.map { it.outboundTag }.toSet()
 
         config.optJSONObject("route")?.optJSONArray("rules")?.let { rules ->
             removeMatching(rules) { rule ->
-                if (!rule.has("package_name")) return@removeMatching false
+                val hasTarget = rule.has("package_name") || rule.has("domain_suffix")
+                if (!hasTarget) return@removeMatching false
                 val outbound = rule.optString("outbound")
                 val isOurRoute = outbound in tags
                 val isOurReject = rule.optString("action") == "reject" &&
@@ -112,37 +193,58 @@ object RoutingConfig {
         outbound.put("version", "5")
     }
 
-    private fun insertRules(config: JSONObject, direct: Set<String>, byeDpi: Set<String>) {
+    private fun insertRules(
+        config: JSONObject,
+        directApps: Set<String>,
+        byeDpiApps: Set<String>,
+        directDomains: List<String>,
+        byeDpiDomains: List<String>,
+    ) {
         val route = config.optJSONObject("route") ?: JSONObject().also { config.put("route", it) }
         val rules = route.optJSONArray("rules") ?: JSONArray().also { route.put("rules", it) }
 
         val generated = mutableListOf<JSONObject>()
 
-        if (byeDpi.isNotEmpty()) {
-            // ByeDPI desyncs a TCP stream; over SOCKS5 UDP none of that applies. Deny
-            // QUIC for these apps so they fall back to TCP instead of silently
-            // losing the bypass.
+        // 1. ByeDPI rules (domains & apps)
+        if (byeDpiDomains.isNotEmpty()) {
             generated += JSONObject()
-                .put("package_name", JSONArray(byeDpi.toList()))
+                .put("domain_suffix", JSONArray(byeDpiDomains))
                 .put("network", "udp")
                 .put("port", 443)
                 .put("action", "reject")
             generated += JSONObject()
-                .put("package_name", JSONArray(byeDpi.toList()))
+                .put("domain_suffix", JSONArray(byeDpiDomains))
                 .put("action", "route")
                 .put("outbound", RoutingSection.BYEDPI.outboundTag)
         }
 
-        if (direct.isNotEmpty()) {
+        if (byeDpiApps.isNotEmpty()) {
             generated += JSONObject()
-                .put("package_name", JSONArray(direct.toList()))
+                .put("package_name", JSONArray(byeDpiApps.toList()))
+                .put("network", "udp")
+                .put("port", 443)
+                .put("action", "reject")
+            generated += JSONObject()
+                .put("package_name", JSONArray(byeDpiApps.toList()))
+                .put("action", "route")
+                .put("outbound", RoutingSection.BYEDPI.outboundTag)
+        }
+
+        // 2. Direct rules (domains & apps)
+        if (directDomains.isNotEmpty()) {
+            generated += JSONObject()
+                .put("domain_suffix", JSONArray(directDomains))
                 .put("action", "route")
                 .put("outbound", RoutingSection.DIRECT.outboundTag)
         }
 
-        // Generated rules go after the profile's leading sniff/hijack-dns rules —
-        // those must keep running first — but ahead of any user rules, so an app
-        // assigned in the UI wins over a broader rule in the profile.
+        if (directApps.isNotEmpty()) {
+            generated += JSONObject()
+                .put("package_name", JSONArray(directApps.toList()))
+                .put("action", "route")
+                .put("outbound", RoutingSection.DIRECT.outboundTag)
+        }
+
         val insertAt = leadingPreambleLength(rules)
         generated.forEachIndexed { offset, rule ->
             insertAt(rules, insertAt + offset, rule)

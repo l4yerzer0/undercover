@@ -26,6 +26,11 @@ object SettingsKey {
 
     const val ROUTING_DIRECT_LIST = "routing_direct_list"
     const val ROUTING_BYEDPI_LIST = "routing_byedpi_list"
+    const val ROUTING_DIRECT_RU_SITES = "routing_direct_ru_sites"
+    const val ROUTING_BYEDPI_YOUTUBE = "routing_byedpi_youtube"
+    const val ROUTING_BYEDPI_DISCORD = "routing_byedpi_discord"
+    const val ROUTING_CUSTOM_DIRECT_DOMAINS = "routing_custom_direct_domains"
+    const val ROUTING_CUSTOM_BYEDPI_DOMAINS = "routing_custom_byedpi_domains"
 
     const val BYEDPI_ENABLED = "byedpi_enabled"
     const val BYEDPI_STRATEGY = "byedpi_strategy"
