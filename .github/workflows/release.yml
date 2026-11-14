@@ -74,9 +74,15 @@ jobs:
           java-version: '17'
 
       - name: Set up Android NDK
-        uses: nttld/setup-ndk@v3
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
         with:
-          ndk-version: r28c
+          ndk-version: r28
+
+      - name: Export NDK environment
+        run: |
+          echo "ANDROID_NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}" >> $GITHUB_ENV
+          echo "ANDROID_NDK_ROOT=${{ steps.setup-ndk.outputs.ndk-path }}" >> $GITHUB_ENV
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -157,7 +163,9 @@ jobs:
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ steps.meta.outputs.tag_name }}
+          target_commitish: ${{ github.sha }}
           name: "Undercover ${{ steps.meta.outputs.tag_name }}"
           generate_release_notes: true
           draft: false
