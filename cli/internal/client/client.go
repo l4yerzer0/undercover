@@ -10,7 +10,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"undercover/internal/state"
@@ -198,7 +197,7 @@ func Connect(srv state.LocalServer, userAuth string, proxyPort int) error {
 
 	// Start background daemon process
 	cmd := exec.Command(binPath, "run", "-c", cfgPath)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	setSysProcAttr(cmd)
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start sing-box client: %w", err)
@@ -251,9 +250,8 @@ func Disconnect() error {
 
 	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
 	if err == nil && pid > 0 {
-		// Send SIGTERM to process group
-		_ = syscall.Kill(-pid, syscall.SIGTERM)
-		_ = syscall.Kill(pid, syscall.SIGTERM)
+		// Stop client process
+		killProcess(pid)
 	}
 
 	_ = os.Remove(pidPath)
@@ -282,12 +280,8 @@ func GetClientStatus() *ClientStatus {
 		return &ClientStatus{Connected: false}
 	}
 
-	// Check if process exists
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return &ClientStatus{Connected: false}
-	}
-	if err := process.Signal(syscall.Signal(0)); err != nil {
+	// Check if process exists and is alive
+	if !isProcessAlive(pid) {
 		// Process died, clean stale pid file
 		_ = os.Remove(pidPath)
 		return &ClientStatus{Connected: false}
