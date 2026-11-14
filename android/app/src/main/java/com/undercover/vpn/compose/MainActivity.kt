@@ -901,9 +901,9 @@ class MainActivity :
             }
         val isConnectionsRoute = currentRootRoute == Screen.Connections.route
         val isGroupsRoute = currentRootRoute == Screen.Groups.route
-        val isLogRoute = currentRootRoute == Screen.Log.route
+        val isLogRoute = currentRoute?.startsWith("settings/log") == true || currentRoute?.startsWith(Screen.Log.route) == true
 
-        val isSubScreen = isSettingsSubScreen || isToolsSubScreen || isConnectionsDetail || isProfileRoute || isOnboardingRoute
+        val isSubScreen = isSettingsSubScreen || isToolsSubScreen || isConnectionsDetail || isProfileRoute || isOnboardingRoute || currentRoute?.startsWith(Screen.Log.route) == true
         // Get LogViewModel instance if we're on the Log screen
         val logViewModel: LogViewModel? =
             if (isLogRoute) {
@@ -951,7 +951,6 @@ class MainActivity :
                 if (showConnectionsInNav) {
                     add(Screen.Connections)
                 }
-                add(Screen.Log)
                 add(Screen.Tools)
                 add(Screen.Settings)
             }
@@ -969,6 +968,7 @@ class MainActivity :
                     add(Screen.Connections.route)
                 }
                 add(Screen.Log.route)
+                add("settings/log")
             }
 
         val pendingRoute = pendingNavigationRoute.value

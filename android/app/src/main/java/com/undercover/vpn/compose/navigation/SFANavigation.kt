@@ -135,12 +135,14 @@ fun SFANavHost(
                     showStartFab = showStartFab,
                     showStatusBar = showStatusBar,
                     viewModel = logViewModel,
+                    onBack = { navController.navigateUp() },
                 )
             } else {
                 LogScreen(
                     serviceStatus = serviceStatus,
                     showStartFab = showStartFab,
                     showStatusBar = showStatusBar,
+                    onBack = { navController.navigateUp() },
                 )
             }
         }
@@ -554,6 +556,22 @@ fun SFANavHost(
             popExitTransition = slideOutToRight,
         ) {
             HookLogScreen(onBack = { navController.navigateUp() })
+        }
+
+        composable(
+            route = "settings/log",
+            enterTransition = slideInFromRight,
+            exitTransition = slideOutToLeft,
+            popEnterTransition = slideInFromLeft,
+            popExitTransition = slideOutToRight,
+        ) {
+            LogScreen(
+                serviceStatus = serviceStatus,
+                showStartFab = false,
+                showStatusBar = false,
+                viewModel = logViewModel,
+                onBack = { navController.navigateUp() },
+            )
         }
     }
 }

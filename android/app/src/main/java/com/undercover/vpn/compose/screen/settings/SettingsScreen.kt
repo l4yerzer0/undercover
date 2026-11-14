@@ -218,6 +218,12 @@ fun SettingsScreen(navController: NavController) {
             ) {
                 Column {
                     DossierSettingRow(
+                        title = stringResource(R.string.title_log),
+                        subtitle = "Системный журнал работы и соединений",
+                        onClick = { navController.navigate("settings/log") },
+                    )
+
+                    DossierSettingRow(
                         title = stringResource(R.string.profile_override),
                         subtitle = "DNS, MTU и перезапись профиля",
                         onClick = { navController.navigate("settings/profile_override") },
