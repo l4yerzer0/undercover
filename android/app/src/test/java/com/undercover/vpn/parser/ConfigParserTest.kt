@@ -47,6 +47,13 @@ class ConfigParserTest {
     }
 
     @Test
+    fun testParseHysteria2Name() {
+        val uri = "hysteria2://my-secret-key@198.51.100.1:443?sni=www.cloudflare.com&insecure=0#Undercover-Hysteria"
+        val name = ConfigParser.parseUriToName(uri)
+        assertEquals("Undercover-Hysteria", name)
+    }
+
+    @Test
     fun testParseInvalidUriReturnsNull() {
         val name = ConfigParser.parseUriToName("invalid://foo#bar")
         assertNull(name)

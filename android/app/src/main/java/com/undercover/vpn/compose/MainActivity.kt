@@ -9,6 +9,7 @@ import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -157,6 +158,8 @@ class MainActivity :
     private var showImportLocalProfileDialog by mutableStateOf(false)
     private var pendingImportLocalProfileName by mutableStateOf<String?>(null)
     private var pendingImportLocalProfileUri by mutableStateOf<Uri?>(null)
+    private var showImportLinkDialog by mutableStateOf(false)
+    private var pendingImportLink by mutableStateOf<Pair<String, String>?>(null)
     private var newProfileArgs by mutableStateOf(NewProfileArgs())
     private var parseImportLocalProfileJob: Job? = null
     private var pendingIntentErrorMessage by mutableStateOf<String?>(null)
@@ -257,13 +260,14 @@ class MainActivity :
             pendingNavigationRoute.value = "settings/privilege"
         }
         val uri = intent.data ?: return
+        val uriString = intent.dataString ?: uri.toString()
         if (intent.action == Action.OPEN_URL) {
-            launchCustomTab(uri.toString())
+            launchCustomTab(uriString)
             return
         }
-        if (uri.scheme == "sing-box" && uri.host == "import-remote-profile") {
+        if ((uri.scheme == "sing-box" || uri.scheme == "undercover") && (uri.host == "import-remote-profile" || uri.host == "import")) {
             try {
-                val profile = Libbox.parseRemoteProfileImportLink(uri.toString())
+                val profile = Libbox.parseRemoteProfileImportLink(uriString)
                 pendingImportProfile = Triple(profile.name, profile.host, profile.url)
                 showImportProfileDialog = true
             } catch (e: Exception) {
@@ -272,29 +276,47 @@ class MainActivity :
             return
         }
 
-        if (intent.action == Intent.ACTION_VIEW &&
-            (uri.scheme == ContentResolver.SCHEME_CONTENT || uri.scheme == ContentResolver.SCHEME_FILE)
-        ) {
-            parseImportLocalProfileJob?.cancel()
-            parseImportLocalProfileJob =
-                lifecycleScope.launch(Dispatchers.IO) {
-                    val importHandler = ProfileImportHandler(this@MainActivity)
-                    when (val result = importHandler.parseUri(uri)) {
-                        is ProfileImportHandler.UriParseResult.Success -> {
-                            withContext(Dispatchers.Main) {
-                                pendingImportLocalProfileName = result.name
-                                pendingImportLocalProfileUri = uri
-                                showImportLocalProfileDialog = true
-                            }
-                        }
+        if (intent.action == Intent.ACTION_VIEW) {
+            var rawConfigString = uriString
+            if (uri.scheme == "undercover") {
+                val stripped = uriString.removePrefix("undercover://").removePrefix("undercover:")
+                if (com.undercover.vpn.shared.parser.ConfigParser.isSupportedUri(stripped)) {
+                    rawConfigString = stripped
+                } else if (uri.getQueryParameter("url") != null) {
+                    rawConfigString = uri.getQueryParameter("url")!!
+                }
+            }
 
-                        is ProfileImportHandler.UriParseResult.Error -> {
-                            withContext(Dispatchers.Main) {
-                                pendingIntentErrorMessage = result.message
+            if (com.undercover.vpn.shared.parser.ConfigParser.isSupportedUri(rawConfigString)) {
+                val name = com.undercover.vpn.shared.parser.ConfigParser.parseUriToName(rawConfigString) ?: "Imported Proxy"
+                pendingImportLink = Pair(name, rawConfigString)
+                showImportLinkDialog = true
+                return
+            }
+
+            if (uri.scheme == ContentResolver.SCHEME_CONTENT || uri.scheme == ContentResolver.SCHEME_FILE) {
+                parseImportLocalProfileJob?.cancel()
+                parseImportLocalProfileJob =
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        val importHandler = ProfileImportHandler(this@MainActivity)
+                        when (val result = importHandler.parseUri(uri)) {
+                            is ProfileImportHandler.UriParseResult.Success -> {
+                                withContext(Dispatchers.Main) {
+                                    pendingImportLocalProfileName = result.name
+                                    pendingImportLocalProfileUri = uri
+                                    showImportLocalProfileDialog = true
+                                }
+                            }
+
+                            is ProfileImportHandler.UriParseResult.Error -> {
+                                withContext(Dispatchers.Main) {
+                                    pendingIntentErrorMessage = result.message
+                                }
                             }
                         }
                     }
-                }
+                return
+            }
         }
     }
 
@@ -604,6 +626,49 @@ class MainActivity :
                         showImportLocalProfileDialog = false
                         pendingImportLocalProfileName = null
                         pendingImportLocalProfileUri = null
+                    }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                },
+            )
+        }
+
+        if (showImportLinkDialog && pendingImportLink != null) {
+            val (importName, configString) = pendingImportLink!!
+            AlertDialog(
+                onDismissRequest = {
+                    showImportLinkDialog = false
+                    pendingImportLink = null
+                },
+                title = { Text(stringResource(R.string.import_profile_confirm_title)) },
+                text = { Text(stringResource(R.string.import_profile_confirm_message, importName)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showImportLinkDialog = false
+                        pendingImportLink = null
+                        scope.launch {
+                            when (val result = importHandler.importFromQRCode(configString)) {
+                                is ProfileImportHandler.ImportResult.Success -> {
+                                    Settings.hasSeenOnboarding = true
+                                    Toast.makeText(this@MainActivity, R.string.onboarding_profile_imported, Toast.LENGTH_SHORT).show()
+                                    navController.navigate(ProfileRoutes.editProfile(result.profile.id)) {
+                                        launchSingleTop = true
+                                    }
+                                }
+                                is ProfileImportHandler.ImportResult.Error -> {
+                                    errorMessage = result.message
+                                    showErrorDialog = true
+                                }
+                            }
+                        }
+                    }) {
+                        Text(stringResource(R.string.import_action))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        showImportLinkDialog = false
+                        pendingImportLink = null
                     }) {
                         Text(stringResource(R.string.cancel))
                     }
