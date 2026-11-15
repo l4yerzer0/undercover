@@ -152,34 +152,112 @@ fun DossierCheckbox(
     }
 }
 
+data class DossierNavItem(
+    val title: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    val hasBadge: Boolean = false
+)
+
 @Composable
 fun DossierBottomNav(
-    items: List<String>,
+    items: List<DossierNavItem>,
     selectedIndex: Int,
     onItemSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp, horizontal = 16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+    androidx.compose.material3.Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.background,
+        tonalElevation = 0.dp
     ) {
-        items.forEachIndexed { index, item ->
-            val isSelected = index == selectedIndex
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.clickable { onItemSelected(index) }
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = item,
-                    style = if (isSelected) MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp) else MaterialTheme.typography.bodyLarge,
-                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                )
-                if (isSelected) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Box(modifier = Modifier.height(2.dp).width(32.dp).background(MaterialTheme.colorScheme.primary))
+                items.forEachIndexed { index, item ->
+                    val isSelected = index == selectedIndex
+                    val itemColor = if (isSelected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                    }
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) { onItemSelected(index) }
+                            .padding(vertical = 4.dp, horizontal = 2.dp)
+                    ) {
+                        if (item.icon != null) {
+                            if (item.hasBadge) {
+                                androidx.compose.material3.BadgedBox(
+                                    badge = {
+                                        androidx.compose.material3.Badge(
+                                            containerColor = MaterialTheme.colorScheme.secondary,
+                                            modifier = Modifier.size(6.dp)
+                                        )
+                                    }
+                                ) {
+                                    androidx.compose.material3.Icon(
+                                        imageVector = item.icon,
+                                        contentDescription = item.title,
+                                        tint = itemColor,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            } else {
+                                androidx.compose.material3.Icon(
+                                    imageVector = item.icon,
+                                    contentDescription = item.title,
+                                    tint = itemColor,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                        }
+
+                        Text(
+                            text = item.title,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                letterSpacing = 0.5.sp
+                            ),
+                            color = itemColor,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+                        if (isSelected) {
+                            Box(
+                                modifier = Modifier
+                                    .height(2.dp)
+                                    .width(24.dp)
+                                    .background(
+                                        MaterialTheme.colorScheme.primary,
+                                        androidx.compose.foundation.shape.RoundedCornerShape(1.dp)
+                                    )
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.height(2.dp))
+                        }
+                    }
                 }
             }
         }

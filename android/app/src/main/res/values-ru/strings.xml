@@ -6,12 +6,13 @@
     <string name="language">Язык</string>
     <string name="system_default">По умолчанию</string>
 
-    <!-- Dossier UI Strings -->
-    <string name="dossier_select_profile">ВЫБРАТЬ ПРОФИЛЬ ПРИКРЫТИЯ</string>
-    <string name="dossier_go_undercover">УЙТИ В ПОДПОЛЬЕ</string>
-    <string name="dossier_build_cover">СОЗДАТЬ ПРИКРЫТИЕ</string>
-    <string name="dossier_drop_cover">СБРОСИТЬ ПРИКРЫТИЕ</string>
-    <string name="dossier_cover_established">ПРИКРЫТИЕ УСТАНОВЛЕНО</string>
+    <!-- Profile & Connection UI Strings -->
+    <string name="dossier_select_profile">ВЫБРАТЬ ПРОФИЛЬ</string>
+    <string name="dossier_go_undercover">ПОДКЛЮЧИТЬСЯ</string>
+    <string name="dossier_build_cover">СОЗДАТЬ ПРОФИЛЬ</string>
+    <string name="dossier_drop_cover">ОТКЛЮЧИТЬСЯ</string>
+    <string name="dossier_cover_established">ПОДКЛЮЧЕНО</string>
+    <string name="dossier_disconnected">ОТКЛЮЧЕНО</string>
     <string name="dossier_redacted">засекречено</string>
     <string name="dossier_real_data">РЕАЛЬНЫЕ ДАННЫЕ</string>
     <string name="dossier_cover_data">ДАННЫЕ ПРИКРЫТИЯ</string>

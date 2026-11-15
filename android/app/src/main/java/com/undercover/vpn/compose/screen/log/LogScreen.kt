@@ -251,7 +251,7 @@ fun LogScreen(
                         }
                     } else {
                         Text(
-                            text = "DOSSIER // SYSTEM LOGS",
+                            text = "UNDERCOVER // SYSTEM LOGS",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                         )

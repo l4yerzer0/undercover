@@ -157,7 +157,7 @@ fun ConnectionsConfigsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "DOSSIER // CONNECTIONS",
+                        text = "UNDERCOVER // CONNECTIONS",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     )

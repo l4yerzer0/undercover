@@ -169,7 +169,7 @@ fun NetworkQualityScreen(
                     )
                 }
                 Text(
-                    text = "DOSSIER // SPEEDTEST",
+                    text = "UNDERCOVER // SPEEDTEST",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 )

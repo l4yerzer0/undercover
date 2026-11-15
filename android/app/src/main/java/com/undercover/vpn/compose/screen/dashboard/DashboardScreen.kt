@@ -1,31 +1,41 @@
 package com.undercover.vpn.compose.screen.dashboard
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -47,12 +57,19 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.undercover.vpn.R
 import com.undercover.vpn.compose.component.RemoteControlMenuItems
+import com.undercover.vpn.compose.component.UpdateAvailableDialog
 import com.undercover.vpn.compose.component.rememberRemoteServers
 import com.undercover.vpn.compose.navigation.NewProfileArgs
 import com.undercover.vpn.compose.topbar.OverrideTopBar
 import com.undercover.vpn.constant.Status
+import com.undercover.vpn.update.UpdateCheckException
+import com.undercover.vpn.update.UpdateState
 import com.undercover.vpn.utils.RemoteControlManager
+import com.undercover.vpn.vendor.Vendor
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class CardRenderItem(val cards: List<CardGroup>, val isRow: Boolean)
 
@@ -103,6 +120,14 @@ fun DashboardScreen(
     val importHandler = remember { com.undercover.vpn.compose.screen.configuration.ProfileImportHandler(context) }
     var showAddMenu by remember { mutableStateOf(false) }
 
+    val hasUpdate by UpdateState.hasUpdate
+    val updateInfo by UpdateState.updateInfo
+    val isChecking by UpdateState.isChecking
+    var showUpdateAvailableDialog by remember { mutableStateOf(false) }
+    var showDownloadDialog by remember { mutableStateOf(false) }
+    var downloadJob by remember { mutableStateOf<Job?>(null) }
+    var downloadError by remember { mutableStateOf<String?>(null) }
+
     if (isRemote && !remoteConnected) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -129,16 +154,82 @@ fun DashboardScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = if (isConnected) "IN COVER" else "UNDERCOVER",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
-                Text(
-                    text = if (isConnected) "DOSSIER No. 0447" else "NEW DOSSIER",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(
+                                color = if (isConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                                shape = CircleShape
+                            )
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (isConnected) "CONNECTED" else "UNDERCOVER",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        letterSpacing = 1.5.sp
+                    )
+                }
+
+                // Update Icon Button
+                IconButton(
+                    onClick = {
+                        if (hasUpdate && updateInfo != null) {
+                            showUpdateAvailableDialog = true
+                        } else if (!isChecking) {
+                            scope.launch {
+                                UpdateState.isChecking.value = true
+                                try {
+                                    val result = withContext(Dispatchers.IO) { Vendor.checkUpdateAsync() }
+                                    UpdateState.setUpdate(result)
+                                    if (result == null) {
+                                        Toast.makeText(context, context.getString(R.string.no_updates_available), Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        showUpdateAvailableDialog = true
+                                    }
+                                } catch (_: UpdateCheckException.TrackNotSupported) {
+                                    UpdateState.setUpdate(null)
+                                    Toast.makeText(context, context.getString(R.string.update_track_not_supported), Toast.LENGTH_SHORT).show()
+                                } catch (e: Exception) {
+                                    UpdateState.setUpdate(null)
+                                    Toast.makeText(context, e.message ?: "Update check failed", Toast.LENGTH_SHORT).show()
+                                } finally {
+                                    UpdateState.isChecking.value = false
+                                }
+                            }
+                        }
+                    }
+                ) {
+                    if (isChecking) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    } else if (hasUpdate) {
+                        BadgedBox(
+                            badge = {
+                                Badge(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(8.dp)
+                                )
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SystemUpdate,
+                                contentDescription = stringResource(R.string.update),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.SystemUpdate,
+                            contentDescription = stringResource(R.string.check_update),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                        )
+                    }
+                }
             }
             
             Spacer(modifier = Modifier.height(48.dp))
@@ -146,12 +237,12 @@ fun DashboardScreen(
             if (isConnected) {
                 // Connected State
                 Text(
-                    text = "YOU ARE CURRENTLY",
+                    text = stringResource(R.string.dossier_cover_established),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
                 Text(
-                    text = uiState.selectedProfileName ?: "The Mapmaker",
+                    text = uiState.selectedProfileName ?: "Default",
                     style = MaterialTheme.typography.displayLarge,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -227,7 +318,7 @@ fun DashboardScreen(
                 // Disconnected State
                 Spacer(modifier = Modifier.height(64.dp))
                 Text(
-                    text = stringResource(R.string.dossier_cover_established),
+                    text = stringResource(R.string.dossier_disconnected),
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.Black,
                         letterSpacing = 4.sp
@@ -361,19 +452,80 @@ fun DashboardScreen(
                         }
                     }
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "NO EMAIL · NO NAME · NO LOGS",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
             }
             
             Spacer(modifier = Modifier.height(24.dp))
-            
-            Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+
+    if (showUpdateAvailableDialog && updateInfo != null) {
+        UpdateAvailableDialog(
+            updateInfo = updateInfo!!,
+            onDismiss = { showUpdateAvailableDialog = false },
+            onUpdate = {
+                showDownloadDialog = true
+                downloadError = null
+                downloadJob = scope.launch {
+                    try {
+                        withContext(Dispatchers.IO) {
+                            Vendor.downloadAndInstall(context, updateInfo!!.downloadUrl)
+                        }
+                        showDownloadDialog = false
+                    } catch (e: Exception) {
+                        downloadError = e.message
+                    }
+                }
+            },
+        )
+    }
+
+    if (showDownloadDialog) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text(stringResource(R.string.update)) },
+            text = {
+                Column {
+                    if (downloadError != null) {
+                        Text(
+                            downloadError!!,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    } else {
+                        val progress by UpdateState.downloadProgress
+                        val progressValue = progress
+                        Column {
+                            if (progressValue != null) {
+                                Text("${stringResource(R.string.downloading)} ${(progressValue * 100).toInt()}%")
+                            } else {
+                                Text(stringResource(R.string.downloading))
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            if (progressValue != null) {
+                                LinearProgressIndicator(
+                                    progress = { progressValue },
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            } else {
+                                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        downloadJob?.cancel()
+                        downloadJob = null
+                        showDownloadDialog = false
+                        downloadError = null
+                        UpdateState.downloadProgress.value = null
+                    },
+                ) {
+                    Text(stringResource(if (downloadError != null) R.string.ok else android.R.string.cancel))
+                }
+            },
+        )
     }
 }
 

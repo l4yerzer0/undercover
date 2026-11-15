@@ -54,7 +54,7 @@ fun ToolsScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "DOSSIER // TOOLS",
+                    text = "UNDERCOVER // TOOLS",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 )

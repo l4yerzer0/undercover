@@ -103,12 +103,7 @@ fun SettingsScreen(navController: NavController) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "DOSSIER // SETTINGS",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                )
-                Text(
-                    text = "CONFIG No. 0447",
+                    text = "UNDERCOVER // SETTINGS",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 )

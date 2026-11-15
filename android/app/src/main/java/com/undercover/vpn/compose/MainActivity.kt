@@ -280,13 +280,26 @@ class MainActivity :
 
         if (intent.action == Intent.ACTION_VIEW) {
             var rawConfigString = uriString
-            if (uri.scheme == "undercover") {
+            if (com.undercover.vpn.shared.parser.happ.HappDecoder.isHappOrV2Link(rawConfigString)) {
+                val decrypted = com.undercover.vpn.shared.parser.happ.HappDecoder.decrypt(rawConfigString)
+                if (decrypted != null) {
+                    rawConfigString = decrypted
+                }
+            } else if (uri.scheme == "undercover") {
                 val stripped = uriString.removePrefix("undercover://").removePrefix("undercover:")
                 if (com.undercover.vpn.shared.parser.ConfigParser.isSupportedUri(stripped)) {
                     rawConfigString = stripped
                 } else if (uri.getQueryParameter("url") != null) {
                     rawConfigString = uri.getQueryParameter("url")!!
                 }
+            }
+
+            if (rawConfigString.startsWith("http://") || rawConfigString.startsWith("https://")) {
+                val profileName = ProfileImportHandler.extractProfileNameFromUrl(rawConfigString)
+                val host = ProfileImportHandler.extractHostFromUrl(rawConfigString)
+                pendingImportProfile = Triple(profileName, host, rawConfigString)
+                showImportProfileDialog = true
+                return
             }
 
             if (com.undercover.vpn.shared.parser.ConfigParser.isSupportedUri(rawConfigString)) {
@@ -693,7 +706,7 @@ class MainActivity :
                 title = {
                     Column {
                         Text(
-                            text = "DOSSIER // UPDATE CHECK",
+                            text = "UNDERCOVER // UPDATE CHECK",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                             letterSpacing = 2.sp,
@@ -1156,7 +1169,13 @@ class MainActivity :
                             val selectedIndex = bottomNavigationScreens.indexOfFirst { it.route == currentRoute }.takeIf { it >= 0 } ?: 0
                             
                             com.undercover.vpn.shared.ui.components.DossierBottomNav(
-                                items = bottomNavigationScreens.map { stringResource(it.titleRes).uppercase() },
+                                items = bottomNavigationScreens.map { screen ->
+                                    com.undercover.vpn.shared.ui.components.DossierNavItem(
+                                        title = stringResource(screen.titleRes),
+                                        icon = screen.icon,
+                                        hasBadge = screen == Screen.Settings && hasUpdate
+                                    )
+                                },
                                 selectedIndex = selectedIndex,
                                 onItemSelected = { index ->
                                     val screen = bottomNavigationScreens[index]

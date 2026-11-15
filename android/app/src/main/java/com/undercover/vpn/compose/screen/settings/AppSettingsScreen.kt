@@ -1512,7 +1512,7 @@ private fun UpdateSourceDialog(
         title = {
             Column {
                 Text(
-                    text = "DOSSIER // UPDATE SOURCE",
+                    text = "UNDERCOVER // UPDATE SOURCE",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     letterSpacing = 2.sp,
@@ -1583,7 +1583,7 @@ private fun UpdateTrackDialog(
         title = {
             Column {
                 Text(
-                    text = "DOSSIER // UPDATE TRACK",
+                    text = "UNDERCOVER // UPDATE TRACK",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     letterSpacing = 2.sp,
@@ -1652,7 +1652,7 @@ private fun GitHubTokenDialog(
         title = {
             Column {
                 Text(
-                    text = "DOSSIER // ACCESS TOKEN",
+                    text = "UNDERCOVER // ACCESS TOKEN",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     letterSpacing = 2.sp,
