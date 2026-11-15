@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"undercover/internal/singbox"
 	"undercover/internal/state"
 	"undercover/internal/ui"
 )
@@ -85,7 +86,8 @@ func FindOrInstallSingBox() (string, error) {
 
 	ui.StepStatus(false, "Core Download", fmt.Sprintf("Downloading local sing-box client for %s/%s...", goos, goarch))
 
-	downloadURL := fmt.Sprintf("https://github.com/SagerNet/sing-box/releases/download/v1.9.7/sing-box-1.9.7-%s-%s.tar.gz", goos, goarch)
+	downloadURL := fmt.Sprintf("https://github.com/SagerNet/sing-box/releases/download/v%s/sing-box-%s-%s-%s.tar.gz",
+		singbox.DefaultSingBoxVersion, singbox.DefaultSingBoxVersion, goos, goarch)
 	cmd := fmt.Sprintf(`
 curl -sSL -o /tmp/singbox_client.tar.gz "%s"
 tar -xzf /tmp/singbox_client.tar.gz -C /tmp
@@ -134,6 +136,10 @@ func GenerateClientConfig(srv state.LocalServer, userAuth string, proxyPort int)
 			"tls": map[string]interface{}{
 				"enabled":     true,
 				"server_name": srv.ServerName,
+				"utls": map[string]interface{}{
+					"enabled":     true,
+					"fingerprint": "chrome",
+				},
 				"reality": map[string]interface{}{
 					"enabled":    true,
 					"public_key": srv.PublicKey,

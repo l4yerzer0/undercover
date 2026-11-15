@@ -146,19 +146,25 @@ func TestCryptoGenerators(t *testing.T) {
 }
 
 func TestDownloadURLAndChecksum(t *testing.T) {
-	url, err := DownloadURL("1.9.7", "amd64")
+	url, err := DownloadURL(DefaultSingBoxVersion, "amd64")
 	if err != nil {
 		t.Fatalf("expected valid url, got error: %v", err)
 	}
-	if !strings.Contains(url, "sing-box-1.9.7-linux-amd64.tar.gz") {
+	if !strings.Contains(url, "sing-box-"+DefaultSingBoxVersion+"-linux-amd64.tar.gz") {
 		t.Errorf("unexpected download url: %s", url)
 	}
 
-	sum, err := ExpectedChecksum("1.9.7", "amd64")
+	sum, err := ExpectedChecksum(DefaultSingBoxVersion, "amd64")
 	if err != nil {
 		t.Fatalf("expected valid checksum, got error: %v", err)
 	}
-	if sum != "d0f4a31b70a194df28d101a05025592a6d26098fa57ffd4f75481968b0fb7878" {
+	if sum != "699a1b510aa4396b2176d32d1181920399ebf1e267835da6f3b598d0f7c24968" {
 		t.Errorf("unexpected checksum for amd64: %s", sum)
+	}
+
+	// Verify backward compatibility with 1.9.7
+	oldSum, err := ExpectedChecksum("1.9.7", "amd64")
+	if err != nil || oldSum != "d0f4a31b70a194df28d101a05025592a6d26098fa57ffd4f75481968b0fb7878" {
+		t.Errorf("expected 1.9.7 checksum preserved")
 	}
 }

@@ -11,7 +11,7 @@ import (
 
 const (
 	// DefaultSingBoxVersion is the pinned sing-box release version
-	DefaultSingBoxVersion = "1.9.7"
+	DefaultSingBoxVersion = "1.14.4"
 
 	ProtocolVLESSReality = "vless-reality"
 	ProtocolHysteria2    = "hysteria2"
@@ -19,6 +19,10 @@ const (
 
 // Supported architectures and their verified SHA256 sums
 var ReleaseChecksums = map[string]map[string]string{
+	"1.14.4": {
+		"amd64": "699a1b510aa4396b2176d32d1181920399ebf1e267835da6f3b598d0f7c24968",
+		"arm64": "436441f76ee2f7fe21b5b2d426d3cb261a480455a704865789ad533e4273ec26",
+	},
 	"1.9.7": {
 		"amd64": "d0f4a31b70a194df28d101a05025592a6d26098fa57ffd4f75481968b0fb7878",
 		"arm64": "0324cb742d28a8b9d5e331fa3e726eb5d23470a7917ecb0227e0acb2643a66b3",

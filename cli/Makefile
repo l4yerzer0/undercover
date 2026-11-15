@@ -1,4 +1,4 @@
-GO ?= /Users/l4yerzer0/development/go/bin/go
+GO ?= go
 GOTOOLCHAIN ?= local
 BIN_DIR ?= bin
 
