@@ -1,6 +1,7 @@
 package com.undercover.vpn.shared.parser
 
 import android.util.Base64
+import com.undercover.vpn.shared.parser.happ.HappDecoder
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URI
@@ -18,6 +19,10 @@ object ConfigParser {
     
     fun isSupportedUri(uriString: String): Boolean {
         val trimmed = uriString.trim()
+        if (HappDecoder.isHappOrV2Link(trimmed)) {
+            val decrypted = HappDecoder.decrypt(trimmed) ?: return false
+            return isSupportedUri(decrypted)
+        }
         return trimmed.startsWith("vless://") ||
                 trimmed.startsWith("vmess://") ||
                 trimmed.startsWith("ss://") ||
@@ -27,12 +32,22 @@ object ConfigParser {
     }
 
     fun parseUriToSingBoxJson(uriString: String): String? {
-        val parsed = parseUri(uriString) ?: return null
+        val effectiveUri = if (HappDecoder.isHappOrV2Link(uriString)) {
+            HappDecoder.decrypt(uriString) ?: return null
+        } else {
+            uriString
+        }
+        val parsed = parseUri(effectiveUri) ?: return null
         return generateSingBoxJson(parsed)
     }
 
     fun parseUriToName(uriString: String): String? {
-        return parseUri(uriString)?.name
+        val effectiveUri = if (HappDecoder.isHappOrV2Link(uriString)) {
+            HappDecoder.decrypt(uriString) ?: return null
+        } else {
+            uriString
+        }
+        return parseUri(effectiveUri)?.name
     }
 
     private fun parseUri(uriString: String): ParsedProxyConfig? {

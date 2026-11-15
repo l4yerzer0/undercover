@@ -125,10 +125,18 @@ class ProfileImportHandler(private val context: Context) {
 
     suspend fun parseQRCode(data: String): QRCodeParseResult = withContext(Dispatchers.IO) {
         try {
+            var resolvedData = data.trim()
+            if (com.undercover.vpn.shared.parser.happ.HappDecoder.isHappOrV2Link(resolvedData)) {
+                val decrypted = com.undercover.vpn.shared.parser.happ.HappDecoder.decrypt(resolvedData)
+                if (decrypted != null) {
+                    resolvedData = decrypted
+                }
+            }
+
             // Check if it's a sing-box remote profile import link
-            if (data.startsWith("sing-box://import-remote-profile")) {
+            if (resolvedData.startsWith("sing-box://import-remote-profile")) {
                 try {
-                    val profileInfo = Libbox.parseRemoteProfileImportLink(data)
+                    val profileInfo = Libbox.parseRemoteProfileImportLink(resolvedData)
                     return@withContext QRCodeParseResult.RemoteProfile(
                         name = profileInfo.name,
                         host = profileInfo.host,
@@ -142,25 +150,25 @@ class ProfileImportHandler(private val context: Context) {
             }
 
             // Check if it's a supported VPN share link
-            if (com.undercover.vpn.shared.parser.ConfigParser.isSupportedUri(data)) {
-                val name = com.undercover.vpn.shared.parser.ConfigParser.parseUriToName(data) ?: "Imported Proxy"
+            if (com.undercover.vpn.shared.parser.ConfigParser.isSupportedUri(resolvedData)) {
+                val name = com.undercover.vpn.shared.parser.ConfigParser.parseUriToName(resolvedData) ?: "Imported Proxy"
                 return@withContext QRCodeParseResult.LocalProfile(name = name)
             }
 
             // Check if it's a direct URL
-            if (data.startsWith("http://") || data.startsWith("https://")) {
-                val profileName = extractProfileNameFromUrl(data)
+            if (resolvedData.startsWith("http://") || resolvedData.startsWith("https://")) {
+                val profileName = extractProfileNameFromUrl(resolvedData)
                 return@withContext QRCodeParseResult.RemoteProfile(
                     name = profileName,
-                    host = extractHostFromUrl(data),
-                    url = data,
+                    host = extractHostFromUrl(resolvedData),
+                    url = resolvedData,
                 )
             }
 
             // Try to decode as profile content
             val content =
                 try {
-                    Libbox.decodeProfileContent(data.toByteArray())
+                    Libbox.decodeProfileContent(resolvedData.toByteArray())
                 } catch (e: Exception) {
                     return@withContext QRCodeParseResult.Error(
                         context.getString(R.string.error_decode_profile, e.message),
@@ -175,10 +183,18 @@ class ProfileImportHandler(private val context: Context) {
 
     suspend fun importFromQRCode(data: String): ImportResult = withContext(Dispatchers.IO) {
         try {
+            var resolvedData = data.trim()
+            if (com.undercover.vpn.shared.parser.happ.HappDecoder.isHappOrV2Link(resolvedData)) {
+                val decrypted = com.undercover.vpn.shared.parser.happ.HappDecoder.decrypt(resolvedData)
+                if (decrypted != null) {
+                    resolvedData = decrypted
+                }
+            }
+
             // Check if it's a sing-box remote profile import link
-            if (data.startsWith("sing-box://import-remote-profile")) {
+            if (resolvedData.startsWith("sing-box://import-remote-profile")) {
                 try {
-                    val profileInfo = Libbox.parseRemoteProfileImportLink(data)
+                    val profileInfo = Libbox.parseRemoteProfileImportLink(resolvedData)
                     return@withContext importRemoteProfile(profileInfo.name, profileInfo.url)
                 } catch (e: Exception) {
                     return@withContext ImportResult.Error(
@@ -188,24 +204,24 @@ class ProfileImportHandler(private val context: Context) {
             }
 
             // Check if it's a supported VPN share link
-            if (com.undercover.vpn.shared.parser.ConfigParser.isSupportedUri(data)) {
-                val json = com.undercover.vpn.shared.parser.ConfigParser.parseUriToSingBoxJson(data)
+            if (com.undercover.vpn.shared.parser.ConfigParser.isSupportedUri(resolvedData)) {
+                val json = com.undercover.vpn.shared.parser.ConfigParser.parseUriToSingBoxJson(resolvedData)
                 if (json != null) {
-                    val name = com.undercover.vpn.shared.parser.ConfigParser.parseUriToName(data) ?: "Imported Proxy"
+                    val name = com.undercover.vpn.shared.parser.ConfigParser.parseUriToName(resolvedData) ?: "Imported Proxy"
                     return@withContext importJsonConfiguration(json, name)
                 }
             }
 
             // Check if it's a URL or direct profile content
-            if (data.startsWith("http://") || data.startsWith("https://")) {
+            if (resolvedData.startsWith("http://") || resolvedData.startsWith("https://")) {
                 // Handle remote profile URL
-                val profileName = extractProfileNameFromUrl(data)
-                importRemoteProfile(profileName, data)
+                val profileName = extractProfileNameFromUrl(resolvedData)
+                importRemoteProfile(profileName, resolvedData)
             } else {
                 // Try to decode as profile content
                 val content =
                     try {
-                        Libbox.decodeProfileContent(data.toByteArray())
+                        Libbox.decodeProfileContent(resolvedData.toByteArray())
                     } catch (e: Exception) {
                         return@withContext ImportResult.Error(
                             context.getString(R.string.error_decode_profile, e.message),
@@ -310,19 +326,21 @@ class ProfileImportHandler(private val context: Context) {
         return ImportResult.Success(profile)
     }
 
-    private fun extractProfileNameFromUrl(url: String): String {
-        // Extract name from URL or use default
-        return url.substringAfterLast("/")
-            .substringBeforeLast(".")
-            .takeIf { it.isNotEmpty() }
-            ?: "Remote Profile"
-    }
+    companion object {
+        fun extractProfileNameFromUrl(url: String): String {
+            // Extract name from URL or use default
+            return url.substringAfterLast("/")
+                .substringBeforeLast(".")
+                .takeIf { it.isNotEmpty() }
+                ?: "Remote Profile"
+        }
 
-    private fun extractHostFromUrl(url: String): String = try {
-        val uri = Uri.parse(url)
-        uri.host ?: url
-    } catch (e: Exception) {
-        url
+        fun extractHostFromUrl(url: String): String = try {
+            val uri = Uri.parse(url)
+            uri.host ?: url
+        } catch (e: Exception) {
+            url
+        }
     }
 
     private fun getFileNameFromUri(uri: Uri): String {

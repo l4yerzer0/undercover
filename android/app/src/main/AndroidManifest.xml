@@ -95,6 +95,9 @@
                 <data android:scheme="hysteria2" />
                 <data android:scheme="hy2" />
                 <data android:scheme="undercover" />
+                <data android:scheme="happ" />
+                <data android:scheme="v2raytun" />
+                <data android:scheme="incy" />
             </intent-filter>
 
             <intent-filter android:priority="999">
