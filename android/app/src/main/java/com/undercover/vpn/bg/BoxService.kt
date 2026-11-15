@@ -179,6 +179,7 @@ class BoxService(private val service: Service, private val platformInterface: Pl
      * carries a port that is only allocated at runtime.
      */
     private suspend fun applyRouting(profile: Profile, content: String): String {
+        val migrated = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(content)
         val byeDpiPort = if (Settings.byeDpiEnabled) {
             ByeDpiManager.port ?: ByeDpiManager.start(Settings.byeDpiStrategy)
         } else {
@@ -189,7 +190,7 @@ class BoxService(private val service: Service, private val platformInterface: Pl
             Log.e(TAG, "ByeDPI did not start; its apps will fall through to the profile rules")
         }
 
-        val generated = RoutingConfig.apply(content, byeDpiPort)
+        val generated = RoutingConfig.apply(migrated, byeDpiPort)
 
         // Persist so the profile on disk always reflects what the UI says. Generation
         // strips its own previous output first, so rewriting on every start converges

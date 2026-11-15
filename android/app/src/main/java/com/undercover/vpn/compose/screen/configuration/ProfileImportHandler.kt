@@ -289,7 +289,7 @@ class ProfileImportHandler(private val context: Context) {
         val fileID = ProfileManager.nextFileID()
         val configDirectory = File(context.filesDir, "configs").also { it.mkdirs() }
         val configFile = File(configDirectory, "$fileID.json")
-        configFile.writeText(content.config)
+        configFile.writeText(com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(content.config))
         typedProfile.path = configFile.path
 
         // Create profile in database and select it
@@ -393,10 +393,11 @@ class ProfileImportHandler(private val context: Context) {
 
     private suspend fun importJsonConfiguration(jsonContent: String, profileName: String): ImportResult {
         return try {
+            val migratedContent = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(jsonContent)
             // Validate the JSON configuration using sing-box
             try {
                 // Try to check the configuration
-                Libbox.checkConfig(jsonContent)
+                Libbox.checkConfig(migratedContent)
             } catch (e: Exception) {
                 // Configuration validation failed
                 return ImportResult.Error(
@@ -422,7 +423,7 @@ class ProfileImportHandler(private val context: Context) {
             val fileID = ProfileManager.nextFileID()
             val configDirectory = File(context.filesDir, "configs").also { it.mkdirs() }
             val configFile = File(configDirectory, "$fileID.json")
-            configFile.writeText(jsonContent)
+            configFile.writeText(migratedContent)
             typedProfile.path = configFile.path
 
             // Create profile in database and select it

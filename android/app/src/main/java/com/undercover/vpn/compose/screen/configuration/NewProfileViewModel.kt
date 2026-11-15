@@ -269,8 +269,9 @@ class NewProfileViewModel(application: Application) : AndroidViewModel(applicati
             }
 
         // Validate config
-        Libbox.checkConfig(configContent)
-        configFile.writeText(configContent)
+        val migratedContent = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(configContent)
+        Libbox.checkConfig(migratedContent)
+        configFile.writeText(migratedContent)
 
         // Create profile in database and select it
         ProfileManager.create(profile, andSelect = true)
@@ -301,8 +302,9 @@ class NewProfileViewModel(application: Application) : AndroidViewModel(applicati
 
         // Fetch initial config - this MUST succeed for remote profiles
         val content = HTTPClient().use { it.getString(state.remoteUrl) }
-        Libbox.checkConfig(content)
-        val configContent = content
+        val migratedContent = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(content)
+        Libbox.checkConfig(migratedContent)
+        val configContent = migratedContent
 
         configFile.writeText(configContent)
 
