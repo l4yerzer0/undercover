@@ -10,10 +10,14 @@ import java.net.URI
  * Specifically handles:
  * 1. Removal of root-level `dns.fakeip` object and migration to `dns.servers` entry of `type = "fakeip"`
  *    (fixes "legacy dns fakeip options are deprecated" fatal error in sing-box 1.14+).
- * 2. Migration of legacy DNS servers using `address` syntax (e.g. `address: "local"`, `address: "fakeip"`,
+ * 2. Removal of misplaced/deprecated `strategy`, `domain_strategy`, and `independent_cache` fields inside
+ *    individual `dns.servers[...]` objects (fixes "json: unknown field 'strategy'" fatal error in sing-box 1.14+),
+ *    promoting the strategy to top-level `dns.strategy` if not already specified.
+ * 3. Migration of legacy DNS servers using `address` syntax (e.g. `address: "local"`, `address: "fakeip"`,
  *    `address: "https://..."`, etc.) to explicit `type` + `server` objects.
- * 3. Removal of deprecated `independent_cache` under `dns`.
- * 4. Migration of deprecated `store_rdrc` to `store_dns` in `experimental.cache_file`.
+ * 4. Removal of deprecated `independent_cache` under `dns`.
+ * 5. Migration of deprecated `strategy` to `domain_strategy` in `outbounds` and `route.rules`.
+ * 6. Migration of deprecated `store_rdrc` to `store_dns` in `experimental.cache_file`.
  */
 object SingBoxConfigMigrator {
 
@@ -28,6 +32,12 @@ object SingBoxConfigMigrator {
             var modified = false
 
             if (migrateDns(root)) {
+                modified = true
+            }
+            if (migrateOutbounds(root)) {
+                modified = true
+            }
+            if (migrateRoute(root)) {
                 modified = true
             }
             if (migrateExperimental(root)) {
@@ -116,6 +126,29 @@ object SingBoxConfigMigrator {
             }
 
             val serverObj = item
+
+            // Remove misplaced 'strategy', 'domain_strategy', and 'independent_cache' from server object
+            if (serverObj.has("strategy")) {
+                val strat = serverObj.optString("strategy", "")
+                serverObj.remove("strategy")
+                modified = true
+                if (strat.isNotEmpty() && !dns.has("strategy")) {
+                    dns.put("strategy", strat)
+                }
+            }
+            if (serverObj.has("domain_strategy")) {
+                val strat = serverObj.optString("domain_strategy", "")
+                serverObj.remove("domain_strategy")
+                modified = true
+                if (strat.isNotEmpty() && !dns.has("strategy")) {
+                    dns.put("strategy", strat)
+                }
+            }
+            if (serverObj.has("independent_cache")) {
+                serverObj.remove("independent_cache")
+                modified = true
+            }
+
             val type = serverObj.optString("type", "")
             val address = serverObj.optString("address", "")
             val tag = serverObj.optString("tag", "")
@@ -131,10 +164,11 @@ object SingBoxConfigMigrator {
                 }
                 foundFakeIpServer = true
                 serverObj.put("type", "fakeip")
-                if (serverObj.has("address")) {
-                    serverObj.remove("address")
-                    modified = true
-                }
+                // FakeIP server in modern sing-box only accepts tag, type, inet4_range, inet6_range
+                serverObj.remove("address")
+                serverObj.remove("server")
+                serverObj.remove("server_port")
+                serverObj.remove("detour")
                 if (!serverObj.has("inet4_range")) {
                     serverObj.put("inet4_range", fakeIpInet4Range ?: DEFAULT_FAKEIP_INET4)
                     modified = true
@@ -151,6 +185,13 @@ object SingBoxConfigMigrator {
                 migrateLegacyDnsAddress(serverObj, address)
                 modified = true
             }
+
+            // Local server clean up
+            if (serverObj.optString("type") == "local" || address == "local") {
+                serverObj.remove("server")
+                serverObj.remove("server_port")
+            }
+
             newServers.put(serverObj)
         }
 
@@ -247,6 +288,35 @@ object SingBoxConfigMigrator {
                 }
             }
         }
+    }
+
+    private fun migrateOutbounds(root: JSONObject): Boolean {
+        val outbounds = root.optJSONArray("outbounds") ?: return false
+        var modified = false
+        for (i in 0 until outbounds.length()) {
+            val outbound = outbounds.optJSONObject(i) ?: continue
+            if (outbound.has("strategy") && !outbound.has("domain_strategy")) {
+                outbound.put("domain_strategy", outbound.optString("strategy"))
+                outbound.remove("strategy")
+                modified = true
+            }
+        }
+        return modified
+    }
+
+    private fun migrateRoute(root: JSONObject): Boolean {
+        val route = root.optJSONObject("route") ?: return false
+        var modified = false
+        val rules = route.optJSONArray("rules") ?: return false
+        for (i in 0 until rules.length()) {
+            val rule = rules.optJSONObject(i) ?: continue
+            if (rule.has("strategy") && !rule.has("domain_strategy")) {
+                rule.put("domain_strategy", rule.optString("strategy"))
+                rule.remove("strategy")
+                modified = true
+            }
+        }
+        return modified
     }
 
     private fun migrateExperimental(root: JSONObject): Boolean {

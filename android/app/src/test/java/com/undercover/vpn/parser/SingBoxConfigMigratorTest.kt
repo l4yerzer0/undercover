@@ -64,6 +64,88 @@ class SingBoxConfigMigratorTest {
     }
 
     @Test
+    fun testMigrateStrategyInDnsServers() {
+        val legacyConfig = """
+            {
+              "dns": {
+                "servers": [
+                  {
+                    "tag": "remote-dns",
+                    "address": "tcp://8.8.8.8:53",
+                    "strategy": "prefer_ipv4",
+                    "independent_cache": true
+                  },
+                  {
+                    "tag": "local-dns",
+                    "address": "local",
+                    "strategy": "prefer_ipv4"
+                  }
+                ]
+              }
+            }
+        """.trimIndent()
+
+        val migrated = SingBoxConfigMigrator.migrate(legacyConfig)
+        val root = JSONObject(migrated)
+        val dns = root.getJSONObject("dns")
+
+        // Strategy should be promoted to root dns
+        assertEquals("prefer_ipv4", dns.getString("strategy"))
+
+        val servers = dns.getJSONArray("servers")
+        assertEquals(2, servers.length())
+
+        val remote = servers.getJSONObject(0)
+        assertFalse(remote.has("strategy"))
+        assertFalse(remote.has("independent_cache"))
+        assertEquals("tcp", remote.getString("type"))
+        assertEquals("8.8.8.8", remote.getString("server"))
+
+        val local = servers.getJSONObject(1)
+        assertFalse(local.has("strategy"))
+        assertEquals("local", local.getString("type"))
+    }
+
+    @Test
+    fun testMigrateFakeIpServerWithStrategy() {
+        val legacyConfig = """
+            {
+              "dns": {
+                "servers": [
+                  {
+                    "tag": "fakeip",
+                    "address": "fakeip",
+                    "strategy": "ipv4_only",
+                    "detour": "direct"
+                  }
+                ],
+                "fakeip": {
+                  "enabled": true,
+                  "inet4_range": "198.18.0.0/15"
+                }
+              }
+            }
+        """.trimIndent()
+
+        val migrated = SingBoxConfigMigrator.migrate(legacyConfig)
+        val root = JSONObject(migrated)
+        val dns = root.getJSONObject("dns")
+
+        assertFalse(dns.has("fakeip"))
+        assertEquals("ipv4_only", dns.getString("strategy"))
+
+        val servers = dns.getJSONArray("servers")
+        assertEquals(1, servers.length())
+
+        val fake = servers.getJSONObject(0)
+        assertEquals("fakeip", fake.getString("type"))
+        assertEquals("198.18.0.0/15", fake.getString("inet4_range"))
+        assertFalse(fake.has("strategy"))
+        assertFalse(fake.has("address"))
+        assertFalse(fake.has("detour"))
+    }
+
+    @Test
     fun testMigrateLegacyFakeIpWithoutServer() {
         val legacyConfig = """
             {
@@ -149,6 +231,42 @@ class SingBoxConfigMigratorTest {
         assertEquals("udp", plain.getString("type"))
         assertEquals("9.9.9.9", plain.getString("server"))
         assertFalse(plain.has("address"))
+    }
+
+    @Test
+    fun testMigrateOutboundsAndRouteRulesStrategy() {
+        val legacyConfig = """
+            {
+              "outbounds": [
+                {
+                  "type": "direct",
+                  "tag": "direct",
+                  "strategy": "prefer_ipv4"
+                }
+              ],
+              "route": {
+                "rules": [
+                  {
+                    "outbound": "direct",
+                    "strategy": "prefer_ipv4"
+                  }
+                ]
+              }
+            }
+        """.trimIndent()
+
+        val migrated = SingBoxConfigMigrator.migrate(legacyConfig)
+        val root = JSONObject(migrated)
+
+        val outbounds = root.getJSONArray("outbounds")
+        val out = outbounds.getJSONObject(0)
+        assertFalse(out.has("strategy"))
+        assertEquals("prefer_ipv4", out.getString("domain_strategy"))
+
+        val rules = root.getJSONObject("route").getJSONArray("rules")
+        val rule = rules.getJSONObject(0)
+        assertFalse(rule.has("strategy"))
+        assertEquals("prefer_ipv4", rule.getString("domain_strategy"))
     }
 
     @Test
