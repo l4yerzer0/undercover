@@ -45,7 +45,14 @@ object SingBoxCoreManager {
         })
     }
 
-    fun findSingBoxBinary(customPath: String? = null): File? {
+    /**
+     * Resolves the sing-box binary automatically:
+     * 1. Check local installed path (~/.local/share/undercover/sing-box)
+     * 2. Automatically extract from embedded classpath resources (/bin/<os>-<arch>/...)
+     * 3. Check system PATH
+     * 4. Silently auto-download as a fallback
+     */
+    fun ensureSingBoxBinary(customPath: String? = null): File {
         if (!customPath.isNullOrBlank()) {
             val f = File(customPath)
             if (f.exists() && f.canExecute()) return f
@@ -54,22 +61,45 @@ object SingBoxCoreManager {
         val home = System.getProperty("user.home")
         val isWindows = System.getProperty("os.name").lowercase().contains("win")
         val exeName = if (isWindows) "sing-box.exe" else "sing-box"
+        val targetDir = File(home, ".local/share/undercover").also { it.mkdirs() }
+        val localBin = File(targetDir, exeName)
 
-        val candidates = listOf(
-            File(home, ".local/share/undercover/$exeName"),
-            File(home, ".config/undercover/bin/$exeName"),
-            File("/usr/local/bin/$exeName"),
-            File("/opt/local/bin/$exeName"),
-            File("/usr/bin/$exeName")
-        )
+        // 1. If already on disk and executable, return it
+        if (localBin.exists() && localBin.canExecute() && localBin.length() > 1000) {
+            return localBin
+        }
 
-        for (candidate in candidates) {
-            if (candidate.exists() && candidate.canExecute()) {
-                return candidate
+        // 2. Extract embedded binary from resources
+        val osName = System.getProperty("os.name").lowercase()
+        val archName = System.getProperty("os.arch").lowercase()
+
+        val osPart = when {
+            osName.contains("win") -> "windows"
+            osName.contains("mac") -> "darwin"
+            else -> "linux"
+        }
+        val archPart = when {
+            archName.contains("aarch64") || archName.contains("arm64") -> "arm64"
+            else -> "amd64"
+        }
+
+        val resourcePath = "/bin/$osPart-$archPart/$exeName"
+        val resourceStream = SingBoxCoreManager::class.java.getResourceAsStream(resourcePath)
+        if (resourceStream != null) {
+            try {
+                log("[CORE] Extracting embedded sing-box ($osPart-$archPart)...")
+                localBin.outputStream().use { out ->
+                    resourceStream.copyTo(out)
+                }
+                localBin.setExecutable(true, false)
+                log("[CORE] sing-box core ready at ${localBin.absolutePath}")
+                return localBin
+            } catch (e: Exception) {
+                log("[CORE] Failed extracting embedded binary: ${e.message}")
             }
         }
 
-        // Try PATH
+        // 3. Check system PATH
         val pathEnv = System.getenv("PATH") ?: ""
         val separator = if (isWindows) ";" else ":"
         for (dir in pathEnv.split(separator)) {
@@ -79,37 +109,16 @@ object SingBoxCoreManager {
             }
         }
 
-        return null
+        // 4. Silent download fallback
+        log("[CORE] Downloading sing-box core in background...")
+        return runBlocking { downloadSingBox(targetBin = localBin, goos = osPart, goarch = archPart) }
     }
 
-    suspend fun downloadSingBox(): File = withContext(Dispatchers.IO) {
-        val osName = System.getProperty("os.name").lowercase()
-        val archName = System.getProperty("os.arch").lowercase()
-
-        val goos = when {
-            osName.contains("linux") -> "linux"
-            osName.contains("win") -> "windows"
-            osName.contains("mac") -> "darwin"
-            else -> "linux"
-        }
-
-        val goarch = when {
-            archName.contains("aarch64") || archName.contains("arm64") -> "arm64"
-            archName.contains("x86_64") || archName.contains("amd64") -> "amd64"
-            else -> "amd64"
-        }
-
+    private suspend fun downloadSingBox(targetBin: File, goos: String, goarch: String): File = withContext(Dispatchers.IO) {
         val version = "1.11.1"
         val ext = if (goos == "windows") "zip" else "tar.gz"
         val archiveName = "sing-box-$version-$goos-$goarch"
         val downloadUrl = "https://github.com/SagerNet/sing-box/releases/download/v$version/$archiveName.$ext"
-
-        val home = System.getProperty("user.home")
-        val targetDir = File(home, ".local/share/undercover").also { it.mkdirs() }
-        val targetBin = File(targetDir, if (goos == "windows") "sing-box.exe" else "sing-box")
-
-        log("[CORE] Downloading sing-box v$version for $goos/$goarch...")
-        log("[CORE] URL: $downloadUrl")
 
         val tempArchive = File.createTempFile("singbox_download", ".$ext")
         try {
@@ -118,7 +127,6 @@ object SingBoxCoreManager {
             }
 
             if (goos == "windows") {
-                // Windows zip extraction
                 val zipFile = java.util.zip.ZipFile(tempArchive)
                 val entry = zipFile.entries().asSequence().firstOrNull { it.name.endsWith("sing-box.exe") }
                     ?: throw IllegalStateException("sing-box.exe not found in archive")
@@ -126,7 +134,6 @@ object SingBoxCoreManager {
                     Files.copy(inStream, targetBin.toPath(), StandardCopyOption.REPLACE_EXISTING)
                 }
             } else {
-                // Linux / macOS tar.gz
                 val pb = ProcessBuilder("tar", "-xzf", tempArchive.absolutePath, "-C", "/tmp")
                 pb.start().waitFor()
                 val extracted = File("/tmp").walkTopDown().firstOrNull { it.isFile && it.name == "sing-box" }
@@ -135,7 +142,7 @@ object SingBoxCoreManager {
                 targetBin.setExecutable(true, false)
             }
 
-            log("[CORE] sing-box installed successfully to: ${targetBin.absolutePath}")
+            log("[CORE] sing-box installed successfully: ${targetBin.absolutePath}")
             targetBin
         } finally {
             tempArchive.delete()
@@ -150,11 +157,10 @@ object SingBoxCoreManager {
         _vpnState.value = VpnState.Connecting(profile.name)
         log("[APP] Connecting to profile '${profile.name}'...")
 
-        val binary = findSingBoxBinary(settings.customSingBoxPath) ?: try {
-            log("[CORE] sing-box binary not found locally, attempting automatic download...")
-            downloadSingBox()
+        val binary = try {
+            ensureSingBoxBinary(settings.customSingBoxPath)
         } catch (e: Exception) {
-            val err = "sing-box binary missing and download failed: ${e.message}"
+            val err = "Failed to initialize sing-box: ${e.message}"
             log("[ERROR] $err")
             _vpnState.value = VpnState.Error(err)
             return@withContext
@@ -203,8 +209,7 @@ object SingBoxCoreManager {
                 }
             }
 
-            // Delay briefly to ensure engine came up
-            delay(500)
+            delay(400)
 
             // If system proxy mode, enable system proxy
             if (settings.proxyMode == ProxyMode.SYSTEM_PROXY) {
@@ -221,7 +226,7 @@ object SingBoxCoreManager {
                 localHttpPort = settings.httpPort,
                 mode = settings.proxyMode
             )
-            log("[APP] Protected and connected via $activeNode")
+            log("[APP] Cover established via $activeNode")
 
         } catch (e: Exception) {
             val err = "Connection error: ${e.message}"
@@ -235,7 +240,7 @@ object SingBoxCoreManager {
         if (_vpnState.value is VpnState.Disconnected) return@withContext
 
         _vpnState.value = VpnState.Disconnecting
-        log("[APP] Disconnecting...")
+        log("[APP] Dropping cover...")
         isStopping.set(true)
 
         // Disable system proxy first

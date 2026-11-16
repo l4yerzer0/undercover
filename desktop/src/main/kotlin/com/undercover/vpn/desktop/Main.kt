@@ -16,13 +16,13 @@ import kotlinx.coroutines.launch
 object TrayIconPainter : Painter() {
     override val intrinsicSize: Size = Size(32f, 32f)
     override fun DrawScope.onDraw() {
-        drawRect(Color(0xFF00FF66))
+        drawRect(Color(0xFF8FE3B0))
     }
 }
 
 fun main() = application {
     var isVisible by remember { mutableStateOf(true) }
-    val windowState = rememberWindowState(width = 980.dp, height = 720.dp)
+    val windowState = rememberWindowState(width = 520.dp, height = 760.dp)
     val vpnState by SingBoxCoreManager.vpnState.collectAsState()
     val scope = rememberCoroutineScope()
 

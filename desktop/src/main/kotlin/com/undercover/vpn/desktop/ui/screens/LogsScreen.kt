@@ -1,28 +1,27 @@
-package com.undercover.vpn.desktop.ui.components
+package com.undercover.vpn.desktop.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.undercover.vpn.desktop.core.SingBoxCoreManager
+import com.undercover.vpn.desktop.ui.DossierMint
+import com.undercover.vpn.desktop.ui.DossierRed
 import kotlinx.coroutines.flow.collectLatest
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
 
 @Composable
-fun LogsView(modifier: Modifier = Modifier) {
+fun LogsScreen(modifier: Modifier = Modifier) {
     val logsList = remember { mutableStateListOf<String>() }
     val listState = rememberLazyListState()
 
@@ -39,9 +38,7 @@ fun LogsView(modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxSize()
-            .border(1.dp, Color(0xFF30363D), RoundedCornerShape(6.dp))
-            .background(Color(0xFF0D1117), RoundedCornerShape(6.dp))
-            .padding(16.dp)
+            .padding(horizontal = 32.dp, vertical = 24.dp)
     ) {
         // Header
         Row(
@@ -50,64 +47,67 @@ fun LogsView(modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "ENGINE LOGS & DIAGNOSTICS (${logsList.size} LINES)",
-                color = Color(0xFF58A6FF),
-                fontSize = 13.sp,
-                fontFamily = FontFamily.Monospace
+                text = "LOGS (${logsList.size})",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                letterSpacing = 1.5.sp
             )
 
             Row {
                 Text(
-                    text = "COPY ALL",
-                    color = Color(0xFF8B949E),
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
+                    text = "COPY",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    letterSpacing = 1.sp,
                     modifier = Modifier
                         .clickable {
                             val text = logsList.joinToString("\n")
                             Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(text), null)
                         }
-                        .border(1.dp, Color(0xFF30363D), RoundedCornerShape(4.dp))
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(16.dp))
                 Text(
                     text = "CLEAR",
-                    color = Color(0xFFFF7B72),
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = DossierRed,
+                    letterSpacing = 1.sp,
                     modifier = Modifier
                         .clickable { logsList.clear() }
-                        .border(1.dp, Color(0xFFFF7B72).copy(alpha = 0.4f), RoundedCornerShape(4.dp))
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+        )
 
-        // Logs display
+        // Log content
         LazyColumn(
             state = listState,
             modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFF050709), RoundedCornerShape(4.dp))
-                .padding(10.dp)
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(top = 12.dp)
         ) {
             items(logsList) { line ->
-                val lineColor = when {
-                    line.contains("[ERROR]") || line.contains("error") -> Color(0xFFFF3366)
-                    line.contains("[WARN]") || line.contains("warn") -> Color(0xFFFFB703)
-                    line.contains("[APP]") -> Color(0xFF00FF66)
-                    line.contains("[CORE]") || line.contains("[CONFIG]") -> Color(0xFF58A6FF)
-                    else -> Color(0xFFC9D1D9)
+                val color = when {
+                    line.contains("[ERROR]") || line.contains("error") -> DossierRed
+                    line.contains("[WARN]") || line.contains("warn") -> MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
+                    line.contains("[APP]") || line.contains("[CORE]") -> DossierMint
+                    else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                 }
                 Text(
                     text = line,
-                    color = lineColor,
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
-                    lineHeight = 16.sp
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = color,
+                    lineHeight = 20.sp,
+                    modifier = Modifier.padding(vertical = 2.dp)
                 )
             }
         }
