@@ -588,4 +588,67 @@ class SingBoxConfigMigratorTest {
         assertFalse(cacheFile.has("store_rdrc"))
         assertTrue(cacheFile.getBoolean("store_dns"))
     }
+
+    @Test
+    fun testMigrateAddressStrategyAndResolver() {
+        val legacyConfig = """
+            {
+              "dns": {
+                "address_strategy": "prefer_ipv4",
+                "servers": [
+                  {
+                    "tag": "remote-dns",
+                    "type": "https",
+                    "server": "1.1.1.1",
+                    "address_strategy": "prefer_ipv4",
+                    "address_resolver": "local-dns",
+                    "network": "udp",
+                    "protocol": "dns",
+                    "port": 443
+                  },
+                  {
+                    "tag": "local-dns",
+                    "type": "local"
+                  }
+                ]
+              },
+              "outbounds": [
+                {
+                  "type": "socks",
+                  "tag": "socks-out",
+                  "host": "1.2.3.4",
+                  "port": 1080,
+                  "address_strategy": "prefer_ipv4",
+                  "address_resolver": "local-dns"
+                }
+              ]
+            }
+        """.trimIndent()
+
+        val migrated = SingBoxConfigMigrator.migrate(legacyConfig)
+        val root = JSONObject(migrated)
+
+        val dns = root.getJSONObject("dns")
+        assertFalse(dns.has("address_strategy"))
+        assertEquals("prefer_ipv4", dns.getString("strategy"))
+
+        val servers = dns.getJSONArray("servers")
+        val remote = servers.getJSONObject(0)
+        assertFalse(remote.has("address_strategy"))
+        assertFalse(remote.has("address_resolver"))
+        assertFalse(remote.has("network"))
+        assertFalse(remote.has("protocol"))
+        assertFalse(remote.has("port"))
+        assertEquals(443, remote.getInt("server_port"))
+
+        val outbounds = root.getJSONArray("outbounds")
+        val socks = outbounds.getJSONObject(0)
+        assertFalse(socks.has("address_strategy"))
+        assertFalse(socks.has("address_resolver"))
+        assertEquals("local-dns", socks.getString("domain_resolver"))
+        assertFalse(socks.has("host"))
+        assertFalse(socks.has("port"))
+        assertEquals("1.2.3.4", socks.getString("server"))
+        assertEquals(1080, socks.getInt("server_port"))
+    }
 }

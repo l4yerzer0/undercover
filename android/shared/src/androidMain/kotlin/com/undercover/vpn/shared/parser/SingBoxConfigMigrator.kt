@@ -14,32 +14,37 @@ import java.net.URI
  *    (fixes "legacy dns fakeip options are deprecated" fatal error in sing-box 1.14+).
  * 2. Reordering `dns.servers` so that a `fakeip` server is NEVER at index 0
  *    (fixes "initialize DNS server[0]: default server cannot be fakeip" fatal error).
- * 3. Removal of misplaced `strategy` and `domain_strategy` from `dns.servers[...]`
- *    (fixes "dns.servers[X].strategy: json: unknown field 'strategy'" fatal error in sing-box 1.14+),
+ * 3. Removal of misplaced `strategy`, `address_strategy`, and `domain_strategy` from `dns.servers[...]` and `dns`
+ *    (fixes "dns.servers[X].address_strategy: json: unknown field 'address_strategy'" and "strategy" fatal errors),
  *    promoting strategy to top-level `dns.strategy` if not already set.
- * 4. Migration of legacy DNS servers using `address` syntax (`local`, `fakeip`, `https://`, `tls://`, etc.)
+ * 4. Removal / conversion of legacy `address_resolver` in `dns.servers` and `outbounds`
+ *    (fixes "json: unknown field 'address_resolver'").
+ * 5. Removal of misplaced `network` and `protocol` from `dns.servers[...]`
+ *    (fixes "dns.servers[X].network: json: unknown field 'network'").
+ * 6. Migration of `port` to `server_port` and `host` to `server` in `dns.servers` and `outbounds`.
+ * 7. Migration of legacy DNS servers using `address` syntax (`local`, `fakeip`, `https://`, `tls://`, etc.)
  *    to modern typed server objects (`type`, `server`, `server_port`, `path`).
- * 5. Removal of deprecated `independent_cache` and `reverse_mapping` from `dns` and `dns.servers`.
- * 6. Migration of legacy inbound fields (`sniff`, `sniff_override_destination`, `sniff_timeout`, `domain_strategy`)
+ * 8. Removal of deprecated `independent_cache` and `reverse_mapping` from `dns` and `dns.servers`.
+ * 9. Migration of legacy inbound fields (`sniff`, `sniff_override_destination`, `sniff_timeout`, `domain_strategy`, `address_strategy`)
  *    (fixes "initialize inbound[X]: legacy inbound fields are deprecated in sing-box 1.11.0 and removed in sing-box 1.13.0"),
  *    converting them into a `route.rules` action `"sniff"` and top-level DNS strategy.
- * 7. Migration of legacy TUN inbound address fields (`inet4_address`, `inet6_address`, `inet4_route_address`, etc.)
- *    into merged `address`, `route_address`, and `route_exclude_address` arrays
- *    (fixes "initialize inbound[X]: legacy tun address fields are deprecated in sing-box 1.10.0 and removed in sing-box 1.12.0").
- * 8. Removal of deprecated special outbounds `type = "block"` and `type = "dns"`
- *    (fixes "dns outbound is deprecated in sing-box 1.11.0 and removed in sing-box 1.13.0, use rule actions instead"),
- *    converting matching route rules to `action = "reject"` and `action = "hijack-dns"`.
- * 9. Migration of legacy WireGuard outbounds to root `endpoints` list
- *    (fixes "outbounds[X].server: json: unknown field 'server'").
- * 10. Removal of legacy direct outbound destination override fields (`override_address`, `override_port`).
- * 11. Removal of misplaced `domain_strategy` / `strategy` from `outbounds` and `route.rules`
+ * 10. Migration of legacy TUN inbound address fields (`inet4_address`, `inet6_address`, `inet4_route_address`, etc.)
+ *     into merged `address`, `route_address`, and `route_exclude_address` arrays
+ *     (fixes "initialize inbound[X]: legacy tun address fields are deprecated in sing-box 1.10.0 and removed in sing-box 1.12.0").
+ * 11. Removal of deprecated special outbounds `type = "block"` and `type = "dns"`
+ *     (fixes "dns outbound is deprecated in sing-box 1.11.0 and removed in sing-box 1.13.0, use rule actions instead"),
+ *     converting matching route rules to `action = "reject"` and `action = "hijack-dns"`.
+ * 12. Migration of legacy WireGuard outbounds to root `endpoints` list
+ *     (fixes "outbounds[X].server: json: unknown field 'server'").
+ * 13. Removal of legacy direct outbound destination override fields (`override_address`, `override_port`).
+ * 14. Removal of misplaced `domain_strategy` / `strategy` / `address_strategy` from `outbounds` and `route.rules`
  *     (fixes "legacy domain strategy options is deprecated" and "unknown field 'domain_strategy'").
- * 12. Migration of legacy `outbound` DNS rules (e.g. `outbound: "any"`) to `route.default_domain_resolver`.
- * 13. Migration of legacy `geosite` and `geoip` database references in rules to `rule_set` and `ip_is_private`
+ * 15. Migration of legacy `outbound` DNS rules (e.g. `outbound: "any"`) to `route.default_domain_resolver`.
+ * 16. Migration of legacy `geosite` and `geoip` database references in rules to `rule_set` and `ip_is_private`
  *     (fixes "geosite database is deprecated in sing-box 1.8.0 and removed in sing-box 1.12.0").
- * 14. Setting `match_response = true` on DNS rules matching `ip_cidr` or `ip_is_private`.
- * 15. Removal of legacy `type = "field"` from `route.rules` and `dns.rules` (v2ray converter artifacts).
- * 16. Migration of `experimental.clash_api.cache_file` to independent `experimental.cache_file`
+ * 17. Setting `match_response = true` on DNS rules matching `ip_cidr` or `ip_is_private`.
+ * 18. Removal of legacy `type = "field"` from `route.rules` and `dns.rules` (v2ray converter artifacts).
+ * 19. Migration of `experimental.clash_api.cache_file` to independent `experimental.cache_file`
  *     and `store_rdrc` to `store_dns`.
  */
 object SingBoxConfigMigrator {
@@ -149,7 +154,7 @@ object SingBoxConfigMigrator {
                 }
             }
 
-            // 2. Legacy sniffing fields on inbounds
+            // 2. Legacy sniffing and strategy fields on inbounds
             if (inbound.optBoolean("sniff", false) || inbound.optBoolean("sniff_override_destination", false)) {
                 ctx.hadInboundSniff = true
             }
@@ -160,13 +165,21 @@ object SingBoxConfigMigrator {
                 val strat = inbound.optString("domain_strategy", "")
                 if (strat.isNotEmpty()) promoteDnsStrategy(root, strat)
             }
+            if (inbound.has("address_strategy")) {
+                val strat = inbound.optString("address_strategy", "")
+                if (strat.isNotEmpty()) promoteDnsStrategy(root, strat)
+            }
 
             if (inbound.has("sniff") || inbound.has("sniff_override_destination") ||
-                inbound.has("sniff_timeout") || inbound.has("domain_strategy") || inbound.has("sniffing")) {
+                inbound.has("sniff_timeout") || inbound.has("domain_strategy") ||
+                inbound.has("address_strategy") || inbound.has("address_resolver") ||
+                inbound.has("sniffing")) {
                 inbound.remove("sniff")
                 inbound.remove("sniff_override_destination")
                 inbound.remove("sniff_timeout")
                 inbound.remove("domain_strategy")
+                inbound.remove("address_strategy")
+                inbound.remove("address_resolver")
                 inbound.remove("sniffing")
                 modified = true
             }
@@ -259,7 +272,7 @@ object SingBoxConfigMigrator {
                 }
             }
 
-            // 4. Misplaced strategy / domain_strategy
+            // 4. Misplaced strategy / domain_strategy / address_strategy
             if (outbound.has("strategy")) {
                 val strat = outbound.optString("strategy", "")
                 outbound.remove("strategy")
@@ -270,6 +283,34 @@ object SingBoxConfigMigrator {
                 val strat = outbound.optString("domain_strategy", "")
                 outbound.remove("domain_strategy")
                 if (strat.isNotEmpty()) promoteDnsStrategy(root, strat)
+                modified = true
+            }
+            if (outbound.has("address_strategy")) {
+                val strat = outbound.optString("address_strategy", "")
+                outbound.remove("address_strategy")
+                if (strat.isNotEmpty()) promoteDnsStrategy(root, strat)
+                modified = true
+            }
+
+            // 5. Legacy address_resolver in outbound
+            if (outbound.has("address_resolver")) {
+                val resolver = outbound.optString("address_resolver", "")
+                outbound.remove("address_resolver")
+                if (resolver.isNotEmpty() && !outbound.has("domain_resolver")) {
+                    outbound.put("domain_resolver", resolver)
+                }
+                modified = true
+            }
+
+            // 6. Migrate port -> server_port, host -> server if needed
+            if (outbound.has("port") && !outbound.has("server_port")) {
+                outbound.put("server_port", outbound.opt("port"))
+                outbound.remove("port")
+                modified = true
+            }
+            if (outbound.has("host") && !outbound.has("server")) {
+                outbound.put("server", outbound.opt("host"))
+                outbound.remove("host")
                 modified = true
             }
 
@@ -294,7 +335,26 @@ object SingBoxConfigMigrator {
             modified = true
         }
 
-        // 2. Inspect legacy fakeip block
+        // 2. Remove address_strategy / address_resolver from dns root if present
+        if (dns.has("address_strategy")) {
+            val strat = dns.optString("address_strategy", "")
+            dns.remove("address_strategy")
+            modified = true
+            if (strat.isNotEmpty()) promoteDnsStrategy(root, strat)
+        }
+        if (dns.has("address_resolver")) {
+            val resolver = dns.optString("address_resolver", "")
+            dns.remove("address_resolver")
+            modified = true
+            if (resolver.isNotEmpty()) {
+                val route = root.optJSONObject("route") ?: JSONObject().also { root.put("route", it) }
+                if (!route.has("default_domain_resolver")) {
+                    route.put("default_domain_resolver", resolver)
+                }
+            }
+        }
+
+        // 3. Inspect legacy fakeip block
         val legacyFakeIp = dns.optJSONObject("fakeip")
         var fakeIpEnabled = true
         var fakeIpInet4Range: String? = null
@@ -312,7 +372,7 @@ object SingBoxConfigMigrator {
             modified = true
         }
 
-        // 3. Migrate servers array
+        // 4. Migrate servers array
         var servers = dns.optJSONArray("servers")
         if (servers == null) {
             servers = JSONArray()
@@ -360,7 +420,13 @@ object SingBoxConfigMigrator {
 
             val serverObj = item
 
-            // Remove misplaced 'strategy', 'domain_strategy', and 'independent_cache' from server object
+            // Remove misplaced 'address_strategy', 'strategy', and 'domain_strategy'
+            if (serverObj.has("address_strategy")) {
+                val strat = serverObj.optString("address_strategy", "")
+                serverObj.remove("address_strategy")
+                modified = true
+                if (strat.isNotEmpty()) promoteDnsStrategy(root, strat)
+            }
             if (serverObj.has("strategy")) {
                 val strat = serverObj.optString("strategy", "")
                 serverObj.remove("strategy")
@@ -375,6 +441,49 @@ object SingBoxConfigMigrator {
             }
             if (serverObj.has("independent_cache")) {
                 serverObj.remove("independent_cache")
+                modified = true
+            }
+
+            // Remove/convert legacy address_resolver
+            if (serverObj.has("address_resolver")) {
+                val resolver = serverObj.optString("address_resolver", "")
+                serverObj.remove("address_resolver")
+                modified = true
+                if (resolver.isNotEmpty() && !serverObj.has("domain_resolver")) {
+                    serverObj.put("domain_resolver", resolver)
+                }
+            }
+
+            // Remove misplaced network and protocol from dns server
+            if (serverObj.has("network")) {
+                val net = serverObj.optString("network", "")
+                serverObj.remove("network")
+                modified = true
+                if (serverObj.optString("type").isEmpty()) {
+                    if (net.contains("tcp")) serverObj.put("type", "tcp")
+                    else if (net.contains("udp")) serverObj.put("type", "udp")
+                }
+            }
+            if (serverObj.has("protocol")) {
+                serverObj.remove("protocol")
+                modified = true
+            }
+
+            // Migrate port -> server_port, host -> server
+            if (serverObj.has("port")) {
+                val p = serverObj.optInt("port", 0)
+                serverObj.remove("port")
+                if (p > 0 && !serverObj.has("server_port")) {
+                    serverObj.put("server_port", p)
+                }
+                modified = true
+            }
+            if (serverObj.has("host")) {
+                val h = serverObj.optString("host", "")
+                serverObj.remove("host")
+                if (h.isNotEmpty() && !serverObj.has("server")) {
+                    serverObj.put("server", h)
+                }
                 modified = true
             }
 
@@ -396,6 +505,7 @@ object SingBoxConfigMigrator {
                 serverObj.remove("server")
                 serverObj.remove("server_port")
                 serverObj.remove("detour")
+                serverObj.remove("domain_resolver")
                 if (!serverObj.has("inet4_range")) {
                     serverObj.put("inet4_range", fakeIpInet4Range ?: DEFAULT_FAKEIP_INET4)
                     modified = true
@@ -416,6 +526,7 @@ object SingBoxConfigMigrator {
             if (serverObj.optString("type") == "local" || address == "local") {
                 serverObj.remove("server")
                 serverObj.remove("server_port")
+                serverObj.remove("domain_resolver")
             }
 
             newServers.put(serverObj)
@@ -435,7 +546,7 @@ object SingBoxConfigMigrator {
             modified = true
         }
 
-        // 4. CRITICAL: sing-box 1.12+ requirement:
+        // 5. CRITICAL: sing-box 1.12+ requirement:
         // "initialize DNS server[0]: default server cannot be fakeip"
         // Ensure server at index 0 is NEVER fakeip!
         val orderedServers = JSONArray()
@@ -466,13 +577,15 @@ object SingBoxConfigMigrator {
 
         dns.put("servers", orderedServers)
 
-        // 5. Migrate dns.rules
+        // 6. Migrate dns.rules
         val dnsRules = dns.optJSONArray("rules")
         if (dnsRules != null) {
             val newDnsRules = JSONArray()
             for (i in 0 until dnsRules.length()) {
                 val rule = dnsRules.optJSONObject(i) ?: continue
                 rule.remove("type") // Remove "type": "field"
+                rule.remove("address_strategy")
+                rule.remove("address_resolver")
 
                 // Handle legacy outbound match in dns.rules
                 if (rule.has("outbound")) {
@@ -671,7 +784,7 @@ object SingBoxConfigMigrator {
                 }
             }
 
-            // 3. Remove misplaced strategy / domain_strategy unless rule action is resolve
+            // 3. Remove misplaced strategy / domain_strategy / address_strategy unless rule action is resolve
             if (rule.optString("action") != "resolve") {
                 if (rule.has("strategy")) {
                     val strat = rule.optString("strategy", "")
@@ -685,9 +798,21 @@ object SingBoxConfigMigrator {
                     if (strat.isNotEmpty()) promoteDnsStrategy(root, strat)
                     modified = true
                 }
+                if (rule.has("address_strategy")) {
+                    val strat = rule.optString("address_strategy", "")
+                    rule.remove("address_strategy")
+                    if (strat.isNotEmpty()) promoteDnsStrategy(root, strat)
+                    modified = true
+                }
             }
 
-            // 4. Migrate legacy geosite / geoip in route rules
+            // 4. Remove address_resolver
+            if (rule.has("address_resolver")) {
+                rule.remove("address_resolver")
+                modified = true
+            }
+
+            // 5. Migrate legacy geosite / geoip in route rules
             if (rule.has("geoip")) {
                 val g = rule.opt("geoip")
                 if (g == "private" || (g is JSONArray && g.length() == 1 && g.optString(0) == "private")) {
