@@ -651,4 +651,105 @@ class SingBoxConfigMigratorTest {
         assertEquals("1.2.3.4", socks.getString("server"))
         assertEquals(1080, socks.getInt("server_port"))
     }
+
+    @Test
+    fun testMigrateRemnawaveSubscriptionConfig() {
+        val legacyConfig = """
+            {
+              "dns": {
+                "fakeip": {
+                  "enabled": true,
+                  "inet4_range": "198.18.0.0/15"
+                },
+                "independent_cache": true,
+                "servers": [
+                  {
+                    "tag": "remote",
+                    "address": "fakeip"
+                  },
+                  {
+                    "tag": "dns-remote",
+                    "address": "https://1.1.1.1/dns-query",
+                    "address_strategy": "prefer_ipv4",
+                    "strategy": "ipv4_only",
+                    "address_resolver": "dns-direct"
+                  },
+                  {
+                    "tag": "dns-direct",
+                    "address": "local"
+                  }
+                ],
+                "rules": [
+                  {
+                    "outbound": "any",
+                    "server": "dns-direct"
+                  }
+                ]
+              },
+              "inbounds": [
+                {
+                  "type": "tun",
+                  "tag": "tun-in",
+                  "sniff": true,
+                  "inet4_address": "172.19.0.1/30"
+                }
+              ],
+              "outbounds": [
+                {
+                  "type": "selector",
+                  "tag": "⚡ VelvetVPN",
+                  "outbounds": ["vless-node"]
+                },
+                {
+                  "type": "vless",
+                  "tag": "vless-node",
+                  "server": "example.com",
+                  "server_port": 443,
+                  "uuid": "00000000-0000-0000-0000-000000000000"
+                },
+                {
+                  "type": "block",
+                  "tag": "block"
+                }
+              ]
+            }
+        """.trimIndent()
+
+        val migrated = SingBoxConfigMigrator.migrate(legacyConfig)
+        val root = JSONObject(migrated)
+
+        val dns = root.getJSONObject("dns")
+        assertFalse(dns.has("fakeip"))
+        assertFalse(dns.has("independent_cache"))
+        assertFalse(dns.has("address_strategy"))
+
+        val servers = dns.getJSONArray("servers")
+        // FakeIP should not be server[0]
+        assertNotEquals("fakeip", servers.getJSONObject(0).optString("type"))
+
+        for (i in 0 until servers.length()) {
+            val s = servers.getJSONObject(i)
+            assertFalse(s.has("address"))
+            assertFalse(s.has("strategy"))
+            assertFalse(s.has("domain_strategy"))
+            assertFalse(s.has("address_strategy"))
+            assertFalse(s.has("address_resolver"))
+            assertFalse(s.has("independent_cache"))
+        }
+
+        val inbounds = root.getJSONArray("inbounds")
+        for (i in 0 until inbounds.length()) {
+            val ib = inbounds.getJSONObject(i)
+            assertFalse(ib.has("sniff"))
+            assertFalse(ib.has("inet4_address"))
+            assertFalse(ib.has("inet6_address"))
+        }
+
+        val outbounds = root.getJSONArray("outbounds")
+        for (i in 0 until outbounds.length()) {
+            val ob = outbounds.getJSONObject(i)
+            assertNotEquals("block", ob.optString("type"))
+            assertNotEquals("dns", ob.optString("type"))
+        }
+    }
 }

@@ -9,6 +9,7 @@ import com.undercover.vpn.R
 import com.undercover.vpn.database.Profile
 import com.undercover.vpn.database.ProfileManager
 import com.undercover.vpn.database.TypedProfile
+import com.undercover.vpn.utils.HTTPClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -308,17 +309,44 @@ class ProfileImportHandler(private val context: Context) {
                 lastUpdated = Date()
             }
 
-        val profile =
-            Profile(name = name, typed = typedProfile).apply {
-                userOrder = ProfileManager.nextOrder()
-            }
-
-        // Create empty config file for remote profile
+        var profileName = name
         val fileID = ProfileManager.nextFileID()
         val configDirectory = File(context.filesDir, "configs").also { it.mkdirs() }
         val configFile = File(configDirectory, "$fileID.json")
-        configFile.writeText("{}")
         typedProfile.path = configFile.path
+
+        // Fetch initial config - this makes the remote profile immediately usable
+        try {
+            val rawContent = HTTPClient().use { it.getString(url) }
+            val migrated = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(rawContent)
+            Libbox.checkConfig(migrated)
+            configFile.writeText(migrated)
+
+            // Try to extract a friendly profile title from the selector tag if available
+            try {
+                val root = JSONObject(migrated)
+                val outbounds = root.optJSONArray("outbounds")
+                if (outbounds != null) {
+                    for (i in 0 until outbounds.length()) {
+                        val ob = outbounds.optJSONObject(i) ?: continue
+                        if (ob.optString("type") == "selector") {
+                            val tag = ob.optString("tag")
+                            if (tag.isNotEmpty()) {
+                                profileName = tag.replace("→", "").trim()
+                                break
+                            }
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        } catch (_: Exception) {
+            configFile.writeText("{}")
+        }
+
+        val profile =
+            Profile(name = profileName, typed = typedProfile).apply {
+                userOrder = ProfileManager.nextOrder()
+            }
 
         // Create profile in database and select it
         ProfileManager.create(profile, andSelect = true)
