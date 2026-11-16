@@ -35,6 +35,7 @@ import androidx.compose.material.icons.outlined.CreateNewFolder
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.ContentPaste
+import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -45,11 +46,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import com.undercover.vpn.shared.ui.components.DossierRadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -367,6 +371,9 @@ fun ProfilesCard(
         )
     }
 
+    var showAddByLinkDialog by remember { mutableStateOf(false) }
+    var linkInputText by remember { mutableStateOf("") }
+
     if (showAddProfileSheet) {
         ModalBottomSheet(
             onDismissRequest = onHideAddProfileSheet,
@@ -387,20 +394,20 @@ fun ProfilesCard(
                 ListItem(
                     modifier = Modifier.clickable {
                         onHideAddProfileSheet()
-                        importFromFileLauncher.launch("*/*")
+                        showAddByLinkDialog = true
                     },
                     leadingContent = {
                         Icon(
-                            imageVector = Icons.Outlined.FileUpload,
+                            imageVector = Icons.Outlined.Link,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                         )
                     },
                     headlineContent = {
-                        Text(stringResource(R.string.profile_add_import_file))
+                        Text("По ссылке")
                     },
                     supportingContent = {
-                        Text(stringResource(R.string.import_from_file_description))
+                        Text("Импорт подписки или конфигурации по URL")
                     },
                 )
 
@@ -423,15 +430,88 @@ fun ProfilesCard(
                         Text(stringResource(R.string.scan_qr_code_description))
                     },
                 )
+            }
+        }
+    }
 
-                ListItem(
-                    modifier = Modifier.clickable {
-                        onHideAddProfileSheet()
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                        val text = clipboard?.primaryClip?.getItemAt(0)?.text?.toString()
-                        if (!text.isNullOrBlank()) {
+    if (showAddByLinkDialog) {
+        LaunchedEffect(Unit) {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            val clip = clipboard?.primaryClip?.getItemAt(0)?.text?.toString()?.trim()
+            if (!clip.isNullOrBlank() && (clip.startsWith("http://") || clip.startsWith("https://") ||
+                clip.startsWith("sing-box://") || clip.startsWith("v2raytun://") || clip.startsWith("happ://") ||
+                clip.startsWith("vless://") || clip.startsWith("vmess://") || clip.startsWith("ss://") ||
+                clip.startsWith("trojan://") || clip.startsWith("hy2://"))) {
+                linkInputText = clip
+            }
+        }
+
+        AlertDialog(
+            onDismissRequest = {
+                showAddByLinkDialog = false
+                linkInputText = ""
+            },
+            shape = RoundedCornerShape(0.dp),
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = {
+                Text(
+                    text = "ДОБАВИТЬ ПО ССЫЛКЕ",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Вставьте ссылку на подписку или конфигурацию:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    )
+                    OutlinedTextField(
+                        value = linkInputText,
+                        onValueChange = { linkInputText = it },
+                        placeholder = { Text("https://...", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = false,
+                        maxLines = 3,
+                        shape = RoundedCornerShape(0.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                        ),
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                val clip = clipboard?.primaryClip?.getItemAt(0)?.text?.toString()?.trim()
+                                if (!clip.isNullOrBlank()) {
+                                    linkInputText = clip
+                                } else {
+                                    Toast.makeText(context, "Буфер обмена пуст", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            shape = RoundedCornerShape(0.dp),
+                        ) {
+                            Icon(Icons.Outlined.ContentPaste, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Вставить из буфера", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val input = linkInputText.trim()
+                        if (input.isNotBlank()) {
+                            showAddByLinkDialog = false
+                            linkInputText = ""
                             coroutineScope.launch {
-                                when (val parseResult = importHandler.parseQRCode(text)) {
+                                when (val parseResult = importHandler.parseQRCode(input)) {
                                     is ProfileImportHandler.QRCodeParseResult.RemoteProfile -> {
                                         withContext(Dispatchers.Main) {
                                             onOpenNewProfile(
@@ -443,10 +523,10 @@ fun ProfilesCard(
                                         }
                                     }
                                     is ProfileImportHandler.QRCodeParseResult.LocalProfile -> {
-                                        when (val result = importHandler.importFromQRCode(text)) {
+                                        when (val result = importHandler.importFromQRCode(input)) {
                                             is ProfileImportHandler.ImportResult.Success -> {
                                                 withContext(Dispatchers.Main) {
-                                                    onProfileEdit(result.profile)
+                                                    Toast.makeText(context, R.string.onboarding_profile_imported, Toast.LENGTH_SHORT).show()
                                                 }
                                             }
                                             is ProfileImportHandler.ImportResult.Error -> {
@@ -463,46 +543,33 @@ fun ProfilesCard(
                                     }
                                 }
                             }
-                        } else {
-                            Toast.makeText(context, "Clipboard is empty", Toast.LENGTH_SHORT).show()
                         }
                     },
-                    leadingContent = {
-                        Icon(
-                            imageVector = Icons.Outlined.ContentPaste,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
+                    shape = RoundedCornerShape(0.dp),
+                ) {
+                    Text(
+                        text = "ПРОДОЛЖИТЬ",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showAddByLinkDialog = false
+                        linkInputText = ""
                     },
-                    headlineContent = {
-                        Text("Import from Clipboard")
-                    },
-                    supportingContent = {
-                        Text("Import VPN link or config from clipboard")
-                    },
-                )
-
-                ListItem(
-                    modifier = Modifier.clickable {
-                        onHideAddProfileSheet()
-                        onOpenNewProfile(NewProfileArgs())
-                    },
-                    leadingContent = {
-                        Icon(
-                            imageVector = Icons.Outlined.CreateNewFolder,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                    },
-                    headlineContent = {
-                        Text(stringResource(R.string.profile_add_create_manually))
-                    },
-                    supportingContent = {
-                        Text(stringResource(R.string.create_new_profile_description))
-                    },
-                )
-            }
-        }
+                    shape = RoundedCornerShape(0.dp),
+                ) {
+                    Text(
+                        text = "ОТМЕНА",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    )
+                }
+            },
+        )
     }
 
     if (showQRCodeDialog && qrCodeProfile != null) {

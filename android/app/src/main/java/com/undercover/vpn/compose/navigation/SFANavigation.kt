@@ -216,12 +216,16 @@ fun SFANavHost(
                     onClearNewProfileArgs()
                     navController.navigateUp()
                 },
-                onProfileCreated = { profileId ->
+                onProfileCreated = { profileId, isManual ->
                     onClearNewProfileArgs()
-                    navController.navigate(ProfileRoutes.editProfile(profileId)) {
-                        popUpTo(ProfileRoutes.NewProfile) {
-                            inclusive = true
+                    if (isManual) {
+                        navController.navigate(ProfileRoutes.editProfile(profileId)) {
+                            popUpTo(ProfileRoutes.NewProfile) {
+                                inclusive = true
+                            }
                         }
+                    } else {
+                        navController.popBackStack()
                     }
                 },
             )

@@ -125,6 +125,7 @@ object Settings {
     var byeDpiStrategy by dataStore.string(SettingsKey.BYEDPI_STRATEGY) { "-Ar -s3 -q1" }
 
     var allowBypass by dataStore.boolean(SettingsKey.ALLOW_BYPASS) { false }
+    var showDeveloperWarning by dataStore.boolean(SettingsKey.SHOW_DEVELOPER_WARNING) { true }
     var systemProxyEnabled by dataStore.boolean(SettingsKey.SYSTEM_PROXY_ENABLED) { true }
 
     var privilegeSettingsEnabled by dataStore.boolean(SettingsKey.PRIVILEGE_SETTINGS_ENABLED) { false }

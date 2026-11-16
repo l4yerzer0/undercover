@@ -4,6 +4,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -25,15 +27,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,6 +55,8 @@ import androidx.navigation.NavController
 import com.undercover.vpn.BuildConfig
 import com.undercover.vpn.R
 import com.undercover.vpn.database.Settings
+import com.undercover.vpn.compose.screen.configuration.ProfileImportHandler
+import com.undercover.vpn.shared.ui.components.DossierCheckbox
 import com.undercover.vpn.shared.ui.components.DossierSwitch
 import com.undercover.vpn.bg.CrashReportManager
 import com.undercover.vpn.bg.OOMReportManager
@@ -59,6 +67,7 @@ import com.undercover.vpn.update.UpdateState
 import com.undercover.vpn.utils.HookModuleUpdateNotifier
 import com.undercover.vpn.utils.HookStatusClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
@@ -188,6 +197,107 @@ fun SettingsScreen(navController: NavController) {
 
             // Section 2: For Developers (Collapsible, closed by default)
             var isDeveloperExpanded by remember { mutableStateOf(false) }
+            var showDevWarningDialog by remember { mutableStateOf(false) }
+            var doNotShowAgain by remember { mutableStateOf(false) }
+            val coroutineScope = rememberCoroutineScope()
+            val importHandler = remember { ProfileImportHandler(context) }
+
+            val filePickerLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.GetContent(),
+            ) { uri ->
+                uri?.let {
+                    coroutineScope.launch {
+                        when (val result = importHandler.importFromUri(uri)) {
+                            is ProfileImportHandler.ImportResult.Success -> {
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(context, R.string.onboarding_profile_imported, Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            is ProfileImportHandler.ImportResult.Error -> {
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (showDevWarningDialog) {
+                AlertDialog(
+                    onDismissRequest = {
+                        showDevWarningDialog = false
+                    },
+                    shape = RoundedCornerShape(0.dp),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    title = {
+                        Text(
+                            text = "ВНИМАНИЕ",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Text(
+                                text = "Этот раздел для опытных пользователей! Если вы не уверены зачем вам это нужно, лучше ничего не трогайте.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { doNotShowAgain = !doNotShowAgain }
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                DossierCheckbox(
+                                    checked = doNotShowAgain,
+                                    onCheckedChange = { doNotShowAgain = it },
+                                )
+                                Text(
+                                    text = "Больше не показывать",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                if (doNotShowAgain) {
+                                    Settings.showDeveloperWarning = false
+                                }
+                                showDevWarningDialog = false
+                                isDeveloperExpanded = true
+                            },
+                            shape = RoundedCornerShape(0.dp),
+                        ) {
+                            Text(
+                                text = "ПРОДОЛЖИТЬ",
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = {
+                                showDevWarningDialog = false
+                            },
+                            shape = RoundedCornerShape(0.dp),
+                        ) {
+                            Text(
+                                text = "ОТМЕНА",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                            )
+                        }
+                    },
+                )
+            }
 
             val privilegeBadgeText = when {
                 hasPendingPrivilegeDowngrade -> "DOWNGRADE"
@@ -199,7 +309,18 @@ fun SettingsScreen(navController: NavController) {
             DossierCollapsibleSectionHeader(
                 title = "DEVELOPER // ROOT & DIAGNOSTICS",
                 isExpanded = isDeveloperExpanded,
-                onToggle = { isDeveloperExpanded = !isDeveloperExpanded },
+                onToggle = {
+                    if (!isDeveloperExpanded) {
+                        if (Settings.showDeveloperWarning) {
+                            doNotShowAgain = false
+                            showDevWarningDialog = true
+                        } else {
+                            isDeveloperExpanded = true
+                        }
+                    } else {
+                        isDeveloperExpanded = false
+                    }
+                },
             )
 
             AnimatedVisibility(
@@ -208,6 +329,17 @@ fun SettingsScreen(navController: NavController) {
                 exit = shrinkVertically() + fadeOut(),
             ) {
                 Column {
+                    DossierSettingRow(
+                        title = "Импорт профиля из файла",
+                        subtitle = "Загрузить конфигурацию (.json, .yaml, .txt)",
+                        onClick = { filePickerLauncher.launch("*/*") },
+                    )
+
+                    DossierSettingRow(
+                        title = "Создать конфигурацию вручную",
+                        subtitle = "Создать локальный JSON-конфиг",
+                        onClick = { navController.navigate("profile/new") },
+                    )
                     DossierSettingRow(
                         title = stringResource(R.string.title_log),
                         subtitle = "Системный журнал работы и соединений",

@@ -36,6 +36,7 @@ object SettingsKey {
     const val BYEDPI_STRATEGY = "byedpi_strategy"
 
     const val ALLOW_BYPASS = "allow_bypass"
+    const val SHOW_DEVELOPER_WARNING = "show_developer_warning"
     const val SYSTEM_PROXY_ENABLED = "system_proxy_enabled"
 
     const val PRIVILEGE_SETTINGS_ENABLED = "hide_settings_enabled"

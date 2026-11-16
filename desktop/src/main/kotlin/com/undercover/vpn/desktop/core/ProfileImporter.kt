@@ -5,6 +5,7 @@ import com.undercover.vpn.desktop.model.ProfileType
 import com.undercover.vpn.desktop.model.ProxyNode
 import com.undercover.vpn.shared.parser.ConfigParser
 import com.undercover.vpn.shared.parser.SingBoxConfigMigrator
+import com.undercover.vpn.shared.parser.SubscriptionMetadataFetcher
 import com.undercover.vpn.shared.parser.happ.HappDecoder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -89,7 +90,7 @@ object ProfileImporter {
         conn.connectTimeout = 15000
         conn.readTimeout = 15000
         // Set User-Agent so sing-box compatible backends (Remnawave, 3X-UI) return JSON configuration
-        conn.setRequestProperty("User-Agent", "SFA/0.3 (sing-box 1.14.4; linux)")
+        conn.setRequestProperty("User-Agent", "SFA/0.4 (sing-box 1.14.4; linux)")
         conn.setRequestProperty("Accept", "application/json, text/plain, */*")
 
         val responseCode = conn.responseCode
@@ -97,6 +98,7 @@ object ProfileImporter {
             throw IllegalStateException("Subscription request failed with HTTP $responseCode")
         }
 
+        val headers = conn.headerFields
         val content = conn.inputStream.bufferedReader().use { it.readText() }.trim()
 
         // Check if response is base64 encoded list of URIs
@@ -110,7 +112,8 @@ object ProfileImporter {
         // Response is sing-box JSON
         val migrated = SingBoxConfigMigrator.migrate(content)
         val nodes = extractNodes(migrated)
-        val title = extractProfileTitle(migrated) ?: extractDomainFromUrl(urlStr)
+        val metadata = SubscriptionMetadataFetcher.parseMetadata(headers, urlStr, content)
+        val title = metadata.title ?: extractProfileTitle(migrated) ?: extractDomainFromUrl(urlStr)
 
         return DesktopProfile(
             id = UUID.randomUUID().toString(),

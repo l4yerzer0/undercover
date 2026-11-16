@@ -41,10 +41,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -107,6 +110,8 @@ fun ConnectionsConfigsScreen(
     var qrCodeProfile by remember { mutableStateOf<Profile?>(null) }
     var profileToDelete by remember { mutableStateOf<Profile?>(null) }
     var profileToShare by remember { mutableStateOf<Profile?>(null) }
+    var showLinkInputDialog by remember { mutableStateOf(false) }
+    var linkInputText by remember { mutableStateOf("") }
 
     val importFromFileLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -487,30 +492,123 @@ fun ConnectionsConfigsScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Option 1: Clipboard
+                // Option 1: By Link
                 DossierAddOption(
-                    title = "Импорт из буфера обмена",
-                    subtitle = "Поддерживает vless://, vmess://, ss://, ссылки подписок",
+                    title = "По ссылке",
+                    subtitle = "Импорт подписки или конфигурации по ссылке",
                     icon = Icons.Outlined.ContentPaste,
                     onClick = {
                         showAddSheet = false
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                        val text = clipboard?.primaryClip?.getItemAt(0)?.text?.toString()
-                        if (!text.isNullOrBlank()) {
+                        showLinkInputDialog = true
+                    },
+                )
+
+                // Option 2: Scan QR
+                DossierAddOption(
+                    title = "Сканировать QR-код",
+                    subtitle = "Используйте камеру устройства",
+                    icon = Icons.Default.QrCodeScanner,
+                    onClick = {
+                        showAddSheet = false
+                        showQRScanSheet = true
+                    },
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+    }
+
+    if (showLinkInputDialog) {
+        LaunchedEffect(Unit) {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            val clip = clipboard?.primaryClip?.getItemAt(0)?.text?.toString()?.trim()
+            if (!clip.isNullOrBlank() && (clip.startsWith("http://") || clip.startsWith("https://") ||
+                clip.startsWith("sing-box://") || clip.startsWith("v2raytun://") || clip.startsWith("happ://") ||
+                clip.startsWith("vless://") || clip.startsWith("vmess://") || clip.startsWith("ss://") ||
+                clip.startsWith("trojan://") || clip.startsWith("hy2://"))) {
+                linkInputText = clip
+            }
+        }
+
+        AlertDialog(
+            onDismissRequest = {
+                showLinkInputDialog = false
+                linkInputText = ""
+            },
+            shape = RoundedCornerShape(0.dp),
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = {
+                Text(
+                    text = "ДОБАВИТЬ ПО ССЫЛКЕ",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Вставьте ссылку на подписку или конфигурацию:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    )
+                    OutlinedTextField(
+                        value = linkInputText,
+                        onValueChange = { linkInputText = it },
+                        placeholder = { Text("https://...", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = false,
+                        maxLines = 3,
+                        shape = RoundedCornerShape(0.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                        ),
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                val clip = clipboard?.primaryClip?.getItemAt(0)?.text?.toString()?.trim()
+                                if (!clip.isNullOrBlank()) {
+                                    linkInputText = clip
+                                } else {
+                                    Toast.makeText(context, "Буфер обмена пуст", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            shape = RoundedCornerShape(0.dp),
+                        ) {
+                            Icon(Icons.Outlined.ContentPaste, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Вставить из буфера", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val input = linkInputText.trim()
+                        if (input.isNotBlank()) {
+                            showLinkInputDialog = false
+                            linkInputText = ""
                             scope.launch {
-                                when (val parseResult = importHandler.parseQRCode(text)) {
+                                when (val parseResult = importHandler.parseQRCode(input)) {
                                     is ProfileImportHandler.QRCodeParseResult.RemoteProfile -> {
                                         withContext(Dispatchers.Main) {
                                             onOpenNewProfile(
                                                 NewProfileArgs(
                                                     importName = parseResult.name,
                                                     importUrl = parseResult.url,
-                                                ),
+                                                )
                                             )
                                         }
                                     }
                                     is ProfileImportHandler.QRCodeParseResult.LocalProfile -> {
-                                        when (val result = importHandler.importFromQRCode(text)) {
+                                        when (val result = importHandler.importFromQRCode(input)) {
                                             is ProfileImportHandler.ImportResult.Success -> {
                                                 withContext(Dispatchers.Main) {
                                                     Toast.makeText(context, R.string.onboarding_profile_imported, Toast.LENGTH_SHORT).show()
@@ -530,48 +628,33 @@ fun ConnectionsConfigsScreen(
                                     }
                                 }
                             }
-                        } else {
-                            Toast.makeText(context, "Буфер обмена пуст", Toast.LENGTH_SHORT).show()
                         }
                     },
-                )
-
-                // Option 2: Scan QR
-                DossierAddOption(
-                    title = "Сканировать QR-код",
-                    subtitle = "Используйте камеру устройства",
-                    icon = Icons.Default.QrCodeScanner,
+                    shape = RoundedCornerShape(0.dp),
+                ) {
+                    Text(
+                        text = "ПРОДОЛЖИТЬ",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
                     onClick = {
-                        showAddSheet = false
-                        showQRScanSheet = true
+                        showLinkInputDialog = false
+                        linkInputText = ""
                     },
-                )
-
-                // Option 3: Import from file
-                DossierAddOption(
-                    title = "Импорт из файла",
-                    subtitle = "Файлы .json, .yaml, .txt, .conf",
-                    icon = Icons.Outlined.FileUpload,
-                    onClick = {
-                        showAddSheet = false
-                        importFromFileLauncher.launch("*/*")
-                    },
-                )
-
-                // Option 4: Create manually
-                DossierAddOption(
-                    title = "Создать вручную",
-                    subtitle = "Ручной ввод параметров конфигурации",
-                    icon = Icons.Outlined.Create,
-                    onClick = {
-                        showAddSheet = false
-                        onOpenNewProfile(NewProfileArgs())
-                    },
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-        }
+                    shape = RoundedCornerShape(0.dp),
+                ) {
+                    Text(
+                        text = "ОТМЕНА",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    )
+                }
+            },
+        )
     }
 
     // QR Scan Sheet

@@ -11,6 +11,7 @@ import com.undercover.vpn.database.Profile
 import com.undercover.vpn.database.ProfileManager
 import com.undercover.vpn.database.TypedProfile
 import com.undercover.vpn.utils.HTTPClient
+import com.undercover.vpn.shared.parser.SubscriptionMetadataFetcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,7 +30,9 @@ data class NewProfileUiState(
     // Remote profile fields
     val remoteUrl: String = "",
     val autoUpdate: Boolean = true,
-    val autoUpdateInterval: Int = 60,
+    val autoUpdateInterval: Int = 120, // in minutes (default 2 hours)
+    val cachedContent: String? = null,
+    val isLoadingMetadata: Boolean = false,
     // File import
     val importUri: Uri? = null,
     val importFileName: String? = null,
@@ -62,13 +65,41 @@ class NewProfileViewModel(application: Application) : AndroidViewModel(applicati
     val uiState: StateFlow<NewProfileUiState> = _uiState.asStateFlow()
 
     fun initializeFromQRImport(name: String?, url: String?) {
-        if (name != null && url != null) {
+        if (!url.isNullOrBlank()) {
             _uiState.update {
                 it.copy(
-                    name = name,
+                    name = name ?: "",
                     profileType = ProfileType.Remote,
                     remoteUrl = url,
+                    isLoadingMetadata = true,
                 )
+            }
+            viewModelScope.launch {
+                try {
+                    val fetchResult = withContext(Dispatchers.IO) {
+                        SubscriptionMetadataFetcher.fetch(url, HTTPClient.userAgent)
+                    }
+                    val meta = fetchResult.metadata
+                    _uiState.update { current ->
+                        current.copy(
+                            isLoadingMetadata = false,
+                            name = if (current.name.isBlank() || current.name == name) {
+                                meta.title ?: current.name.ifBlank { "Subscription" }
+                            } else {
+                                current.name
+                            },
+                            autoUpdateInterval = (meta.updateIntervalHours ?: (current.autoUpdateInterval / 60)).coerceAtLeast(1) * 60,
+                            cachedContent = fetchResult.content,
+                        )
+                    }
+                } catch (e: Exception) {
+                    _uiState.update { current ->
+                        current.copy(
+                            isLoadingMetadata = false,
+                            name = if (current.name.isBlank()) name ?: "Subscription" else current.name,
+                        )
+                    }
+                }
             }
         }
     }
@@ -122,6 +153,11 @@ class NewProfileViewModel(application: Application) : AndroidViewModel(applicati
     fun updateAutoUpdateInterval(interval: String) {
         val intValue = interval.toIntOrNull() ?: 60
         _uiState.update { it.copy(autoUpdateInterval = intValue.coerceAtLeast(15)) }
+    }
+
+    fun updateAutoUpdateIntervalHours(hoursStr: String) {
+        val hours = hoursStr.toIntOrNull() ?: 1
+        _uiState.update { it.copy(autoUpdateInterval = hours.coerceAtLeast(1) * 60) }
     }
 
     fun setImportUri(uri: Uri, fileName: String?) {
@@ -301,7 +337,7 @@ class NewProfileViewModel(application: Application) : AndroidViewModel(applicati
         typedProfile.path = configFile.path
 
         // Fetch initial config - this MUST succeed for remote profiles
-        val content = HTTPClient().use { it.getString(state.remoteUrl) }
+        val content = state.cachedContent ?: HTTPClient().use { it.getString(state.remoteUrl) }
         val migratedContent = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(content)
         Libbox.checkConfig(migratedContent)
         val configContent = migratedContent

@@ -409,13 +409,6 @@ fun DashboardScreen(
                                                 }
                                             }
                                         )
-                                        androidx.compose.material3.DropdownMenuItem(
-                                            text = { Text("Create Manually", color = MaterialTheme.colorScheme.onSurface) },
-                                            onClick = {
-                                                showAddMenu = false
-                                                onOpenNewProfile(com.undercover.vpn.compose.navigation.NewProfileArgs())
-                                            }
-                                        )
                                     }
                                 }
                                 Icon(
