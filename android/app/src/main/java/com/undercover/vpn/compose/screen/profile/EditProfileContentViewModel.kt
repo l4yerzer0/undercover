@@ -126,7 +126,8 @@ class EditProfileContentViewModel(private val profileId: Long, initialIsReadOnly
                 _uiState.update { it.copy(isCheckingConfig = true) }
 
                 // Check configuration
-                Libbox.checkConfig(content)
+                val migrated = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(content)
+                Libbox.checkConfig(migrated)
 
                 // Configuration is valid, clear any error
                 _uiState.update {
@@ -192,15 +193,17 @@ class EditProfileContentViewModel(private val profileId: Long, initialIsReadOnly
                         editor?.getText() ?: ""
                     }
 
+                val migratedContent = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(currentContent)
+
                 // Save to file without validation
                 profile?.let { p ->
-                    File(p.typed.path).writeText(currentContent)
+                    File(p.typed.path).writeText(migratedContent)
                 }
 
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        originalContent = currentContent,
+                        originalContent = migratedContent,
                         hasUnsavedChanges = false,
                         showSaveSuccessMessage = true,
                     )

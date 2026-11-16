@@ -4,6 +4,7 @@ import com.undercover.vpn.shared.parser.SingBoxConfigMigrator
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -43,24 +44,24 @@ class SingBoxConfigMigratorTest {
         assertFalse(dns.has("fakeip"))
         assertFalse(dns.has("independent_cache"))
 
-        // 2. Servers must be migrated
+        // 2. Servers must be migrated, and remote-dns must be first (sing-box prohibits fakeip as default server[0])
         val servers = dns.getJSONArray("servers")
         assertEquals(2, servers.length())
 
-        val fakeServer = servers.getJSONObject(0)
-        assertEquals("fakeip-dns", fakeServer.getString("tag"))
-        assertEquals("fakeip", fakeServer.getString("type"))
-        assertFalse(fakeServer.has("address"))
-        assertEquals("198.18.0.0/15", fakeServer.getString("inet4_range"))
-        assertEquals("fc00::/18", fakeServer.getString("inet6_range"))
-
-        val remoteServer = servers.getJSONObject(1)
+        val remoteServer = servers.getJSONObject(0)
         assertEquals("remote-dns", remoteServer.getString("tag"))
         assertEquals("https", remoteServer.getString("type"))
         assertEquals("1.1.1.1", remoteServer.getString("server"))
         assertEquals("/dns-query", remoteServer.getString("path"))
         assertEquals("proxy", remoteServer.getString("detour"))
         assertFalse(remoteServer.has("address"))
+
+        val fakeServer = servers.getJSONObject(1)
+        assertEquals("fakeip-dns", fakeServer.getString("tag"))
+        assertEquals("fakeip", fakeServer.getString("type"))
+        assertFalse(fakeServer.has("address"))
+        assertEquals("198.18.0.0/15", fakeServer.getString("inet4_range"))
+        assertEquals("fc00::/18", fakeServer.getString("inet6_range"))
     }
 
     @Test
@@ -107,7 +108,7 @@ class SingBoxConfigMigratorTest {
     }
 
     @Test
-    fun testMigrateFakeIpServerWithStrategy() {
+    fun testMigrateFakeIpServerWithStrategyAndFallback() {
         val legacyConfig = """
             {
               "dns": {
@@ -135,9 +136,14 @@ class SingBoxConfigMigratorTest {
         assertEquals("ipv4_only", dns.getString("strategy"))
 
         val servers = dns.getJSONArray("servers")
-        assertEquals(1, servers.length())
+        // Since fakeip was the only server, a local fallback is prepended so server[0] is not fakeip
+        assertEquals(2, servers.length())
 
-        val fake = servers.getJSONObject(0)
+        val fallback = servers.getJSONObject(0)
+        assertEquals("dns-local", fallback.getString("tag"))
+        assertEquals("local", fallback.getString("type"))
+
+        val fake = servers.getJSONObject(1)
         assertEquals("fakeip", fake.getString("type"))
         assertEquals("198.18.0.0/15", fake.getString("inet4_range"))
         assertFalse(fake.has("strategy"))
@@ -173,6 +179,9 @@ class SingBoxConfigMigratorTest {
 
         val servers = dns.getJSONArray("servers")
         assertEquals(2, servers.length())
+
+        val remoteServer = servers.getJSONObject(0)
+        assertEquals("remote-dns", remoteServer.getString("tag"))
 
         val fakeServer = servers.getJSONObject(1)
         assertEquals("fakeip", fakeServer.getString("tag"))
@@ -258,15 +267,305 @@ class SingBoxConfigMigratorTest {
         val migrated = SingBoxConfigMigrator.migrate(legacyConfig)
         val root = JSONObject(migrated)
 
+        // Strategy is promoted to root dns
+        assertEquals("prefer_ipv4", root.getJSONObject("dns").getString("strategy"))
+
         val outbounds = root.getJSONArray("outbounds")
         val out = outbounds.getJSONObject(0)
         assertFalse(out.has("strategy"))
-        assertEquals("prefer_ipv4", out.getString("domain_strategy"))
+        assertFalse(out.has("domain_strategy"))
 
         val rules = root.getJSONObject("route").getJSONArray("rules")
         val rule = rules.getJSONObject(0)
         assertFalse(rule.has("strategy"))
-        assertEquals("prefer_ipv4", rule.getString("domain_strategy"))
+        assertFalse(rule.has("domain_strategy"))
+    }
+
+    @Test
+    fun testMigrateInboundSniffAndTunAddresses() {
+        val legacyConfig = """
+            {
+              "inbounds": [
+                {
+                  "type": "tun",
+                  "tag": "tun-in",
+                  "inet4_address": "172.19.0.1/30",
+                  "inet6_address": "fdfe:dcba:9876::1/126",
+                  "inet4_route_address": ["0.0.0.0/1", "128.0.0.0/1"],
+                  "inet6_route_address": ["::/1"],
+                  "sniff": true,
+                  "sniff_override_destination": true,
+                  "sniff_timeout": "300ms",
+                  "domain_strategy": "prefer_ipv4",
+                  "sniffing": { "enabled": true }
+                }
+              ],
+              "route": {
+                "rules": [
+                  {
+                    "outbound": "direct"
+                  }
+                ]
+              }
+            }
+        """.trimIndent()
+
+        val migrated = SingBoxConfigMigrator.migrate(legacyConfig)
+        val root = JSONObject(migrated)
+
+        val inbound = root.getJSONArray("inbounds").getJSONObject(0)
+        // Legacy sniffing options must be removed
+        assertFalse(inbound.has("sniff"))
+        assertFalse(inbound.has("sniff_override_destination"))
+        assertFalse(inbound.has("sniff_timeout"))
+        assertFalse(inbound.has("domain_strategy"))
+        assertFalse(inbound.has("sniffing"))
+
+        // Legacy addresses merged
+        assertFalse(inbound.has("inet4_address"))
+        assertFalse(inbound.has("inet6_address"))
+        assertTrue(inbound.has("address"))
+        val addrArr = inbound.getJSONArray("address")
+        assertEquals(2, addrArr.length())
+        assertEquals("172.19.0.1/30", addrArr.getString(0))
+        assertEquals("fdfe:dcba:9876::1/126", addrArr.getString(1))
+
+        // Route address merged
+        assertFalse(inbound.has("inet4_route_address"))
+        assertFalse(inbound.has("inet6_route_address"))
+        val routeAddrArr = inbound.getJSONArray("route_address")
+        assertEquals(3, routeAddrArr.length())
+
+        // Sniff rule added to route.rules
+        val rules = root.getJSONObject("route").getJSONArray("rules")
+        val firstRule = rules.getJSONObject(0)
+        assertEquals("sniff", firstRule.getString("action"))
+        assertEquals("300ms", firstRule.getString("timeout"))
+    }
+
+    @Test
+    fun testMigrateSpecialOutboundsBlockAndDns() {
+        val legacyConfig = """
+            {
+              "outbounds": [
+                {
+                  "type": "block",
+                  "tag": "block-out"
+                },
+                {
+                  "type": "dns",
+                  "tag": "dns-out"
+                },
+                {
+                  "type": "direct",
+                  "tag": "direct",
+                  "override_address": "1.1.1.1",
+                  "override_port": 443
+                }
+              ],
+              "route": {
+                "rules": [
+                  {
+                    "protocol": "dns",
+                    "outbound": "dns-out"
+                  },
+                  {
+                    "domain_suffix": "ads.com",
+                    "outbound": "block-out"
+                  },
+                  {
+                    "type": "field",
+                    "outbound": "direct"
+                  }
+                ]
+              }
+            }
+        """.trimIndent()
+
+        val migrated = SingBoxConfigMigrator.migrate(legacyConfig)
+        val root = JSONObject(migrated)
+
+        val outbounds = root.getJSONArray("outbounds")
+        // block and dns outbounds removed, only direct remains
+        assertEquals(1, outbounds.length())
+        val direct = outbounds.getJSONObject(0)
+        assertEquals("direct", direct.getString("tag"))
+        assertFalse(direct.has("override_address"))
+        assertFalse(direct.has("override_port"))
+
+        val rules = root.getJSONObject("route").getJSONArray("rules")
+        assertEquals(3, rules.length())
+
+        // Rule 0: dns outbound -> action hijack-dns
+        val dnsRule = rules.getJSONObject(0)
+        assertFalse(dnsRule.has("outbound"))
+        assertEquals("hijack-dns", dnsRule.getString("action"))
+
+        // Rule 1: block outbound -> action reject
+        val blockRule = rules.getJSONObject(1)
+        assertFalse(blockRule.has("outbound"))
+        assertEquals("reject", blockRule.getString("action"))
+
+        // Rule 2: type=field stripped
+        val directRule = rules.getJSONObject(2)
+        assertFalse(directRule.has("type"))
+        assertEquals("direct", directRule.getString("outbound"))
+    }
+
+    @Test
+    fun testMigrateLegacyWireGuardOutboundToEndpoint() {
+        val legacyConfig = """
+            {
+              "outbounds": [
+                {
+                  "type": "wireguard",
+                  "tag": "wg-out",
+                  "server": "1.2.3.4",
+                  "server_port": 51820,
+                  "local_address": ["10.0.0.2/32"],
+                  "private_key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+                  "peer_public_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+                  "mtu": 1420
+                },
+                {
+                  "type": "direct",
+                  "tag": "direct"
+                }
+              ]
+            }
+        """.trimIndent()
+
+        val migrated = SingBoxConfigMigrator.migrate(legacyConfig)
+        val root = JSONObject(migrated)
+
+        // wireguard outbound migrated to endpoints
+        val outbounds = root.getJSONArray("outbounds")
+        assertEquals(1, outbounds.length())
+        assertEquals("direct", outbounds.getJSONObject(0).getString("tag"))
+
+        val endpoints = root.getJSONArray("endpoints")
+        assertEquals(1, endpoints.length())
+        val ep = endpoints.getJSONObject(0)
+        assertEquals("wireguard", ep.getString("type"))
+        assertEquals("wg-out", ep.getString("tag"))
+        assertEquals(1420, ep.getInt("mtu"))
+
+        val peers = ep.getJSONArray("peers")
+        assertEquals(1, peers.length())
+        val peer = peers.getJSONObject(0)
+        assertEquals("1.2.3.4", peer.getString("address"))
+        assertEquals(51820, peer.getInt("port"))
+        assertEquals("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=", peer.getString("public_key"))
+        assertTrue(peer.getJSONArray("allowed_ips").length() > 0)
+    }
+
+    @Test
+    fun testMigrateDnsRulesOutboundAny() {
+        val legacyConfig = """
+            {
+              "dns": {
+                "servers": [
+                  {
+                    "tag": "local-dns",
+                    "type": "local"
+                  }
+                ],
+                "rules": [
+                  {
+                    "outbound": "any",
+                    "server": "local-dns"
+                  },
+                  {
+                    "domain": "google.com",
+                    "outbound": "any",
+                    "server": "local-dns"
+                  }
+                ]
+              }
+            }
+        """.trimIndent()
+
+        val migrated = SingBoxConfigMigrator.migrate(legacyConfig)
+        val root = JSONObject(migrated)
+
+        // route.default_domain_resolver set
+        assertEquals("local-dns", root.getJSONObject("route").getString("default_domain_resolver"))
+
+        val dnsRules = root.getJSONObject("dns").getJSONArray("rules")
+        // Rule that only had outbound: any & server is removed
+        assertEquals(1, dnsRules.length())
+        val rule = dnsRules.getJSONObject(0)
+        assertEquals("google.com", rule.getString("domain"))
+        assertFalse(rule.has("outbound"))
+    }
+
+    @Test
+    fun testMigrateLegacyGeoIpAndGeositeInRules() {
+        val legacyConfig = """
+            {
+              "route": {
+                "rules": [
+                  {
+                    "geoip": "private",
+                    "outbound": "direct"
+                  },
+                  {
+                    "geosite": "cn",
+                    "outbound": "direct"
+                  },
+                  {
+                    "source_geoip": "cn",
+                    "outbound": "block"
+                  }
+                ]
+              }
+            }
+        """.trimIndent()
+
+        val migrated = SingBoxConfigMigrator.migrate(legacyConfig)
+        val root = JSONObject(migrated)
+        val rules = root.getJSONObject("route").getJSONArray("rules")
+
+        val rule0 = rules.getJSONObject(0)
+        assertFalse(rule0.has("geoip"))
+        assertTrue(rule0.getBoolean("ip_is_private"))
+
+        val rule1 = rules.getJSONObject(1)
+        assertFalse(rule1.has("geosite"))
+        assertEquals("geosite-cn", rule1.getString("rule_set"))
+
+        val rule2 = rules.getJSONObject(2)
+        assertFalse(rule2.has("source_geoip"))
+        assertEquals("geoip-cn", rule2.getString("rule_set"))
+        assertTrue(rule2.getBoolean("rule_set_ipcidr_match_source"))
+        assertEquals("reject", rule2.getString("action"))
+    }
+
+    @Test
+    fun testMigrateClashApiCacheFile() {
+        val legacyConfig = """
+            {
+              "experimental": {
+                "clash_api": {
+                  "external_controller": "127.0.0.1:9090",
+                  "cache_file": "cache.db",
+                  "cache_id": "profile1"
+                }
+              }
+            }
+        """.trimIndent()
+
+        val migrated = SingBoxConfigMigrator.migrate(legacyConfig)
+        val root = JSONObject(migrated)
+        val exp = root.getJSONObject("experimental")
+        val clashApi = exp.getJSONObject("clash_api")
+        val cacheFile = exp.getJSONObject("cache_file")
+
+        assertFalse(clashApi.has("cache_file"))
+        assertFalse(clashApi.has("cache_id"))
+        assertTrue(cacheFile.getBoolean("enabled"))
+        assertEquals("cache.db", cacheFile.getString("path"))
+        assertEquals("profile1", cacheFile.getString("cache_id"))
     }
 
     @Test
