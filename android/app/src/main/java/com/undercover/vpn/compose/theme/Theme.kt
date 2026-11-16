@@ -25,9 +25,11 @@ val DossierRed = Color(0xFFE55D5D)
 
 private val DossierColorScheme =
     darkColorScheme(
-        primary = DossierMint,
+        primary = DossierCream,
         onPrimary = DossierInk,
-        primaryContainer = DossierMint,
+        secondary = DossierMint,
+        onSecondary = DossierBackground,
+        primaryContainer = DossierCream,
         onPrimaryContainer = DossierInk,
         background = DossierBackground,
         onBackground = DossierCream,

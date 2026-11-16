@@ -152,6 +152,43 @@ fun DossierCheckbox(
     }
 }
 
+@Composable
+fun DossierRadioButton(
+    selected: Boolean,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    val borderColor = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+    val fillContentColor = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+    val interactionSource = remember { MutableInteractionSource() }
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .size(20.dp)
+            .border(1.5.dp, borderColor)
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                        enabled = enabled,
+                        onClick = onClick
+                    )
+                } else Modifier
+            )
+    ) {
+        if (selected) {
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .background(fillContentColor)
+            )
+        }
+    }
+}
+
 data class DossierNavItem(
     val title: String,
     val icon: androidx.compose.ui.graphics.vector.ImageVector? = null,

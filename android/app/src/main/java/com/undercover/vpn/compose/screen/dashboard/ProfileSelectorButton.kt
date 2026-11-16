@@ -34,7 +34,7 @@ fun ProfileSelectorButton(selectedProfile: Profile?, onClick: () -> Unit, modifi
     Surface(
         onClick = onClick,
         modifier = modifier.fillMaxWidth().height(48.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(0.dp),
         color = if (isSystemInDarkTheme()) {
             lerp(
                 MaterialTheme.colorScheme.surfaceContainerHighest,

@@ -32,7 +32,7 @@ import com.undercover.vpn.shared.ui.components.DossierListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
+import com.undercover.vpn.shared.ui.components.DossierSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -165,6 +165,7 @@ fun ServiceSettingsScreen(
                         horizontalArrangement = Arrangement.End,
                     ) {
                         OutlinedButton(
+                            shape = RoundedCornerShape(0.dp),
                             onClick = {
                                 context.launchCustomTab("https://dontkillmyapp.com/")
                             },
@@ -174,6 +175,7 @@ fun ServiceSettingsScreen(
                         }
 
                         Button(
+                            shape = RoundedCornerShape(0.dp),
                             onClick = {
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                                     val intent =
@@ -271,7 +273,7 @@ fun ServiceSettingsScreen(
                         },
                     )
                 },
-                modifier = Modifier.clip(RoundedCornerShape(12.dp)),
+                modifier = Modifier.clip(RoundedCornerShape(0.dp)),
                 colors =
                 ListItemDefaults.colors(
                     containerColor = Color.Transparent,

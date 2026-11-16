@@ -86,7 +86,7 @@ fun ServiceStatusBar(
                 Row(
                     modifier =
                     Modifier
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(0.dp))
                         .background(MaterialTheme.colorScheme.secondaryContainer)
                         .clickable(onClick = onConnectionsClick)
                         .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -113,7 +113,7 @@ fun ServiceStatusBar(
                     Row(
                         modifier =
                         Modifier
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(0.dp))
                             .background(MaterialTheme.colorScheme.secondaryContainer)
                             .clickable(onClick = onGroupsClick)
                             .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -140,7 +140,7 @@ fun ServiceStatusBar(
                 Row(
                     modifier =
                     Modifier
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(0.dp))
                         .background(MaterialTheme.colorScheme.primaryContainer)
                         .clickable(onClick = onStopClick)
                         .padding(horizontal = 12.dp, vertical = 8.dp),

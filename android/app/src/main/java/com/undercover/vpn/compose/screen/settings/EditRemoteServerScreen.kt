@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -260,6 +261,7 @@ fun EditRemoteServerScreen(navController: NavController, serverId: Long = -1L) {
         }
 
         Button(
+            shape = RoundedCornerShape(0.dp),
             onClick = {
                 val validatedURL = RemoteServer.validateURL(url)
                 if (validatedURL == null) {

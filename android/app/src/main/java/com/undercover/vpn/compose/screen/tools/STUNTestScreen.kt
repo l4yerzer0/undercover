@@ -136,10 +136,10 @@ fun STUNTestScreen(
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(0.dp))
                         .clickable { showServerDialog = true },
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(0.dp),
                 ) {
                     Row(
                         modifier = Modifier
@@ -186,6 +186,7 @@ fun STUNTestScreen(
 
         if (state.isRunning) {
             Button(
+                shape = RoundedCornerShape(0.dp),
                 onClick = { viewModel.cancelTest() },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
@@ -196,6 +197,7 @@ fun STUNTestScreen(
             }
         } else {
             Button(
+                shape = RoundedCornerShape(0.dp),
                 onClick = { viewModel.startTest(serviceAvailable) },
                 modifier = Modifier.fillMaxWidth(),
             ) {

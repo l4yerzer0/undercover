@@ -201,15 +201,7 @@ fun CrashReportDetailScreen(navController: NavController, reportId: String) {
             ) {
                 Column {
                     files.forEachIndexed { index, file ->
-                        val shape = when {
-                            files.size == 1 -> RoundedCornerShape(12.dp)
-                            index == 0 -> RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
-                            index == files.lastIndex -> RoundedCornerShape(
-                                bottomStart = 12.dp,
-                                bottomEnd = 12.dp,
-                            )
-                            else -> RoundedCornerShape(0.dp)
-                        }
+                        val shape = RoundedCornerShape(0.dp)
                         val icon = when (file.kind) {
                             CrashReportFile.Kind.METADATA -> Icons.Default.DataObject
                             CrashReportFile.Kind.GO_LOG -> Icons.Default.Terminal
@@ -335,18 +327,7 @@ fun CrashReportMetadataScreen(navController: NavController, reportId: String) {
                 ) {
                     Column {
                         entries.forEachIndexed { index, (key, value) ->
-                            val shape = when {
-                                entries.size == 1 -> RoundedCornerShape(12.dp)
-                                index == 0 -> RoundedCornerShape(
-                                    topStart = 12.dp,
-                                    topEnd = 12.dp,
-                                )
-                                index == entries.lastIndex -> RoundedCornerShape(
-                                    bottomStart = 12.dp,
-                                    bottomEnd = 12.dp,
-                                )
-                                else -> RoundedCornerShape(0.dp)
-                            }
+                            val shape = RoundedCornerShape(0.dp)
                             ListItem(
                                 headlineContent = {
                                     Text(

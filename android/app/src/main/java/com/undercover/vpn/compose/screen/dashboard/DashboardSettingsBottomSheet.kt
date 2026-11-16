@@ -42,7 +42,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
+import com.undercover.vpn.shared.ui.components.DossierSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -124,7 +124,7 @@ fun DashboardSettingsBottomSheet(
             Surface(
                 modifier = Modifier.padding(vertical = 12.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(0.dp),
             ) {
                 Box(
                     modifier = Modifier.size(width = 48.dp, height = 4.dp),
@@ -318,7 +318,7 @@ fun DashboardItemCard(
             .fillMaxWidth()
             .offset(y = with(LocalDensity.current) { offsetY.value.toDp() })
             .zIndex(if (isDragging) 1f else 0f)
-            .clip(RoundedCornerShape(12.dp)),
+            .clip(RoundedCornerShape(0.dp)),
         elevation =
         CardDefaults.cardElevation(
             defaultElevation = cardElevation,

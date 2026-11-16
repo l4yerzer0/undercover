@@ -33,7 +33,7 @@ import com.undercover.vpn.shared.ui.components.DossierListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
+import com.undercover.vpn.shared.ui.components.DossierRadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -165,6 +165,7 @@ fun FDroidMirrorScreen(navController: NavController) {
         FilledTonalButton(
             onClick = { testAllMirrors() },
             enabled = !isTesting,
+            shape = RoundedCornerShape(0.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
@@ -209,15 +210,7 @@ fun FDroidMirrorScreen(navController: NavController) {
             ) {
                 Column {
                     mirrors.forEachIndexed { index, mirror ->
-                        val shape = when {
-                            mirrors.size == 1 -> RoundedCornerShape(12.dp)
-                            index == 0 -> RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
-                            index == mirrors.lastIndex -> RoundedCornerShape(
-                                bottomStart = 12.dp,
-                                bottomEnd = 12.dp,
-                            )
-                            else -> RoundedCornerShape(0.dp)
-                        }
+                        val shape = RoundedCornerShape(0.dp)
                         DossierListItem(
                             headlineContent = {
                                 Text(
@@ -226,7 +219,7 @@ fun FDroidMirrorScreen(navController: NavController) {
                                 )
                             },
                             leadingContent = {
-                                RadioButton(
+                                DossierRadioButton(
                                     selected = selectedMirrorUrl == mirror.url,
                                     onClick = { selectMirror(mirror.url) },
                                 )
@@ -270,15 +263,7 @@ fun FDroidMirrorScreen(navController: NavController) {
             Column {
                 parsedCustomMirrors.forEachIndexed { index, mirror ->
                     val isLast = index == parsedCustomMirrors.lastIndex && !showAddForm
-                    val shape = when {
-                        index == 0 && isLast -> RoundedCornerShape(12.dp)
-                        index == 0 -> RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
-                        isLast -> RoundedCornerShape(
-                            bottomStart = 12.dp,
-                            bottomEnd = 12.dp,
-                        )
-                        else -> RoundedCornerShape(0.dp)
-                    }
+                    val shape = RoundedCornerShape(0.dp)
                     DossierListItem(
                         headlineContent = {
                             Text(
@@ -296,7 +281,7 @@ fun FDroidMirrorScreen(navController: NavController) {
                             )
                         },
                         leadingContent = {
-                            RadioButton(
+                            DossierRadioButton(
                                 selected = selectedMirrorUrl == mirror.url,
                                 onClick = { selectMirror(mirror.url) },
                             )
@@ -366,23 +351,26 @@ fun FDroidMirrorScreen(navController: NavController) {
                             horizontalArrangement = Arrangement.End,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Button(onClick = {
-                                val url = newMirrorUrl.trim().trimEnd('/')
-                                if (!URLUtil.isHttpsUrl(url)) {
-                                    urlError = invalidUrlMessage
-                                    return@Button
-                                }
-                                val name = newMirrorName.trim().ifEmpty { url }
-                                val encoded = "$name|$url"
-                                val newSet = customMirrors.toMutableSet()
-                                newSet.add(encoded)
-                                customMirrors = newSet
-                                Settings.fdroidCustomMirrors = newSet
-                                newMirrorName = ""
-                                newMirrorUrl = ""
-                                urlError = null
-                                showAddForm = false
-                            }) {
+                            Button(
+                                onClick = {
+                                    val url = newMirrorUrl.trim().trimEnd('/')
+                                    if (!URLUtil.isHttpsUrl(url)) {
+                                        urlError = invalidUrlMessage
+                                        return@Button
+                                    }
+                                    val name = newMirrorName.trim().ifEmpty { url }
+                                    val encoded = "$name|$url"
+                                    val newSet = customMirrors.toMutableSet()
+                                    newSet.add(encoded)
+                                    customMirrors = newSet
+                                    Settings.fdroidCustomMirrors = newSet
+                                    newMirrorName = ""
+                                    newMirrorUrl = ""
+                                    urlError = null
+                                    showAddForm = false
+                                },
+                                shape = RoundedCornerShape(0.dp),
+                            ) {
                                 Text(stringResource(R.string.fdroid_mirror_add_action))
                             }
                         }
@@ -404,13 +392,7 @@ fun FDroidMirrorScreen(navController: NavController) {
                             )
                         },
                         modifier = Modifier
-                            .clip(
-                                if (parsedCustomMirrors.isEmpty()) {
-                                    RoundedCornerShape(12.dp)
-                                } else {
-                                    RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)
-                                },
-                            )
+                            .clip(RoundedCornerShape(0.dp))
                             .clickable { showAddForm = true },
                         colors = ListItemDefaults.colors(
                             containerColor = Color.Transparent,

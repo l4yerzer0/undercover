@@ -152,15 +152,7 @@ fun RemoteControlScreen(navController: NavController) {
         ) {
             Column {
                 servers.forEachIndexed { index, server ->
-                    val shape =
-                        when {
-                            servers.size == 1 -> RoundedCornerShape(12.dp)
-                            index == 0 -> RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
-                            index == servers.size - 1 ->
-                                RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)
-
-                            else -> RoundedCornerShape(0.dp)
-                        }
+                    val shape = RoundedCornerShape(0.dp)
                     var showMenu by remember { mutableStateOf(false) }
                     Box {
                         DossierListItem(

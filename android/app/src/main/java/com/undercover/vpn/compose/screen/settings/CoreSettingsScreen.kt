@@ -37,7 +37,7 @@ import androidx.compose.material3.IconButton
 import com.undercover.vpn.shared.ui.components.DossierListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
+import com.undercover.vpn.shared.ui.components.DossierSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -147,7 +147,7 @@ fun CoreSettingsScreen(navController: NavController) {
                             )
                         },
                         modifier = Modifier
-                            .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                            .clip(RoundedCornerShape(0.dp))
                             .combinedClickable(
                                 onClick = {},
                                 onLongClick = { showVersionMenu = true },
@@ -209,10 +209,7 @@ fun CoreSettingsScreen(navController: NavController) {
                     },
                     modifier =
                     Modifier.clip(
-                        RoundedCornerShape(
-                            bottomStart = 12.dp,
-                            bottomEnd = 12.dp,
-                        ),
+                        RoundedCornerShape(0.dp),
                     ),
                     colors =
                     ListItemDefaults.colors(
@@ -267,7 +264,7 @@ fun CoreSettingsScreen(navController: NavController) {
                             },
                         )
                     },
-                    modifier = Modifier.clip(RoundedCornerShape(12.dp)),
+                    modifier = Modifier.clip(RoundedCornerShape(0.dp)),
                     colors =
                     ListItemDefaults.colors(
                         containerColor = Color.Transparent,
@@ -313,7 +310,7 @@ fun CoreSettingsScreen(navController: NavController) {
                 },
                 modifier =
                 Modifier
-                    .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                    .clip(RoundedCornerShape(0.dp))
                     .clickable {
                         openInFileManager(context)
                     },
@@ -341,7 +338,7 @@ fun CoreSettingsScreen(navController: NavController) {
                 },
                 modifier =
                 Modifier
-                    .clip(RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp))
+                    .clip(RoundedCornerShape(0.dp))
                     .clickable {
                         scope.launch(Dispatchers.IO) {
                             val filesDir = context.getExternalFilesDir(null) ?: context.filesDir

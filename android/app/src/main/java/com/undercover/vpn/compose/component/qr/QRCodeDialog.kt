@@ -33,7 +33,7 @@ fun QRCodeDialog(bitmap: Bitmap, onDismiss: () -> Unit) {
             Modifier
                 .fillMaxWidth(0.9f)
                 .wrapContentHeight(),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(0.dp),
             colors =
             CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface,

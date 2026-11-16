@@ -31,8 +31,8 @@ import androidx.compose.material3.IconButton
 import com.undercover.vpn.shared.ui.components.DossierListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
+import com.undercover.vpn.shared.ui.components.DossierRadioButton
+import com.undercover.vpn.shared.ui.components.DossierSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -260,7 +260,7 @@ fun ProfileOverrideScreen(
                         },
                     )
                 },
-                modifier = Modifier.clip(RoundedCornerShape(12.dp)),
+                modifier = Modifier.clip(RoundedCornerShape(0.dp)),
                 colors =
                 ListItemDefaults.colors(
                     containerColor = Color.Transparent,
@@ -343,7 +343,7 @@ fun ProfileOverrideScreen(
                             )
                         },
                         modifier = Modifier
-                            .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                            .clip(RoundedCornerShape(0.dp))
                             .clickable(enabled = modeEnabled) { showModeDialog = true },
                         colors = ListItemDefaults.colors(
                             containerColor = Color.Transparent,
@@ -394,16 +394,7 @@ fun ProfileOverrideScreen(
                             enabled = !isScanning,
                         )
                     },
-                    modifier =
-                    Modifier.clip(
-                        if (showModeSelector) {
-                            RoundedCornerShape(0.dp)
-                        } else if (perAppProxyEnabled && canUsePerAppProxy) {
-                            RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
-                        } else {
-                            RoundedCornerShape(12.dp)
-                        },
-                    ),
+                    modifier = Modifier.clip(RoundedCornerShape(0.dp)),
                     colors =
                     ListItemDefaults.colors(
                         containerColor = Color.Transparent,
@@ -510,7 +501,7 @@ fun ProfileOverrideScreen(
                                 )
                             }
                         },
-                        modifier = Modifier.clip(RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)),
+                        modifier = Modifier.clip(RoundedCornerShape(0.dp)),
                         colors =
                         ListItemDefaults.colors(
                             containerColor = Color.Transparent,
@@ -662,7 +653,7 @@ fun ProfileOverrideScreen(
                         DossierListItem(
                             headlineContent = { Text("Shizuku") },
                             leadingContent = {
-                                RadioButton(
+                                DossierRadioButton(
                                     selected = packageQueryMode == Settings.PACKAGE_QUERY_MODE_SHIZUKU,
                                     onClick = null,
                                 )
@@ -693,7 +684,7 @@ fun ProfileOverrideScreen(
                         DossierListItem(
                             headlineContent = { Text("ROOT") },
                             leadingContent = {
-                                RadioButton(
+                                DossierRadioButton(
                                     selected = packageQueryMode == Settings.PACKAGE_QUERY_MODE_ROOT,
                                     onClick = null,
                                 )

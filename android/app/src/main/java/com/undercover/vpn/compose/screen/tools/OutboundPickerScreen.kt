@@ -143,7 +143,7 @@ fun OutboundPickerScreen(
                 )
             },
             singleLine = true,
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(0.dp),
         )
 
         LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -236,10 +236,10 @@ fun OutboundPickerRow(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(0.dp))
             .clickable(onClick = onClick),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(0.dp),
     ) {
         Row(
             modifier = Modifier

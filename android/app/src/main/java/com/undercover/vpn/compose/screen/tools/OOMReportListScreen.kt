@@ -29,8 +29,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
+import com.undercover.vpn.shared.ui.components.DossierRadioButton
+import com.undercover.vpn.shared.ui.components.DossierSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -224,15 +224,7 @@ fun OOMReportListScreen(
                     ) {
                         Column {
                             reports.forEachIndexed { index, report ->
-                                val shape = when {
-                                    reports.size == 1 -> RoundedCornerShape(12.dp)
-                                    index == 0 -> RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
-                                    index == reports.lastIndex -> RoundedCornerShape(
-                                        bottomStart = 12.dp,
-                                        bottomEnd = 12.dp,
-                                    )
-                                    else -> RoundedCornerShape(0.dp)
-                                }
+                                val shape = RoundedCornerShape(0.dp)
                                 ListItem(
                                     headlineContent = {
                                         Text(
@@ -385,13 +377,13 @@ fun OOMReportListScreen(
                                 Text(Libbox.formatMemoryBytes(value.toLong() * 1024L * 1024L))
                             },
                             leadingContent = {
-                                RadioButton(
+                                DossierRadioButton(
                                     selected = value == oomMemoryLimitMB,
                                     onClick = null,
                                 )
                             },
                             modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(0.dp))
                                 .clickable {
                                     oomMemoryLimitMB = value
                                     showMemoryLimitDialog = false

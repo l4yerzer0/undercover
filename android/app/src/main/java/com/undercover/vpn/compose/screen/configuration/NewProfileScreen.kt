@@ -46,7 +46,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
+import com.undercover.vpn.shared.ui.components.DossierSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -232,13 +232,7 @@ fun NewProfileScreen(
                         OutlinedButton(
                             onClick = { viewModel.updateProfileType(ProfileType.Local) },
                             modifier = Modifier.weight(1f),
-                            shape =
-                            RoundedCornerShape(
-                                topStart = 12.dp,
-                                bottomStart = 12.dp,
-                                topEnd = 0.dp,
-                                bottomEnd = 0.dp,
-                            ),
+                            shape = RoundedCornerShape(0.dp),
                             colors =
                             if (uiState.profileType == ProfileType.Local) {
                                 ButtonDefaults.buttonColors(
@@ -263,13 +257,7 @@ fun NewProfileScreen(
                         OutlinedButton(
                             onClick = { viewModel.updateProfileType(ProfileType.Remote) },
                             modifier = Modifier.weight(1f),
-                            shape =
-                            RoundedCornerShape(
-                                topStart = 0.dp,
-                                bottomStart = 0.dp,
-                                topEnd = 12.dp,
-                                bottomEnd = 12.dp,
-                            ),
+                            shape = RoundedCornerShape(0.dp),
                             colors =
                             if (uiState.profileType == ProfileType.Remote) {
                                 ButtonDefaults.buttonColors(
@@ -325,13 +313,7 @@ fun NewProfileScreen(
                             OutlinedButton(
                                 onClick = { viewModel.updateProfileSource(ProfileSource.CreateNew) },
                                 modifier = Modifier.weight(1f),
-                                shape =
-                                RoundedCornerShape(
-                                    topStart = 12.dp,
-                                    bottomStart = 12.dp,
-                                    topEnd = 0.dp,
-                                    bottomEnd = 0.dp,
-                                ),
+                                shape = RoundedCornerShape(0.dp),
                                 colors =
                                 if (uiState.profileSource == ProfileSource.CreateNew) {
                                     ButtonDefaults.buttonColors(
@@ -362,13 +344,7 @@ fun NewProfileScreen(
                             OutlinedButton(
                                 onClick = { viewModel.updateProfileSource(ProfileSource.Import) },
                                 modifier = Modifier.weight(1f),
-                                shape =
-                                RoundedCornerShape(
-                                    topStart = 0.dp,
-                                    bottomStart = 0.dp,
-                                    topEnd = 12.dp,
-                                    bottomEnd = 12.dp,
-                                ),
+                                shape = RoundedCornerShape(0.dp),
                                 colors =
                                 if (uiState.profileSource == ProfileSource.Import) {
                                     ButtonDefaults.buttonColors(
@@ -566,6 +542,7 @@ fun NewProfileScreen(
                 Button(
                     onClick = { viewModel.validateAndCreateProfile() },
                     modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(0.dp),
                     enabled = !uiState.isSaving,
                 ) {
                     if (uiState.isSaving) {

@@ -44,7 +44,7 @@ fun IconSelectionDialog(currentIconId: String?, onIconSelected: (String?) -> Uni
             Modifier
                 .fillMaxWidth()
                 .heightIn(max = 500.dp),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(0.dp),
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -112,7 +112,7 @@ private fun IconOption(icon: ProfileIcon?, label: String, isSelected: Boolean, o
         Modifier
             .fillMaxWidth()
             .aspectRatio(1f)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(0.dp))
             .clickable { onClick() },
         colors =
         CardDefaults.cardColors(

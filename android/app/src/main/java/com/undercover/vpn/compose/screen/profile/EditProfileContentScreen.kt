@@ -515,7 +515,7 @@ fun EditProfileContentScreen(
                                 .fillMaxWidth()
                                 .padding(horizontal = 8.dp)
                                 .padding(bottom = 2.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(0.dp),
                             tonalElevation = 6.dp,
                             shadowElevation = 4.dp,
                             color = MaterialTheme.colorScheme.errorContainer,
@@ -563,7 +563,7 @@ fun EditProfileContentScreen(
                         Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 8.dp, vertical = 8.dp),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(0.dp),
                         tonalElevation = 6.dp,
                         shadowElevation = 4.dp,
                         color = MaterialTheme.colorScheme.surface,
@@ -672,7 +672,7 @@ fun EditProfileContentScreen(
                                     .padding(0.dp)
                                     .height(36.dp)
                                     .width(36.dp),
-                                shape = RoundedCornerShape(4.dp),
+                                shape = RoundedCornerShape(0.dp),
                                 contentPadding = PaddingValues(0.dp),
                             ) {
                                 Text(
@@ -690,7 +690,7 @@ fun EditProfileContentScreen(
                                     .padding(0.dp)
                                     .height(36.dp)
                                     .width(36.dp),
-                                shape = RoundedCornerShape(4.dp),
+                                shape = RoundedCornerShape(0.dp),
                                 contentPadding = PaddingValues(0.dp),
                             ) {
                                 Text(
@@ -708,7 +708,7 @@ fun EditProfileContentScreen(
                                     .padding(0.dp)
                                     .height(36.dp)
                                     .width(36.dp),
-                                shape = RoundedCornerShape(4.dp),
+                                shape = RoundedCornerShape(0.dp),
                                 contentPadding = PaddingValues(0.dp),
                             ) {
                                 Text(
@@ -729,7 +729,7 @@ fun EditProfileContentScreen(
                                     .padding(0.dp)
                                     .height(36.dp)
                                     .width(36.dp),
-                                shape = RoundedCornerShape(4.dp),
+                                shape = RoundedCornerShape(0.dp),
                                 contentPadding = PaddingValues(0.dp),
                             ) {
                                 Text(
@@ -747,7 +747,7 @@ fun EditProfileContentScreen(
                                     .padding(0.dp)
                                     .height(36.dp)
                                     .width(36.dp),
-                                shape = RoundedCornerShape(4.dp),
+                                shape = RoundedCornerShape(0.dp),
                                 contentPadding = PaddingValues(0.dp),
                             ) {
                                 Text(
@@ -768,7 +768,7 @@ fun EditProfileContentScreen(
                                     .padding(0.dp)
                                     .height(36.dp)
                                     .width(36.dp),
-                                shape = RoundedCornerShape(4.dp),
+                                shape = RoundedCornerShape(0.dp),
                                 contentPadding = PaddingValues(0.dp),
                             ) {
                                 Text(
@@ -786,7 +786,7 @@ fun EditProfileContentScreen(
                                     .padding(0.dp)
                                     .height(36.dp)
                                     .width(36.dp),
-                                shape = RoundedCornerShape(4.dp),
+                                shape = RoundedCornerShape(0.dp),
                                 contentPadding = PaddingValues(0.dp),
                             ) {
                                 Text(
@@ -807,7 +807,7 @@ fun EditProfileContentScreen(
                                     Modifier
                                         .padding(0.dp)
                                         .height(36.dp),
-                                    shape = RoundedCornerShape(4.dp),
+                                    shape = RoundedCornerShape(0.dp),
                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                                 ) {
                                     Text(
@@ -830,7 +830,7 @@ fun EditProfileContentScreen(
                                         .padding(0.dp)
                                         .height(36.dp)
                                         .width(36.dp),
-                                    shape = RoundedCornerShape(4.dp),
+                                    shape = RoundedCornerShape(0.dp),
                                     contentPadding = PaddingValues(0.dp),
                                 ) {
                                     Text(

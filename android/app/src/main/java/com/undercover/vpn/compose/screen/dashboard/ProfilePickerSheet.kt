@@ -265,7 +265,7 @@ private fun ProfilePickerRow(
     Surface(
         onClick = onSelect,
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(0.dp),
         color = when {
             isDragging -> MaterialTheme.colorScheme.tertiaryContainer
             isSelected -> if (isSystemInDarkTheme()) {

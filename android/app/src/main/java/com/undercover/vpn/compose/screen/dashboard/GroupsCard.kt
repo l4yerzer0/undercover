@@ -310,8 +310,8 @@ private fun GroupsCardContent(
     }
 }
 
-private val GroupCardTopShape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
-private val GroupCardBottomShape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)
+private val GroupCardTopShape = RoundedCornerShape(0.dp)
+private val GroupCardBottomShape = RoundedCornerShape(0.dp)
 
 @Immutable
 private data class UrlTestPalette(
@@ -395,7 +395,7 @@ private fun GroupHeader(
                 )
             }
             Surface(
-                shape = RoundedCornerShape(999.dp),
+                shape = RoundedCornerShape(0.dp),
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
             ) {
                 Text(
@@ -566,7 +566,7 @@ private fun ProxyChip(
     modifier: Modifier = Modifier,
 ) {
     var showContextMenu by remember { mutableStateOf(false) }
-    val chipShape = RoundedCornerShape(12.dp)
+    val chipShape = RoundedCornerShape(0.dp)
     Box(modifier = modifier) {
         Surface(
             modifier =

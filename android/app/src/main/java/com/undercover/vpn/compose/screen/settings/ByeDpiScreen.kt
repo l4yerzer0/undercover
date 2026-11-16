@@ -25,7 +25,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
+import com.undercover.vpn.shared.ui.components.DossierSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -109,7 +109,7 @@ fun ByeDpiScreen(
                         },
                     )
                 },
-                modifier = Modifier.clip(RoundedCornerShape(12.dp)),
+                modifier = Modifier.clip(RoundedCornerShape(0.dp)),
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             )
 
@@ -133,6 +133,7 @@ fun ByeDpiScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Button(
+                    shape = RoundedCornerShape(0.dp),
                     enabled = !serviceRunning || testing,
                     onClick = {
                         val running = testJob

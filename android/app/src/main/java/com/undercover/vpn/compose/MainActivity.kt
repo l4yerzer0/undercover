@@ -43,15 +43,11 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
@@ -123,7 +119,6 @@ import com.undercover.vpn.compose.screen.dashboard.DashboardViewModel
 import com.undercover.vpn.compose.screen.dashboard.GroupsCard
 import com.undercover.vpn.compose.screen.dashboard.groups.GroupsViewModel
 import com.undercover.vpn.compose.screen.log.LogViewModel
-import com.undercover.vpn.compose.theme.SFATheme
 import com.undercover.vpn.compose.topbar.LocalTopBarController
 import com.undercover.vpn.compose.topbar.TopBarController
 import com.undercover.vpn.compose.topbar.TopBarEntry

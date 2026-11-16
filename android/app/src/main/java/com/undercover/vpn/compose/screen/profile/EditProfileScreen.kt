@@ -45,7 +45,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
+import com.undercover.vpn.shared.ui.components.DossierSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -259,10 +259,10 @@ fun EditProfileScreen(
                             modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(RoundedCornerShape(0.dp))
                                 .clickable { viewModel.showIconDialog() },
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(0.dp),
                         ) {
                             Row(
                                 modifier =
@@ -470,14 +470,14 @@ fun EditProfileScreen(
                             modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(RoundedCornerShape(0.dp))
                                 .clickable {
                                     onNavigateToEditContent(
                                         uiState.profileType == TypedProfile.Type.Remote,
                                     )
                                 },
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(0.dp),
                         ) {
                             Row(
                                 modifier =
@@ -537,6 +537,7 @@ fun EditProfileScreen(
                     Button(
                         onClick = { viewModel.saveChanges() },
                         modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(0.dp),
                         enabled = !uiState.isSaving && uiState.autoUpdateIntervalError == null,
                     ) {
                         if (uiState.isSaving) {

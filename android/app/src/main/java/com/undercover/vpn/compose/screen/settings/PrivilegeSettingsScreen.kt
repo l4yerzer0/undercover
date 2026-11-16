@@ -39,7 +39,7 @@ import com.undercover.vpn.shared.ui.components.DossierListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
+import com.undercover.vpn.shared.ui.components.DossierSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -314,18 +314,8 @@ fun PrivilegeSettingsScreen(navController: NavController, serviceStatus: Status 
         val isLsposedActivated = systemHookStatus?.active == true
         val showLogs = isLsposedActivated && !hasPendingChange
         val showExportDebug = showLogs
-        val statusShape =
-            if (showLogs || hasPendingChange) {
-                RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
-            } else {
-                RoundedCornerShape(12.dp)
-            }
-        val logItemShape =
-            if (showExportDebug) {
-                RoundedCornerShape(0.dp)
-            } else {
-                RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)
-            }
+        val statusShape = RoundedCornerShape(0.dp)
+        val logItemShape = RoundedCornerShape(0.dp)
         val statusLabel =
             when {
                 hasPendingDowngrade -> stringResource(R.string.lsposed_module_pending_downgrade)
@@ -443,7 +433,7 @@ fun PrivilegeSettingsScreen(navController: NavController, serviceStatus: Status 
                         },
                         modifier =
                         Modifier
-                            .clip(RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp))
+                            .clip(RoundedCornerShape(0.dp))
                             .clickable {
                                 val exportBase = File(context.cacheDir, "debug")
                                 if (!exportBase.exists()) {
@@ -500,7 +490,7 @@ fun PrivilegeSettingsScreen(navController: NavController, serviceStatus: Status 
                         },
                         modifier =
                         Modifier
-                            .clip(RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp))
+                            .clip(RoundedCornerShape(0.dp))
                             .clickable {
                                 scope.launch {
                                     val failure = withContext(Dispatchers.IO) {
@@ -619,13 +609,7 @@ fun PrivilegeSettingsScreen(navController: NavController, serviceStatus: Status 
                     },
                     modifier = Modifier
                         .alpha(if (privilegeControlsEnabled) 1f else disabledAlpha)
-                        .clip(
-                            if (hasManageItem) {
-                                RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
-                            } else {
-                                RoundedCornerShape(12.dp)
-                            },
-                        ),
+                        .clip(RoundedCornerShape(0.dp)),
                     colors = ListItemDefaults.colors(
                         containerColor = Color.Transparent,
                     ),
@@ -656,7 +640,7 @@ fun PrivilegeSettingsScreen(navController: NavController, serviceStatus: Status 
                         },
                         modifier = Modifier
                             .alpha(if (manageEnabled) 1f else disabledAlpha)
-                            .clip(RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp))
+                            .clip(RoundedCornerShape(0.dp))
                             .clickable(enabled = manageEnabled) {
                                 navController.navigate("settings/privilege/manage")
                             },
@@ -727,13 +711,7 @@ fun PrivilegeSettingsScreen(navController: NavController, serviceStatus: Status 
                     },
                     modifier = Modifier
                         .alpha(if (renameControlsEnabled) 1f else disabledAlpha)
-                        .clip(
-                            if (interfaceRenameEnabled) {
-                                RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
-                            } else {
-                                RoundedCornerShape(12.dp)
-                            },
-                        ),
+                        .clip(RoundedCornerShape(0.dp)),
                     colors = ListItemDefaults.colors(
                         containerColor = Color.Transparent,
                     ),
@@ -771,7 +749,7 @@ fun PrivilegeSettingsScreen(navController: NavController, serviceStatus: Status 
                         },
                         modifier = Modifier
                             .alpha(if (prefixEnabled) 1f else disabledAlpha)
-                            .clip(RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp))
+                            .clip(RoundedCornerShape(0.dp))
                             .clickable(enabled = prefixEnabled) {
                                 interfacePrefixInput = interfacePrefix
                                 showInterfacePrefixDialog = true
@@ -826,7 +804,7 @@ fun PrivilegeSettingsScreen(navController: NavController, serviceStatus: Status 
                     },
                     modifier = Modifier
                         .alpha(if (testEnabled) 1f else 0.38f)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(0.dp))
                         .clickable(enabled = testEnabled) {
                             showTestDialog = true
                             isTestRunning = true

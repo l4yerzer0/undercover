@@ -69,8 +69,8 @@ import com.undercover.vpn.shared.ui.components.DossierListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
+import com.undercover.vpn.shared.ui.components.DossierRadioButton
+import com.undercover.vpn.shared.ui.components.DossierSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -536,7 +536,7 @@ fun AppSettingsScreen(
                         },
                         modifier =
                         Modifier
-                            .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                            .clip(RoundedCornerShape(0.dp))
                             .combinedClickable(
                                 onClick = {},
                                 onLongClick = { showVersionMenu = true },
@@ -656,7 +656,7 @@ fun AppSettingsScreen(
                                             .padding(vertical = 12.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        RadioButton(
+                                        DossierRadioButton(
                                             selected = currentTheme == value,
                                             onClick = null
                                         )
@@ -699,7 +699,7 @@ fun AppSettingsScreen(
                             if (cacheSize > 0L) {
                                 RoundedCornerShape(0.dp)
                             } else {
-                                RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)
+                                RoundedCornerShape(0.dp)
                             },
                         ),
                     colors =
@@ -725,7 +725,7 @@ fun AppSettingsScreen(
                         },
                         modifier =
                         Modifier
-                            .clip(RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp))
+                            .clip(RoundedCornerShape(0.dp))
                             .clickable {
                                 scope.launch(Dispatchers.IO) {
                                     context.cacheDir?.listFiles()?.forEach { it.deleteRecursively() }
@@ -866,7 +866,7 @@ fun AppSettingsScreen(
                     },
                     modifier =
                     Modifier
-                        .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                        .clip(RoundedCornerShape(0.dp))
                         .clickable { showDisableNotificationDialog = true },
                     colors =
                     ListItemDefaults.colors(
@@ -903,7 +903,7 @@ fun AppSettingsScreen(
                     },
                     modifier =
                     Modifier
-                        .clip(RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)),
+                        .clip(RoundedCornerShape(0.dp)),
                     colors =
                     ListItemDefaults.colors(
                         containerColor = Color.Transparent,
@@ -1720,12 +1720,12 @@ private fun LanguageDialog(
                     modifier =
                     Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(0.dp))
                         .clickable { onLocaleSelected("") }
                         .padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    RadioButton(
+                    DossierRadioButton(
                         selected = currentTag.isEmpty(),
                         onClick = { onLocaleSelected("") },
                     )
@@ -1741,12 +1741,12 @@ private fun LanguageDialog(
                         modifier =
                         Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(0.dp))
                             .clickable { onLocaleSelected(tag) }
                             .padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        RadioButton(
+                        DossierRadioButton(
                             selected = currentTag == tag,
                             onClick = { onLocaleSelected(tag) },
                         )
@@ -1835,12 +1835,12 @@ private fun InstallMethodDialog(
                         modifier =
                         Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(0.dp))
                             .clickable { onMethodSelected(value) }
                             .padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        RadioButton(
+                        DossierRadioButton(
                             selected = currentMethod == value,
                             onClick = { onMethodSelected(value) },
                         )

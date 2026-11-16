@@ -46,7 +46,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
-import androidx.compose.material3.RadioButton
+import com.undercover.vpn.shared.ui.components.DossierRadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -258,7 +258,7 @@ fun ProfilesCard(
 
                 Surface(
                     onClick = onShowAddProfileSheet,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(0.dp),
                     color = if (isSystemInDarkTheme()) {
                         lerp(
                             MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -807,7 +807,7 @@ private fun ActionButton(
     Surface(
         onClick = onClick,
         enabled = enabled,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(0.dp),
         color = if (isSystemInDarkTheme()) {
             lerp(
                 MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -976,7 +976,7 @@ private fun ProfileRow(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(
+        DossierRadioButton(
             selected = selected,
             onClick = onSelect,
         )
@@ -984,7 +984,7 @@ private fun ProfileRow(
         Column(
             modifier = Modifier
                 .weight(1f)
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(0.dp))
                 .clickable(onClick = onOpen)
                 .padding(vertical = 12.dp, horizontal = 4.dp),
         ) {

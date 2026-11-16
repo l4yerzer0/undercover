@@ -287,8 +287,8 @@ fun QRScanSheet(
                     onClick = onDismiss,
                     modifier = Modifier
                         .size(44.dp)
-                        .background(Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(8.dp))
-                        .border(1.dp, primaryColor.copy(alpha = 0.4f), RoundedCornerShape(8.dp)),
+                        .background(Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(0.dp))
+                        .border(1.dp, primaryColor.copy(alpha = 0.4f), RoundedCornerShape(0.dp)),
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
@@ -322,8 +322,8 @@ fun QRScanSheet(
                         onClick = { galleryLauncher.launch("image/*") },
                         modifier = Modifier
                             .size(44.dp)
-                            .background(Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(8.dp))
-                            .border(1.dp, primaryColor.copy(alpha = 0.4f), RoundedCornerShape(8.dp)),
+                            .background(Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(0.dp))
+                            .border(1.dp, primaryColor.copy(alpha = 0.4f), RoundedCornerShape(0.dp)),
                     ) {
                         Icon(
                             imageVector = Icons.Default.PhotoLibrary,
@@ -338,9 +338,9 @@ fun QRScanSheet(
                             .size(44.dp)
                             .background(
                                 if (uiState.torchEnabled) primaryColor else Color.Black.copy(alpha = 0.6f),
-                                shape = RoundedCornerShape(8.dp),
+                                shape = RoundedCornerShape(0.dp),
                             )
-                            .border(1.dp, primaryColor.copy(alpha = 0.4f), RoundedCornerShape(8.dp)),
+                            .border(1.dp, primaryColor.copy(alpha = 0.4f), RoundedCornerShape(0.dp)),
                     ) {
                         Icon(
                             imageVector = if (uiState.torchEnabled) Icons.Default.FlashlightOn else Icons.Default.FlashlightOff,
@@ -353,8 +353,8 @@ fun QRScanSheet(
                         onClick = { viewModel.toggleFrontCamera(lifecycleOwner) },
                         modifier = Modifier
                             .size(44.dp)
-                            .background(Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(8.dp))
-                            .border(1.dp, primaryColor.copy(alpha = 0.4f), RoundedCornerShape(8.dp)),
+                            .background(Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(0.dp))
+                            .border(1.dp, primaryColor.copy(alpha = 0.4f), RoundedCornerShape(0.dp)),
                     ) {
                         Icon(
                             imageVector = Icons.Default.Cameraswitch,

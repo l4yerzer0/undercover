@@ -133,7 +133,7 @@ fun QRSDialog(profileData: ByteArray, profileName: String, onDismiss: () -> Unit
                     .fillMaxWidth(0.9f)
                     .wrapContentHeight()
             },
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(0.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface,
             ),
@@ -230,6 +230,7 @@ fun QRSDialog(profileData: ByteArray, profileName: String, onDismiss: () -> Unit
                             context.startActivity(intent)
                         },
                         modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(0.dp),
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Info,
@@ -243,6 +244,7 @@ fun QRSDialog(profileData: ByteArray, profileName: String, onDismiss: () -> Unit
                     Button(
                         onClick = onDismiss,
                         modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(0.dp),
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
