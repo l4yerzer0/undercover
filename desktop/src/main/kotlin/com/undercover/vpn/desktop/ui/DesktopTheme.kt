@@ -9,20 +9,24 @@ import com.undercover.vpn.shared.ui.theme.DossierTypography
 val DossierCream = Color(0xFFEDE7D9)
 val DossierBackground = Color(0xFF0C0C0C)
 val DossierMint = Color(0xFF8FE3B0)
+val DossierDarkPaper = Color(0xFF191510)
+val DossierLightCream = Color(0xFFF2F1EE)
 val DossierInk = Color(0xFF08080A)
 val DossierRed = Color(0xFFE55D5D)
-val DossierSurfaceVariant = Color(0xFF1E1E1E)
 
 val DossierColorScheme = darkColorScheme(
-    primary = DossierMint,
+    primary = DossierCream,
     onPrimary = DossierInk,
-    primaryContainer = DossierMint,
+    primaryContainer = DossierCream,
     onPrimaryContainer = DossierInk,
+    secondary = DossierMint,
+    onSecondary = DossierBackground,
+    tertiary = DossierLightCream,
     background = DossierBackground,
     onBackground = DossierCream,
-    surface = DossierBackground,
+    surface = DossierDarkPaper,
     onSurface = DossierCream,
-    surfaceVariant = DossierSurfaceVariant,
+    surfaceVariant = Color(0xFF191510),
     onSurfaceVariant = DossierCream,
     error = DossierRed
 )

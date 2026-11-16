@@ -13,10 +13,10 @@ import com.undercover.vpn.desktop.model.VpnState
 import com.undercover.vpn.desktop.ui.DesktopApp
 import kotlinx.coroutines.launch
 
-object TrayIconPainter : Painter() {
+class TrayIconPainter(private val isConnected: Boolean) : Painter() {
     override val intrinsicSize: Size = Size(32f, 32f)
     override fun DrawScope.onDraw() {
-        drawRect(Color(0xFF8FE3B0))
+        drawRect(if (isConnected) Color(0xFF8FE3B0) else Color(0xFFEDE7D9))
     }
 }
 
@@ -36,7 +36,7 @@ fun main() = application {
 
     // System Tray
     Tray(
-        icon = TrayIconPainter,
+        icon = remember(vpnState) { TrayIconPainter(vpnState is VpnState.Connected) },
         tooltip = trayTooltip,
         onAction = { isVisible = true },
         menu = {

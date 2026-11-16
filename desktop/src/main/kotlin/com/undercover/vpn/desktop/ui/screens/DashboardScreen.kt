@@ -49,7 +49,7 @@ fun DashboardScreen(
                 modifier = Modifier
                     .size(8.dp)
                     .background(
-                        color = if (isConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                        color = if (isConnected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
                         shape = CircleShape
                     )
             )
@@ -245,7 +245,8 @@ fun DashboardScreen(
                             text = {
                                 Text(
                                     prof.name,
-                                    color = if (prof.id == selectedProfile?.id) DossierMint else MaterialTheme.colorScheme.onSurface
+                                    color = if (prof.id == selectedProfile?.id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                    fontWeight = if (prof.id == selectedProfile?.id) FontWeight.Bold else FontWeight.Normal
                                 )
                             },
                             onClick = {

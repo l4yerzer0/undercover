@@ -70,7 +70,7 @@ fun LogsScreen(modifier: Modifier = Modifier) {
                 Text(
                     text = "CLEAR",
                     style = MaterialTheme.typography.labelSmall,
-                    color = DossierRed,
+                    color = MaterialTheme.colorScheme.error,
                     letterSpacing = 1.sp,
                     modifier = Modifier
                         .clickable { logsList.clear() }
@@ -97,9 +97,9 @@ fun LogsScreen(modifier: Modifier = Modifier) {
         ) {
             items(logsList) { line ->
                 val color = when {
-                    line.contains("[ERROR]") || line.contains("error") -> DossierRed
+                    line.contains("[ERROR]") || line.contains("error") -> MaterialTheme.colorScheme.error
                     line.contains("[WARN]") || line.contains("warn") -> MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
-                    line.contains("[APP]") || line.contains("[CORE]") -> DossierMint
+                    line.contains("[APP]") || line.contains("[CORE]") -> MaterialTheme.colorScheme.secondary
                     else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                 }
                 Text(

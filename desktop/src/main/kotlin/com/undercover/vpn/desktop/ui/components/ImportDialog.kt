@@ -38,7 +38,7 @@ fun ImportDialog(
         Box(
             modifier = Modifier
                 .width(600.dp)
-                .border(1.dp, DossierMint.copy(alpha = 0.6f))
+                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
                 .background(MaterialTheme.colorScheme.background)
                 .padding(28.dp)
         ) {
@@ -72,7 +72,7 @@ fun ImportDialog(
                         )
                     },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = DossierMint,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
                         focusedTextColor = MaterialTheme.colorScheme.onSurface,
                         unfocusedTextColor = MaterialTheme.colorScheme.onSurface
@@ -132,7 +132,7 @@ fun ImportDialog(
 
                 if (isLoading) {
                     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = DossierMint)
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
                 } else {
                     DossierButton(

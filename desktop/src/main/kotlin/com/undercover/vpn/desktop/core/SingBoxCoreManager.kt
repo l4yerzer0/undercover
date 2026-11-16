@@ -115,7 +115,7 @@ object SingBoxCoreManager {
     }
 
     private suspend fun downloadSingBox(targetBin: File, goos: String, goarch: String): File = withContext(Dispatchers.IO) {
-        val version = "1.11.1"
+        val version = "1.14.4"
         val ext = if (goos == "windows") "zip" else "tar.gz"
         val archiveName = "sing-box-$version-$goos-$goarch"
         val downloadUrl = "https://github.com/SagerNet/sing-box/releases/download/v$version/$archiveName.$ext"

@@ -101,7 +101,7 @@ fun ProfilesScreen(
                                     style = MaterialTheme.typography.bodyLarge.copy(
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                     ),
-                                    color = if (isSelected) DossierMint else MaterialTheme.colorScheme.onSurface
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 val subtitle = when (prof.type) {
@@ -123,7 +123,7 @@ fun ProfilesScreen(
                                     Text(
                                         text = "${prof.latencyMs} ms",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = DossierMint,
+                                        color = MaterialTheme.colorScheme.secondary,
                                         modifier = Modifier.padding(end = 12.dp)
                                     )
                                 }
@@ -155,7 +155,7 @@ fun ProfilesScreen(
                                 Text(
                                     text = "DEL",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = DossierRed,
+                                    color = MaterialTheme.colorScheme.error,
                                     letterSpacing = 1.sp,
                                     modifier = Modifier
                                         .clickable { onDeleteProfile(prof) }

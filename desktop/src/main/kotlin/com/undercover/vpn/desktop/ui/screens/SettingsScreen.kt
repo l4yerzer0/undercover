@@ -71,7 +71,7 @@ fun SettingsScreen(
                     Text(
                         text = if (mode == ProxyMode.SYSTEM_PROXY) "System Proxy (SOCKS / HTTP)" else "TUN Virtual Adapter (Full VPN)",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = DossierMint
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
@@ -167,7 +167,7 @@ fun SettingsScreen(
                         }
                     },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = DossierMint,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
                         focusedTextColor = MaterialTheme.colorScheme.onSurface,
                         unfocusedTextColor = MaterialTheme.colorScheme.onSurface
@@ -196,7 +196,7 @@ fun SettingsScreen(
                         }
                     },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = DossierMint,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
                         focusedTextColor = MaterialTheme.colorScheme.onSurface,
                         unfocusedTextColor = MaterialTheme.colorScheme.onSurface
@@ -230,16 +230,16 @@ fun SettingsScreen(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Embedded sing-box (v1.11.1)",
+                    text = "Embedded sing-box (v1.14.4)",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = DossierMint
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
 
             Text(
                 text = "READY",
                 style = MaterialTheme.typography.labelSmall,
-                color = DossierMint,
+                color = MaterialTheme.colorScheme.secondary,
                 letterSpacing = 1.sp
             )
         }
