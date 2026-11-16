@@ -1,11 +1,11 @@
 package com.undercover.vpn.shared.parser
 
-import android.util.Base64
 import com.undercover.vpn.shared.parser.happ.HappDecoder
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URI
 import java.net.URLDecoder
+import java.util.Base64
 
 data class ParsedProxyConfig(
     val name: String,
@@ -180,9 +180,20 @@ object ConfigParser {
         return ParsedProxyConfig(name, "VLESS", server, port, outbound)
     }
 
+    private fun decodeBase64(str: String): ByteArray {
+        val clean = str.trim().replace('-', '+').replace('_', '/').let {
+            when (it.length % 4) {
+                2 -> "$it=="
+                3 -> "$it="
+                else -> it
+            }
+        }
+        return Base64.getDecoder().decode(clean)
+    }
+
     private fun parseVmess(uriStr: String): ParsedProxyConfig? {
         val rawBase64 = uriStr.substring("vmess://".length)
-        val decodedBytes = Base64.decode(rawBase64, Base64.DEFAULT)
+        val decodedBytes = decodeBase64(rawBase64)
         val jsonStr = String(decodedBytes, Charsets.UTF_8)
         val map = JSONObject(jsonStr)
 
@@ -225,7 +236,7 @@ object ConfigParser {
                 method = subParts[0]
                 password = subParts[1]
             } else {
-                val decoded = String(Base64.decode(userInfo, Base64.DEFAULT), Charsets.UTF_8)
+                val decoded = String(decodeBase64(userInfo), Charsets.UTF_8)
                 if (decoded.contains(":")) {
                     val subParts = decoded.split(":", limit = 2)
                     method = subParts[0]

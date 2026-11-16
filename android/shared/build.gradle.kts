@@ -12,19 +12,39 @@ kotlin {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
+    jvm("desktop") {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
+    }
     
     sourceSets {
-        commonMain.dependencies {
-            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
-            implementation("io.ktor:ktor-http:2.3.9")
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.material3)
-            implementation(compose.ui)
-            implementation(compose.components.resources)
-            implementation(compose.components.uiToolingPreview)
+        val commonMain by getting {
+            dependencies {
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+                implementation("io.ktor:ktor-http:2.3.9")
+                implementation(compose.runtime)
+                implementation(compose.foundation)
+                implementation(compose.material3)
+                implementation(compose.ui)
+                implementation(compose.components.resources)
+                implementation(compose.components.uiToolingPreview)
+            }
         }
-        androidMain.dependencies {
+        val jvmCommonMain by creating {
+            dependsOn(commonMain)
+            dependencies {
+                compileOnly("org.json:json:20240303")
+            }
+        }
+        val androidMain by getting {
+            dependsOn(jvmCommonMain)
+        }
+        val desktopMain by getting {
+            dependsOn(jvmCommonMain)
+            dependencies {
+                implementation("org.json:json:20240303")
+            }
         }
     }
 }
