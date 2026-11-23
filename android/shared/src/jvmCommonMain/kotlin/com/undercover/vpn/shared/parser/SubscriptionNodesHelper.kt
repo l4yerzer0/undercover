@@ -80,13 +80,21 @@ object SubscriptionNodesHelper {
                     }
                 }
 
-                val defaultTag = primarySelector.optString("default").takeIf { it.isNotEmpty() }
-                    ?: nodes.firstOrNull()?.tag
+                val realNodesCount = nodes.count { it.type != "AUTO" && it.type != "GROUP" }
+                val filteredNodes = if (realNodesCount <= 1) {
+                    nodes.filter { it.type != "AUTO" }
+                } else {
+                    nodes
+                }
+
+                val rawDefault = primarySelector.optString("default").takeIf { it.isNotEmpty() }
+                val defaultTag = rawDefault?.takeIf { tag -> filteredNodes.any { it.tag == tag } }
+                    ?: filteredNodes.firstOrNull()?.tag
 
                 return ProfileNodesInfo(
                     selectorTag = selectorTag,
                     selectedNodeTag = defaultTag,
-                    nodes = nodes,
+                    nodes = filteredNodes,
                 )
             }
 
