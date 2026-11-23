@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - dev
     paths:
       - 'android/**'
       - 'cli/**'
@@ -147,8 +148,14 @@ jobs:
             TAG_NAME="v${VERSION_NAME}"
           fi
 
+          IS_PRERELEASE="false"
+          if [[ "${{ github.ref_name }}" == "dev" ]] || [[ "$VERSION_NAME" == *"-beta"* ]] || [[ "$VERSION_NAME" == *"-alpha"* ]] || [[ "$VERSION_NAME" == *"-rc"* ]] || [[ "$TAG_NAME" == *"-beta"* ]] || [[ "$TAG_NAME" == *"-alpha"* ]] || [[ "$TAG_NAME" == *"-rc"* ]]; then
+            IS_PRERELEASE="true"
+          fi
+
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
           echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
 
           # Generate version-metadata.json for in-app update checker
           cat <<EOF > release_artifacts/version-metadata.json
@@ -167,7 +174,7 @@ jobs:
           name: "Undercover ${{ steps.meta.outputs.tag_name }}"
           generate_release_notes: true
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.meta.outputs.is_prerelease == 'true' }}
           files: |
             release_artifacts/android/*.apk
             release_artifacts/cli/*

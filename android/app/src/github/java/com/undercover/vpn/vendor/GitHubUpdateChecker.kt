@@ -17,6 +17,29 @@ class GitHubUpdateChecker : Closeable {
         private const val RELEASES_URL = "https://api.github.com/repos/l4yerzer0/undercover/releases"
         private const val METADATA_FILENAME = "SFA-version-metadata.json"
         private const val ALT_METADATA_FILENAME = "version-metadata.json"
+
+        internal fun compareVersionNames(left: String, right: String): Int {
+            val leftRaw = left.removePrefix("v").trim()
+            val rightRaw = right.removePrefix("v").trim()
+            val cleanLeft = leftRaw.substringBefore('-').trim()
+            val cleanRight = rightRaw.substringBefore('-').trim()
+            val leftParts = cleanLeft.split('.').map { it.toIntOrNull() ?: 0 }
+            val rightParts = cleanRight.split('.').map { it.toIntOrNull() ?: 0 }
+            val maxLen = maxOf(leftParts.size, rightParts.size)
+            for (i in 0 until maxLen) {
+                val l = leftParts.getOrElse(i) { 0 }
+                val r = rightParts.getOrElse(i) { 0 }
+                if (l != r) return l.compareTo(r)
+            }
+            val leftPre = if (leftRaw.contains('-')) leftRaw.substringAfter('-') else null
+            val rightPre = if (rightRaw.contains('-')) rightRaw.substringAfter('-') else null
+            return when {
+                leftPre == null && rightPre == null -> 0
+                leftPre == null && rightPre != null -> 1
+                leftPre != null && rightPre == null -> -1
+                else -> leftPre!!.compareTo(rightPre!!)
+            }
+        }
     }
 
     private val client = Libbox.newHTTPClient().apply {
@@ -120,19 +143,6 @@ class GitHubUpdateChecker : Closeable {
         return version.versionCode > other.versionCode
     }
 
-    internal fun compareVersionNames(left: String, right: String): Int {
-        val cleanLeft = left.removePrefix("v").substringBefore('-').trim()
-        val cleanRight = right.removePrefix("v").substringBefore('-').trim()
-        val leftParts = cleanLeft.split('.').map { it.toIntOrNull() ?: 0 }
-        val rightParts = cleanRight.split('.').map { it.toIntOrNull() ?: 0 }
-        val maxLen = maxOf(leftParts.size, rightParts.size)
-        for (i in 0 until maxLen) {
-            val l = leftParts.getOrElse(i) { 0 }
-            val r = rightParts.getOrElse(i) { 0 }
-            if (l != r) return l.compareTo(r)
-        }
-        return 0
-    }
 
     private fun downloadMetadata(release: GitHubRelease): VersionMetadata? {
         val metadataAsset = release.assets.find { it.name == METADATA_FILENAME || it.name == ALT_METADATA_FILENAME }
