@@ -55,7 +55,17 @@ class GitHubUpdateChecker : Closeable {
         val metadata = selected.metadata
 
         val isLegacy = Build.VERSION.SDK_INT < Build.VERSION_CODES.M
+        val primaryAbi = Build.SUPPORTED_ABIS.firstOrNull()
         val apkAsset = release.assets.find { asset ->
+            asset.name.endsWith(".apk") &&
+                !asset.name.contains("play") &&
+                primaryAbi != null &&
+                asset.name.contains(primaryAbi)
+        } ?: release.assets.find { asset ->
+            asset.name.endsWith(".apk") &&
+                !asset.name.contains("play") &&
+                asset.name.contains("universal")
+        } ?: release.assets.find { asset ->
             asset.name.endsWith(".apk") &&
                 !asset.name.contains("play") &&
                 asset.name.contains("legacy-android-5") == isLegacy
@@ -99,23 +109,29 @@ class GitHubUpdateChecker : Closeable {
     }
 
     private fun isNewerThanCurrent(metadata: VersionMetadata): Boolean {
-        if (Libbox.compareSemver(metadata.versionName, BuildConfig.VERSION_NAME)) {
-            return true
-        }
-        if (Libbox.compareSemver(BuildConfig.VERSION_NAME, metadata.versionName)) {
-            return false
-        }
+        val cmp = compareVersionNames(metadata.versionName, BuildConfig.VERSION_NAME)
+        if (cmp != 0) return cmp > 0
         return metadata.versionCode > BuildConfig.VERSION_CODE
     }
 
     private fun isBetterVersion(version: VersionMetadata, other: VersionMetadata): Boolean {
-        if (Libbox.compareSemver(version.versionName, other.versionName)) {
-            return true
-        }
-        if (Libbox.compareSemver(other.versionName, version.versionName)) {
-            return false
-        }
+        val cmp = compareVersionNames(version.versionName, other.versionName)
+        if (cmp != 0) return cmp > 0
         return version.versionCode > other.versionCode
+    }
+
+    internal fun compareVersionNames(left: String, right: String): Int {
+        val cleanLeft = left.removePrefix("v").substringBefore('-').trim()
+        val cleanRight = right.removePrefix("v").substringBefore('-').trim()
+        val leftParts = cleanLeft.split('.').map { it.toIntOrNull() ?: 0 }
+        val rightParts = cleanRight.split('.').map { it.toIntOrNull() ?: 0 }
+        val maxLen = maxOf(leftParts.size, rightParts.size)
+        for (i in 0 until maxLen) {
+            val l = leftParts.getOrElse(i) { 0 }
+            val r = rightParts.getOrElse(i) { 0 }
+            if (l != r) return l.compareTo(r)
+        }
+        return 0
     }
 
     private fun downloadMetadata(release: GitHubRelease): VersionMetadata? {

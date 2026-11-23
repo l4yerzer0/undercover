@@ -1,12 +1,14 @@
 package com.undercover.vpn.bg
 
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import com.undercover.vpn.shared.parser.SubscriptionNodesHelper
 import com.undercover.vpn.shared.parser.XrayConfigGenerator
 import java.io.File
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.util.zip.ZipFile
 
 object XrayManager {
     private const val TAG = "XrayManager"
@@ -35,10 +37,7 @@ object XrayManager {
             }
             stopLocked()
 
-            val binary = File(context.applicationInfo.nativeLibraryDir, "libxray.so")
-            if (!binary.exists()) {
-                throw IllegalStateException("Xray core binary not found: ${binary.absolutePath}")
-            }
+            val binary = resolveXrayBinary(context)
             if (!binary.canExecute()) {
                 binary.setExecutable(true)
             }
@@ -69,6 +68,44 @@ object XrayManager {
 
             waitForSocksReady(proc)
         }
+    }
+
+    private fun resolveXrayBinary(context: Context): File {
+        val nativeLib = File(context.applicationInfo.nativeLibraryDir, "libxray.so")
+        if (nativeLib.exists() && nativeLib.length() > 0L) {
+            return nativeLib
+        }
+
+        // Fallback: extract directly from APK if the installer didn't unpack native libs
+        val extracted = File(context.filesDir, "bin/libxray.so").apply { parentFile?.mkdirs() }
+        if (extracted.exists() && extracted.length() > 0L) {
+            return extracted
+        }
+
+        val apkSources = buildList {
+            context.applicationInfo.sourceDir?.let { add(it) }
+            context.applicationInfo.splitSourceDirs?.forEach { add(it) }
+        }
+        val abis = Build.SUPPORTED_ABIS.toList()
+        for (apkPath in apkSources) {
+            try {
+                ZipFile(apkPath).use { zip ->
+                    for (abi in abis) {
+                        val entry = zip.getEntry("lib/$abi/libxray.so") ?: continue
+                        zip.getInputStream(entry).use { input ->
+                            extracted.outputStream().use { output -> input.copyTo(output) }
+                        }
+                        extracted.setExecutable(true, false)
+                        Log.i(TAG, "Extracted libxray.so ($abi) from $apkPath")
+                        return extracted
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to inspect APK $apkPath for libxray.so", e)
+            }
+        }
+
+        throw IllegalStateException("Xray core binary not found: ${nativeLib.absolutePath}")
     }
 
     private fun waitForSocksReady(proc: Process) {

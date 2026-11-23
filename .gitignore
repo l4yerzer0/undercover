@@ -42,6 +42,8 @@ bin/
 *.exe~
 *.dll
 *.so
+!android/app/src/main/jniLibs/**/*.so
+!desktop/src/main/resources/bin/**
 *.dylib
 *.test
 *.out
