@@ -87,7 +87,7 @@ object ProfileImporter {
     }
 
     private fun fetchRemoteSubscription(urlStr: String): DesktopProfile {
-        val fetchResult = SubscriptionMetadataFetcher.fetch(urlStr, "SFA/0.4 (sing-box 1.14.4; linux)")
+        val fetchResult = SubscriptionMetadataFetcher.fetch(urlStr, "SFA/0.5 (sing-box 1.14.4; linux)")
 
         // A subscription can be a sing-box JSON config, a base64 blob, or a plain list of proxy links.
         val multiCore = SubscriptionContentParser.toMultiCoreConfig(fetchResult.content)
