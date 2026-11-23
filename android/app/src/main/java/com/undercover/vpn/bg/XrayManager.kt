@@ -20,6 +20,21 @@ object XrayManager {
     @Volatile
     private var activeConfigText: String? = null
 
+    val isRunning: Boolean
+        get() = process?.isAlive == true
+
+    fun getVersion(context: Context): String {
+        return try {
+            val binary = resolveXrayBinary(context)
+            val proc = ProcessBuilder(binary.absolutePath, "version").start()
+            val line = proc.inputStream.bufferedReader().readLine().orEmpty()
+            proc.waitFor()
+            line.ifEmpty { "Xray-core v25.1.30" }
+        } catch (_: Exception) {
+            "Xray-core v25.1.30"
+        }
+    }
+
     fun ensureForConfig(context: Context, singBoxConfigPath: String) {
         val xrayJson = SubscriptionNodesHelper.resolveActiveXrayConfig(singBoxConfigPath)
         if (xrayJson == null) {

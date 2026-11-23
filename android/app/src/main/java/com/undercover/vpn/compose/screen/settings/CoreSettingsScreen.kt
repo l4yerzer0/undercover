@@ -40,6 +40,10 @@ import androidx.compose.material3.MaterialTheme
 import com.undercover.vpn.shared.ui.components.DossierSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material.icons.automirrored.outlined.AltRoute
+import androidx.compose.material.icons.outlined.Speed
+import com.undercover.vpn.bg.XrayManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -69,15 +73,28 @@ import kotlinx.coroutines.withContext
 fun CoreSettingsScreen(navController: NavController) {
     OverrideTopBar {
         TopAppBar(
-            title = { Text(stringResource(R.string.core)) },
+            title = {
+                Text(
+                    stringResource(R.string.core),
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.titleLarge
+                )
+            },
             navigationIcon = {
                 IconButton(onClick = { navController.navigateUp() }) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = stringResource(R.string.content_description_back),
+                        tint = MaterialTheme.colorScheme.primary,
                     )
                 }
             },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.background,
+                scrolledContainerColor = MaterialTheme.colorScheme.background,
+                titleContentColor = MaterialTheme.colorScheme.primary,
+                navigationIconContentColor = MaterialTheme.colorScheme.primary,
+            )
         )
     }
 
@@ -85,10 +102,11 @@ fun CoreSettingsScreen(navController: NavController) {
     val scope = rememberCoroutineScope()
     var dataSize by remember { mutableStateOf("") }
     val version = remember { Libbox.version() }
+    var xrayVersion by remember { mutableStateOf("Xray-core v25.1.30") }
     var showVersionMenu by remember { mutableStateOf(false) }
     var disableDeprecatedWarnings by remember { mutableStateOf(Settings.disableDeprecatedWarnings) }
 
-    // Calculate data size on launch
+    // Calculate data size and Xray version on launch
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
             val filesDir = context.getExternalFilesDir(null) ?: context.filesDir
@@ -98,7 +116,11 @@ fun CoreSettingsScreen(navController: NavController) {
                     .map { it.length() }
                     .sum()
             val formattedSize = Libbox.formatBytes(size)
-            dataSize = formattedSize
+            val xv = XrayManager.getVersion(context)
+            withContext(Dispatchers.Main) {
+                dataSize = formattedSize
+                xrayVersion = xv
+            }
         }
     }
 
@@ -106,10 +128,17 @@ fun CoreSettingsScreen(navController: NavController) {
         modifier =
         Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
+            .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
             .padding(vertical = 8.dp),
     ) {
+        Text(
+            text = "SING-BOX CORE (ОСНОВНОЕ)",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp),
+        )
+
         // Core Information Card
         Card(
             modifier =
@@ -269,6 +298,107 @@ fun CoreSettingsScreen(navController: NavController) {
                     ListItemDefaults.colors(
                         containerColor = Color.Transparent,
                     ),
+                )
+            }
+        }
+
+        // Xray-core Secondary Engine Section
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "XRAY-CORE (ВТОРИЧНОЕ ЯДРО)",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp),
+        )
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        ) {
+            Column {
+                DossierListItem(
+                    headlineContent = {
+                        Text(
+                            "Версия Xray-core",
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    },
+                    supportingContent = {
+                        Text(
+                            xrayVersion,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    },
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.Outlined.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    },
+                    modifier = Modifier.clip(RoundedCornerShape(0.dp)),
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                )
+
+                DossierListItem(
+                    headlineContent = {
+                        Text(
+                            "Статус моста",
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    },
+                    supportingContent = {
+                        val statusText = if (XrayManager.isRunning) {
+                            "Активен · SOCKS5 127.0.0.1:10808"
+                        } else {
+                            "Готов к работе · Автозапуск для XHTTP/mKCP"
+                        }
+                        Text(
+                            statusText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (XrayManager.isRunning) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    },
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.AltRoute,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    },
+                    modifier = Modifier.clip(RoundedCornerShape(0.dp)),
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                )
+
+                DossierListItem(
+                    headlineContent = {
+                        Text(
+                            "Поддерживаемые протоколы",
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    },
+                    supportingContent = {
+                        Text(
+                            "XHTTP, SplitHTTP, mKCP, VLESS, VMess, Trojan",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    },
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.Outlined.Speed,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    },
+                    modifier = Modifier.clip(RoundedCornerShape(0.dp)),
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 )
             }
         }

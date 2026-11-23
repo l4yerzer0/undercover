@@ -74,6 +74,7 @@ import com.undercover.vpn.shared.ui.components.DossierSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -135,15 +136,28 @@ fun AppSettingsScreen(
 ) {
     OverrideTopBar {
         TopAppBar(
-            title = { Text(stringResource(R.string.title_app_settings)) },
+            title = {
+                Text(
+                    stringResource(R.string.title_app_settings),
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.titleLarge
+                )
+            },
             navigationIcon = {
                 IconButton(onClick = { navController.navigateUp() }) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = stringResource(R.string.content_description_back),
+                        tint = MaterialTheme.colorScheme.primary,
                     )
                 }
             },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.background,
+                scrolledContainerColor = MaterialTheme.colorScheme.background,
+                titleContentColor = MaterialTheme.colorScheme.primary,
+                navigationIconContentColor = MaterialTheme.colorScheme.primary,
+            )
         )
     }
 
@@ -314,7 +328,10 @@ fun AppSettingsScreen(
     showErrorDialog?.let { message ->
         AlertDialog(
             onDismissRequest = { showErrorDialog = null },
-            title = { Text(stringResource(R.string.check_update)) },
+            shape = RoundedCornerShape(0.dp),
+            containerColor = MaterialTheme.colorScheme.background,
+            modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+            title = { Text(stringResource(R.string.check_update), color = MaterialTheme.colorScheme.primary) },
             text = { Text(message) },
             confirmButton = {
                 TextButton(onClick = { showErrorDialog = null }) {
@@ -327,7 +344,10 @@ fun AppSettingsScreen(
     if (showDownloadDialog) {
         AlertDialog(
             onDismissRequest = {},
-            title = { Text(stringResource(R.string.update)) },
+            shape = RoundedCornerShape(0.dp),
+            containerColor = MaterialTheme.colorScheme.background,
+            modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+            title = { Text(stringResource(R.string.update), color = MaterialTheme.colorScheme.primary) },
             text = {
                 Column {
                     if (downloadError != null) {
@@ -406,7 +426,10 @@ fun AppSettingsScreen(
     if (showDisableNotificationDialog) {
         AlertDialog(
             onDismissRequest = { showDisableNotificationDialog = false },
-            title = { Text(stringResource(R.string.enable_notification)) },
+            shape = RoundedCornerShape(0.dp),
+            containerColor = MaterialTheme.colorScheme.background,
+            modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+            title = { Text(stringResource(R.string.enable_notification), color = MaterialTheme.colorScheme.primary) },
             text = {
                 Text(
                     stringResource(
@@ -492,7 +515,7 @@ fun AppSettingsScreen(
         modifier =
         Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
+            .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
             .padding(vertical = 8.dp),
     ) {
@@ -641,7 +664,10 @@ fun AppSettingsScreen(
                     val darkStr = stringResource(R.string.app_theme_dark)
                     AlertDialog(
                         onDismissRequest = { showThemeDialog = false },
-                        title = { Text(stringResource(R.string.app_theme)) },
+                        shape = RoundedCornerShape(0.dp),
+                        containerColor = MaterialTheme.colorScheme.background,
+                        modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+                        title = { Text(stringResource(R.string.app_theme), color = MaterialTheme.colorScheme.primary) },
                         text = {
                             Column {
                                 listOf(0 to systemDefaultStr, 1 to lightStr, 2 to darkStr).forEach { (value, name) ->

@@ -359,15 +359,18 @@ fun ConnectionsConfigsScreen(
                                         color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false),
                                     )
                                 }
+
+                                Spacer(modifier = Modifier.width(8.dp))
 
                                 val isRemote = profile.typed.type == TypedProfile.Type.Remote
                                 Box(
                                     modifier = Modifier
                                         .background(
                                             if (isRemote) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                             else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
                                         )
                                         .padding(horizontal = 6.dp, vertical = 2.dp),
                                 ) {
@@ -400,9 +403,13 @@ fun ConnectionsConfigsScreen(
                                     text = subtitle,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                    modifier = Modifier.weight(1f, fill = false),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
 
                                 if (isUpdating) {
+                                    Spacer(modifier = Modifier.width(8.dp))
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(14.dp),
                                         strokeWidth = 2.dp,
@@ -411,15 +418,13 @@ fun ConnectionsConfigsScreen(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // Action buttons row
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                if (nodes.isNotEmpty()) {
+                            // Servers toggle row
+                            if (nodes.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
                                     Text(
                                         text = if (isExpanded) "[ ▲ СЕРВЕРЫ (${nodes.size}) ]" else "[ ▼ СЕРВЕРЫ (${nodes.size}) ]",
                                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
@@ -432,7 +437,27 @@ fun ConnectionsConfigsScreen(
                                                     expandedProfileIds + profile.id
                                                 }
                                             }
-                                            .padding(4.dp),
+                                            .padding(vertical = 4.dp),
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // Action buttons toolbar row
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                if (profile.typed.type == TypedProfile.Type.Remote) {
+                                    Text(
+                                        text = "[ ↻ ОБНОВИТЬ ]",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier
+                                            .clickable { resolvedViewModel.updateProfile(profile) }
+                                            .padding(vertical = 4.dp),
                                     )
                                 } else {
                                     Spacer(modifier = Modifier.width(1.dp))
@@ -441,28 +466,16 @@ fun ConnectionsConfigsScreen(
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    if (profile.typed.type == TypedProfile.Type.Remote) {
-                                        Text(
-                                            text = "[ ↻ ОБНОВИТЬ ]",
-                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                            color = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier
-                                                .clickable { resolvedViewModel.updateProfile(profile) }
-                                                .padding(4.dp),
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                    }
-
                                     Text(
                                         text = "[ ✎ ]",
                                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                                         modifier = Modifier
                                             .clickable { navController.navigate(ProfileRoutes.editProfile(profile.id)) }
-                                            .padding(4.dp),
+                                            .padding(horizontal = 6.dp, vertical = 4.dp),
                                     )
 
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
 
                                     Text(
                                         text = "[ ↗ ]",
@@ -470,10 +483,10 @@ fun ConnectionsConfigsScreen(
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                                         modifier = Modifier
                                             .clickable { profileToShare = profile }
-                                            .padding(4.dp),
+                                            .padding(horizontal = 6.dp, vertical = 4.dp),
                                     )
 
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
 
                                     Text(
                                         text = "[ ✕ ]",
@@ -481,7 +494,7 @@ fun ConnectionsConfigsScreen(
                                         color = MaterialTheme.colorScheme.error,
                                         modifier = Modifier
                                             .clickable { profileToDelete = profile }
-                                            .padding(4.dp),
+                                            .padding(horizontal = 6.dp, vertical = 4.dp),
                                     )
                                 }
                             }

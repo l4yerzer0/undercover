@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.AlertDialog
@@ -120,7 +121,6 @@ fun DashboardScreen(
     }
 
     val importHandler = remember { com.undercover.vpn.compose.screen.configuration.ProfileImportHandler(context) }
-    var showAddMenu by remember { mutableStateOf(false) }
     var showNodePickerSheet by remember { mutableStateOf(false) }
 
     val hasUpdate by UpdateState.hasUpdate
@@ -352,74 +352,18 @@ fun DashboardScreen(
                             Text(
                                 text = uiState.selectedProfileName ?: "No Profile Selected",
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.primary
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                             )
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box {
-                                    androidx.compose.material3.IconButton(onClick = { showAddMenu = true }) {
-                                        androidx.compose.material3.Icon(
-                                            imageVector = Icons.Default.Add,
-                                            contentDescription = "Add Profile",
-                                            tint = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                    androidx.compose.material3.DropdownMenu(
-                                        expanded = showAddMenu,
-                                        onDismissRequest = { showAddMenu = false }
-                                    ) {
-                                        androidx.compose.material3.DropdownMenuItem(
-                                            text = { Text("Import from Clipboard", color = MaterialTheme.colorScheme.onSurface) },
-                                            onClick = {
-                                                showAddMenu = false
-                                                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
-                                                val text = clipboard?.primaryClip?.getItemAt(0)?.text?.toString()
-                                                if (!text.isNullOrBlank()) {
-                                                    scope.launch {
-                                                        when (val parseResult = importHandler.parseQRCode(text)) {
-                                                            is com.undercover.vpn.compose.screen.configuration.ProfileImportHandler.QRCodeParseResult.RemoteProfile -> {
-                                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                                                    onOpenNewProfile(
-                                                                        com.undercover.vpn.compose.navigation.NewProfileArgs(
-                                                                            importName = parseResult.name,
-                                                                            importUrl = parseResult.url,
-                                                                        )
-                                                                    )
-                                                                }
-                                                            }
-                                                            is com.undercover.vpn.compose.screen.configuration.ProfileImportHandler.QRCodeParseResult.LocalProfile -> {
-                                                                when (val result = importHandler.importFromQRCode(text)) {
-                                                                    is com.undercover.vpn.compose.screen.configuration.ProfileImportHandler.ImportResult.Success -> {
-                                                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                                                            onProfileOpen(result.profile)
-                                                                        }
-                                                                    }
-                                                                    is com.undercover.vpn.compose.screen.configuration.ProfileImportHandler.ImportResult.Error -> {
-                                                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                                                            android.widget.Toast.makeText(context, result.message, android.widget.Toast.LENGTH_LONG).show()
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-                                                            is com.undercover.vpn.compose.screen.configuration.ProfileImportHandler.QRCodeParseResult.Error -> {
-                                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                                                    android.widget.Toast.makeText(context, parseResult.message, android.widget.Toast.LENGTH_LONG).show()
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                } else {
-                                                    android.widget.Toast.makeText(context, "Clipboard is empty", android.widget.Toast.LENGTH_SHORT).show()
-                                                }
-                                            }
-                                        )
-                                    }
-                                }
-                                Icon(
-                                    imageVector = Icons.Default.MoreVert,
-                                    contentDescription = "Select",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowDown,
+                                contentDescription = "Select Profile",
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
                         Spacer(modifier = Modifier.height(16.dp))
                         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)))
@@ -454,10 +398,12 @@ fun DashboardScreen(
                                     maxLines = 1,
                                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                 )
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Icon(
-                                    imageVector = Icons.Default.MoreVert,
+                                    imageVector = Icons.Default.KeyboardArrowDown,
                                     contentDescription = "Select Server",
-                                    tint = MaterialTheme.colorScheme.primary
+                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(24.dp)
                                 )
                             }
                             Spacer(modifier = Modifier.height(16.dp))
@@ -481,7 +427,7 @@ fun DashboardScreen(
                     isOutlined = false,
                     onClick = {
                         // Open profile picker if none selected, else connect
-                        if (uiState.selectedProfileId == null || uiState.selectedProfileId == 0L) {
+                        if (uiState.selectedProfileId <= 0L) {
                             viewModel.showProfilePickerSheet()
                         } else {
                             onToggleConnection()
