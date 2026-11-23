@@ -318,6 +318,54 @@ object ConfigParser {
         return map
     }
 
+    /**
+     * Builds a complete sing-box configuration from a list of proxy share links
+     * (the format most subscription servers return after base64 decoding).
+     * Nodes are wrapped in a "proxy" selector so the route can pick one of them.
+     */
+    fun parseUriListToSingBoxJson(uriStrings: List<String>): String? {
+        val nodes = mutableListOf<ParsedProxyConfig>()
+        val usedTags = mutableSetOf<String>()
+
+        uriStrings.forEachIndexed { index, raw ->
+            val uri = raw.trim()
+            if (uri.isEmpty()) return@forEachIndexed
+            val parsed = parseUri(uri) ?: return@forEachIndexed
+
+            val base = parsed.name.ifBlank { "Node ${index + 1}" }
+            var tag = base
+            var suffix = 2
+            while (!usedTags.add(tag)) {
+                tag = "$base ($suffix)"
+                suffix++
+            }
+            nodes.add(parsed.copy(name = tag))
+        }
+
+        if (nodes.isEmpty()) return null
+
+        val outbounds = JSONArray()
+        outbounds.put(
+            JSONObject(
+                mapOf(
+                    "type" to "selector",
+                    "tag" to "proxy",
+                    "outbounds" to JSONArray().also { tags -> nodes.forEach { tags.put(it.name) } },
+                    "default" to nodes.first().name,
+                ),
+            ),
+        )
+
+        nodes.forEach { node ->
+            val outboundObj = JSONObject(node.outboundJson)
+            outboundObj.put("tag", node.name)
+            outbounds.put(outboundObj)
+        }
+        outbounds.put(JSONObject(mapOf("type" to "direct", "tag" to "direct-out")))
+
+        return buildSingBoxJson(outbounds)
+    }
+
     private fun generateSingBoxJson(config: ParsedProxyConfig): String {
         val outbounds = JSONArray()
         // Ensure the outbound uses the tag 'proxy' which we use as the final route
@@ -327,6 +375,10 @@ object ConfigParser {
         
         outbounds.put(JSONObject(mapOf("type" to "direct", "tag" to "direct-out")))
 
+        return buildSingBoxJson(outbounds)
+    }
+
+    private fun buildSingBoxJson(outbounds: JSONArray): String {
         val dohDns = JSONObject(mapOf(
             "tag" to "cloudflare-doh",
             "type" to "https",

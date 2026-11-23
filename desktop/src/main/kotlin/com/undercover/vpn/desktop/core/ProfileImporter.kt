@@ -5,6 +5,7 @@ import com.undercover.vpn.desktop.model.ProfileType
 import com.undercover.vpn.desktop.model.ProxyNode
 import com.undercover.vpn.shared.parser.ConfigParser
 import com.undercover.vpn.shared.parser.SingBoxConfigMigrator
+import com.undercover.vpn.shared.parser.SubscriptionContentParser
 import com.undercover.vpn.shared.parser.SubscriptionMetadataFetcher
 import com.undercover.vpn.shared.parser.happ.HappDecoder
 import kotlinx.coroutines.Dispatchers
@@ -12,7 +13,6 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.Base64
 import java.util.UUID
 
 object ProfileImporter {
@@ -101,88 +101,28 @@ object ProfileImporter {
         val headers = conn.headerFields
         val content = conn.inputStream.bufferedReader().use { it.readText() }.trim()
 
-        // Check if response is base64 encoded list of URIs
-        if (!content.startsWith("{") && !content.startsWith("[")) {
-            val decoded = tryDecodeBase64(content)
-            if (decoded != null && (decoded.contains("://") || decoded.contains("vless"))) {
-                return parseUriListSubscription(urlStr, decoded)
-            }
-        }
+        // A subscription can be a sing-box JSON config, a base64 blob, or a plain list of proxy links.
+        val normalized = SubscriptionContentParser.toSingBoxConfig(content)
+            ?: throw IllegalStateException(
+                "Subscription response is neither a sing-box configuration nor a list of proxy links"
+            )
 
-        // Response is sing-box JSON
-        val migrated = SingBoxConfigMigrator.migrate(content)
+        val migrated = SingBoxConfigMigrator.migrate(normalized)
         val nodes = extractNodes(migrated)
         val metadata = SubscriptionMetadataFetcher.parseMetadata(headers, urlStr, content)
-        val title = metadata.title ?: extractProfileTitle(migrated) ?: extractDomainFromUrl(urlStr)
+        val title = metadata.title
+            ?: extractProfileTitle(migrated)?.takeIf { it != "proxy" }
+            ?: extractDomainFromUrl(urlStr)
 
         return DesktopProfile(
             id = UUID.randomUUID().toString(),
             name = title,
             type = ProfileType.REMOTE_SUBSCRIPTION,
             sourceUrl = urlStr,
-            rawConfig = content,
+            rawConfig = normalized,
             migratedConfig = migrated,
             outbounds = nodes,
             selectedOutboundTag = nodes.firstOrNull()?.tag
-        )
-    }
-
-    private fun parseUriListSubscription(urlStr: String, content: String): DesktopProfile {
-        val lines = content.lines().map { it.trim() }.filter { it.isNotEmpty() }
-        val outboundsArray = org.json.JSONArray()
-        val nodeTags = mutableListOf<String>()
-        val proxyNodes = mutableListOf<ProxyNode>()
-
-        lines.forEachIndexed { index, line ->
-            val effective = if (HappDecoder.isHappOrV2Link(line)) HappDecoder.decrypt(line) ?: line else line
-            if (ConfigParser.isSupportedUri(effective)) {
-                val singleJson = ConfigParser.parseUriToSingBoxJson(effective)
-                if (singleJson != null) {
-                    val root = JSONObject(singleJson)
-                    val obs = root.optJSONArray("outbounds")
-                    if (obs != null && obs.length() > 0) {
-                        val ob = obs.getJSONObject(0)
-                        val name = ConfigParser.parseUriToName(effective) ?: "Node ${index + 1}"
-                        ob.put("tag", name)
-                        outboundsArray.put(ob)
-                        nodeTags.add(name)
-                        proxyNodes.add(
-                            ProxyNode(
-                                tag = name,
-                                type = ob.optString("type", "proxy"),
-                                server = ob.optString("server", ""),
-                                port = ob.optInt("server_port", 0)
-                            )
-                        )
-                    }
-                }
-            }
-        }
-
-        val selector = JSONObject().apply {
-            put("type", "selector")
-            put("tag", "proxy")
-            put("outbounds", org.json.JSONArray(nodeTags))
-            if (nodeTags.isNotEmpty()) put("default", nodeTags.first())
-        }
-        outboundsArray.put(0, selector)
-
-        val fullConfig = JSONObject().apply {
-            put("outbounds", outboundsArray)
-        }.toString()
-
-        val migrated = SingBoxConfigMigrator.migrate(fullConfig)
-        val title = extractDomainFromUrl(urlStr)
-
-        return DesktopProfile(
-            id = UUID.randomUUID().toString(),
-            name = title,
-            type = ProfileType.REMOTE_SUBSCRIPTION,
-            sourceUrl = urlStr,
-            rawConfig = fullConfig,
-            migratedConfig = migrated,
-            outbounds = proxyNodes,
-            selectedOutboundTag = proxyNodes.firstOrNull()?.tag
         )
     }
 
@@ -235,21 +175,6 @@ object ProfileImporter {
             host.removePrefix("www.")
         } catch (_: Exception) {
             "Subscription"
-        }
-    }
-
-    private fun tryDecodeBase64(str: String): String? {
-        return try {
-            val clean = str.trim().replace('-', '+').replace('_', '/').let {
-                when (it.length % 4) {
-                    2 -> "$it=="
-                    3 -> "$it="
-                    else -> it
-                }
-            }
-            String(Base64.getDecoder().decode(clean), Charsets.UTF_8)
-        } catch (_: Exception) {
-            null
         }
     }
 }

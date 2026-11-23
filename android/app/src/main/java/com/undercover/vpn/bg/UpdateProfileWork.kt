@@ -13,6 +13,8 @@ import com.undercover.vpn.Application
 import com.undercover.vpn.database.ProfileManager
 import com.undercover.vpn.database.Settings
 import com.undercover.vpn.database.TypedProfile
+import com.undercover.vpn.shared.parser.SubscriptionContentParser
+import com.undercover.vpn.shared.parser.SubscriptionMetadataFetcher
 import com.undercover.vpn.utils.HTTPClient
 import java.io.File
 import java.util.Date
@@ -75,8 +77,15 @@ class UpdateProfileWork {
                     continue
                 }
                 try {
-                    val rawContent = HTTPClient().use { it.getString(profile.typed.remoteURL) }
-                    val content = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(rawContent)
+                    val rawContent =
+                        SubscriptionMetadataFetcher.fetch(
+                            profile.typed.remoteURL,
+                            HTTPClient.userAgent,
+                        ).content
+                    val normalized =
+                        SubscriptionContentParser.toSingBoxConfig(rawContent)
+                            ?: throw IllegalStateException("Unsupported subscription format")
+                    val content = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(normalized)
                     Libbox.checkConfig(content)
                     val file = File(profile.typed.path)
                     if (file.readText() != content) {

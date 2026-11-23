@@ -9,6 +9,8 @@ import com.undercover.vpn.R
 import com.undercover.vpn.database.Profile
 import com.undercover.vpn.database.ProfileManager
 import com.undercover.vpn.database.TypedProfile
+import com.undercover.vpn.shared.parser.SubscriptionContentParser
+import com.undercover.vpn.shared.parser.SubscriptionMetadataFetcher
 import com.undercover.vpn.utils.HTTPClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -300,6 +302,40 @@ class ProfileImportHandler(private val context: Context) {
     }
 
     private suspend fun importRemoteProfile(name: String, url: String): ImportResult {
+        val fetchResult =
+            try {
+                SubscriptionMetadataFetcher.fetch(url, HTTPClient.userAgent)
+            } catch (e: Exception) {
+                return ImportResult.Error(e.message ?: "Failed to fetch subscription")
+            }
+
+        // A subscription can be a sing-box JSON config, base64, or a plain list of proxy links.
+        val normalized =
+            SubscriptionContentParser.toSingBoxConfig(fetchResult.content)
+                ?: return ImportResult.Error(
+                    "Не удалось распознать формат подписки: ожидается конфигурация sing-box или список прокси-ссылок",
+                )
+
+        val migrated = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(normalized)
+        try {
+            Libbox.checkConfig(migrated)
+        } catch (e: Exception) {
+            return ImportResult.Error(
+                context.getString(R.string.error_invalid_configuration, e.message),
+            )
+        }
+
+        val fileID = ProfileManager.nextFileID()
+        val configDirectory = File(context.filesDir, "configs").also { it.mkdirs() }
+        val configFile = File(configDirectory, "$fileID.json")
+        configFile.writeText(migrated)
+
+        val profileName =
+            fetchResult.metadata.title
+                ?: name.takeIf { it.isNotBlank() }
+                ?: extractSelectorTag(migrated)
+                ?: "Remote Profile"
+
         val typedProfile =
             TypedProfile().apply {
                 type = TypedProfile.Type.Remote
@@ -307,41 +343,8 @@ class ProfileImportHandler(private val context: Context) {
                 autoUpdate = true
                 autoUpdateInterval = 60
                 lastUpdated = Date()
+                path = configFile.path
             }
-
-        var profileName = name
-        val fileID = ProfileManager.nextFileID()
-        val configDirectory = File(context.filesDir, "configs").also { it.mkdirs() }
-        val configFile = File(configDirectory, "$fileID.json")
-        typedProfile.path = configFile.path
-
-        // Fetch initial config - this makes the remote profile immediately usable
-        try {
-            val rawContent = HTTPClient().use { it.getString(url) }
-            val migrated = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(rawContent)
-            Libbox.checkConfig(migrated)
-            configFile.writeText(migrated)
-
-            // Try to extract a friendly profile title from the selector tag if available
-            try {
-                val root = JSONObject(migrated)
-                val outbounds = root.optJSONArray("outbounds")
-                if (outbounds != null) {
-                    for (i in 0 until outbounds.length()) {
-                        val ob = outbounds.optJSONObject(i) ?: continue
-                        if (ob.optString("type") == "selector") {
-                            val tag = ob.optString("tag")
-                            if (tag.isNotEmpty()) {
-                                profileName = tag.replace("→", "").trim()
-                                break
-                            }
-                        }
-                    }
-                }
-            } catch (_: Exception) {}
-        } catch (_: Exception) {
-            configFile.writeText("{}")
-        }
 
         val profile =
             Profile(name = profileName, typed = typedProfile).apply {
@@ -352,6 +355,24 @@ class ProfileImportHandler(private val context: Context) {
         ProfileManager.create(profile, andSelect = true)
 
         return ImportResult.Success(profile)
+    }
+
+    private fun extractSelectorTag(config: String): String? {
+        return try {
+            val outbounds = JSONObject(config).optJSONArray("outbounds") ?: return null
+            for (i in 0 until outbounds.length()) {
+                val ob = outbounds.optJSONObject(i) ?: continue
+                if (ob.optString("type") == "selector") {
+                    val tag = ob.optString("tag")
+                    if (tag.isNotEmpty() && tag != "proxy") {
+                        return tag.replace("→", "").replace("⚡", "").trim()
+                    }
+                }
+            }
+            null
+        } catch (_: Exception) {
+            null
+        }
     }
 
     companion object {

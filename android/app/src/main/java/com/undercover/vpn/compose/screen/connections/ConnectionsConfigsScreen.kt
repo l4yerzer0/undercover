@@ -112,6 +112,7 @@ fun ConnectionsConfigsScreen(
     var profileToShare by remember { mutableStateOf<Profile?>(null) }
     var showLinkInputDialog by remember { mutableStateOf(false) }
     var linkInputText by remember { mutableStateOf("") }
+    var expandedProfileIds by remember(selectedProfileId) { mutableStateOf(setOf(selectedProfileId)) }
 
     val importFromFileLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -315,6 +316,9 @@ fun ConnectionsConfigsScreen(
                 items(profiles, key = { it.id }) { profile ->
                     val isSelected = profile.id == selectedProfileId
                     val isUpdating = uiState.updatingProfileId == profile.id
+                    val nodesInfo = uiState.profileNodesMap[profile.id]
+                    val nodes = nodesInfo?.nodes.orEmpty()
+                    val isExpanded = profile.id in expandedProfileIds
 
                     Box(
                         modifier = Modifier
@@ -383,11 +387,17 @@ fun ConnectionsConfigsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
+                                val baseSubtitle = when (profile.typed.type) {
+                                    TypedProfile.Type.Local -> "Локальный профиль"
+                                    TypedProfile.Type.Remote -> "Обновлено: ${RelativeTimeFormatter.format(context, profile.typed.lastUpdated)}"
+                                }
+                                val subtitle = if (nodes.isNotEmpty()) {
+                                    "$baseSubtitle · Серверов: ${nodes.size}"
+                                } else {
+                                    baseSubtitle
+                                }
                                 Text(
-                                    text = when (profile.typed.type) {
-                                        TypedProfile.Type.Local -> "Локальный профиль"
-                                        TypedProfile.Type.Remote -> "Обновлено: ${RelativeTimeFormatter.format(context, profile.typed.lastUpdated)}"
-                                    },
+                                    text = subtitle,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                                 )
@@ -406,51 +416,170 @@ fun ConnectionsConfigsScreen(
                             // Action buttons row
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End,
+                                horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                if (profile.typed.type == TypedProfile.Type.Remote) {
+                                if (nodes.isNotEmpty()) {
                                     Text(
-                                        text = "[ ↻ ОБНОВИТЬ ]",
+                                        text = if (isExpanded) "[ ▲ СЕРВЕРЫ (${nodes.size}) ]" else "[ ▼ СЕРВЕРЫ (${nodes.size}) ]",
                                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier
-                                            .clickable { resolvedViewModel.updateProfile(profile) }
+                                            .clickable {
+                                                expandedProfileIds = if (isExpanded) {
+                                                    expandedProfileIds - profile.id
+                                                } else {
+                                                    expandedProfileIds + profile.id
+                                                }
+                                            }
                                             .padding(4.dp),
                                     )
-                                    Spacer(modifier = Modifier.width(12.dp))
+                                } else {
+                                    Spacer(modifier = Modifier.width(1.dp))
                                 }
 
-                                Text(
-                                    text = "[ ✎ ИЗМЕНИТЬ ]",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    if (profile.typed.type == TypedProfile.Type.Remote) {
+                                        Text(
+                                            text = "[ ↻ ОБНОВИТЬ ]",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier
+                                                .clickable { resolvedViewModel.updateProfile(profile) }
+                                                .padding(4.dp),
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                    }
+
+                                    Text(
+                                        text = "[ ✎ ]",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                                        modifier = Modifier
+                                            .clickable { navController.navigate(ProfileRoutes.editProfile(profile.id)) }
+                                            .padding(4.dp),
+                                    )
+
+                                    Spacer(modifier = Modifier.width(8.dp))
+
+                                    Text(
+                                        text = "[ ↗ ]",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                                        modifier = Modifier
+                                            .clickable { profileToShare = profile }
+                                            .padding(4.dp),
+                                    )
+
+                                    Spacer(modifier = Modifier.width(8.dp))
+
+                                    Text(
+                                        text = "[ ✕ ]",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier
+                                            .clickable { profileToDelete = profile }
+                                            .padding(4.dp),
+                                    )
+                                }
+                            }
+
+                            // Nodes inside subscription
+                            if (isExpanded && nodes.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Box(
                                     modifier = Modifier
-                                        .clickable { navController.navigate(ProfileRoutes.editProfile(profile.id)) }
-                                        .padding(4.dp),
+                                        .fillMaxWidth()
+                                        .height(1.dp)
+                                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)),
                                 )
+                                Spacer(modifier = Modifier.height(8.dp))
 
-                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    nodes.forEach { node ->
+                                        val isNodeSelected = isSelected && node.tag == nodesInfo?.selectedNodeTag
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .border(
+                                                    width = 1.dp,
+                                                    color = if (isNodeSelected) {
+                                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                                                    } else {
+                                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                                                    },
+                                                )
+                                                .background(
+                                                    if (isNodeSelected) {
+                                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                                                    } else {
+                                                        MaterialTheme.colorScheme.background.copy(alpha = 0.5f)
+                                                    },
+                                                )
+                                                .clickable {
+                                                    resolvedViewModel.selectProfileNode(profile.id, node.tag)
+                                                }
+                                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.weight(1f),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                            ) {
+                                                Text(
+                                                    text = if (isNodeSelected) "[ X ]" else "[   ]",
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                                    color = if (isNodeSelected) {
+                                                        MaterialTheme.colorScheme.primary
+                                                    } else {
+                                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                                                    },
+                                                )
+                                                Spacer(modifier = Modifier.width(10.dp))
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = node.tag,
+                                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                                            fontWeight = if (isNodeSelected) FontWeight.Bold else FontWeight.Normal,
+                                                        ),
+                                                        color = if (isNodeSelected) {
+                                                            MaterialTheme.colorScheme.primary
+                                                        } else {
+                                                            MaterialTheme.colorScheme.onSurface
+                                                        },
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                    )
+                                                    if (node.server.isNotEmpty() && node.port > 0) {
+                                                        Text(
+                                                            text = "${node.server}:${node.port}",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                        )
+                                                    }
+                                                }
+                                            }
 
-                                Text(
-                                    text = "[ ↗ ЭКСПОРТ ]",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                                    modifier = Modifier
-                                        .clickable { profileToShare = profile }
-                                        .padding(4.dp),
-                                )
-
-                                Spacer(modifier = Modifier.width(12.dp))
-
-                                Text(
-                                    text = "[ ✕ ]",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier
-                                        .clickable { profileToDelete = profile }
-                                        .padding(4.dp),
-                                )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Box(
+                                                modifier = Modifier
+                                                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                                            ) {
+                                                Text(
+                                                    text = node.type,
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

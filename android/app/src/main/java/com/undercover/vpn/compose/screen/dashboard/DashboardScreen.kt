@@ -2,6 +2,7 @@ package com.undercover.vpn.compose.screen.dashboard
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -119,6 +121,7 @@ fun DashboardScreen(
 
     val importHandler = remember { com.undercover.vpn.compose.screen.configuration.ProfileImportHandler(context) }
     var showAddMenu by remember { mutableStateOf(false) }
+    var showNodePickerSheet by remember { mutableStateOf(false) }
 
     val hasUpdate by UpdateState.hasUpdate
     val updateInfo by UpdateState.updateInfo
@@ -422,6 +425,46 @@ fun DashboardScreen(
                         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)))
                     }
                 }
+
+                val activeNodesInfo = uiState.profileNodesMap[uiState.selectedProfileId]
+                if (activeNodesInfo != null && activeNodesInfo.nodes.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showNodePickerSheet = true }
+                            .padding(vertical = 12.dp)
+                    ) {
+                        Column {
+                            Text(
+                                text = "АКТИВНЫЙ СЕРВЕР (${activeNodesInfo.nodes.size})",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = activeNodesInfo.selectedNodeTag ?: activeNodesInfo.nodes.first().tag,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "Select Server",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)))
+                        }
+                    }
+                }
             }
             
             Spacer(modifier = Modifier.weight(1f))
@@ -448,6 +491,112 @@ fun DashboardScreen(
             }
             
             Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+
+    val activeNodesForSheet = uiState.profileNodesMap[uiState.selectedProfileId]
+    if (showNodePickerSheet && activeNodesForSheet != null && activeNodesForSheet.nodes.isNotEmpty()) {
+        val nodeSheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        androidx.compose.material3.ModalBottomSheet(
+            onDismissRequest = { showNodePickerSheet = false },
+            sheetState = nodeSheetState,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp),
+            containerColor = MaterialTheme.colorScheme.background,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+            ) {
+                Text(
+                    text = "ВЫБОР СЕРВЕРА (${activeNodesForSheet.nodes.size})",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = uiState.selectedProfileName ?: "ПОДПИСКА",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                androidx.compose.foundation.lazy.LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 420.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    items(activeNodesForSheet.nodes.size) { index ->
+                        val node = activeNodesForSheet.nodes[index]
+                        val isNodeSelected = node.tag == activeNodesForSheet.selectedNodeTag
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(
+                                    width = if (isNodeSelected) 1.5.dp else 1.dp,
+                                    color = if (isNodeSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
+                                )
+                                .background(
+                                    if (isNodeSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface,
+                                )
+                                .clickable {
+                                    viewModel.selectProfileNode(uiState.selectedProfileId, node.tag)
+                                    showNodePickerSheet = false
+                                }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = if (isNodeSelected) "[ X ]" else "[   ]",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                                    color = if (isNodeSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = node.tag,
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = if (isNodeSelected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal,
+                                        ),
+                                        color = if (isNodeSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    )
+                                    if (node.server.isNotEmpty() && node.port > 0) {
+                                        Text(
+                                            text = "${node.server}:${node.port}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                                            maxLines = 1,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                            ) {
+                                Text(
+                                    text = node.type,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+            }
         }
     }
 

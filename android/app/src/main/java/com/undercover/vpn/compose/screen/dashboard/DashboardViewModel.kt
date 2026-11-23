@@ -12,6 +12,8 @@ import com.undercover.vpn.database.Profile
 import com.undercover.vpn.database.ProfileManager
 import com.undercover.vpn.database.Settings
 import com.undercover.vpn.database.TypedProfile
+import com.undercover.vpn.shared.parser.ProfileNodesInfo
+import com.undercover.vpn.shared.parser.SubscriptionNodesHelper
 import com.undercover.vpn.utils.AppLifecycleObserver
 import com.undercover.vpn.utils.CommandClient
 import com.undercover.vpn.utils.IpInfoProbe
@@ -57,6 +59,7 @@ data class DashboardUiState(
     val profiles: List<Profile> = emptyList(),
     val selectedProfileId: Long = -1L,
     val selectedProfileName: String? = null,
+    val profileNodesMap: Map<Long, ProfileNodesInfo> = emptyMap(),
     val isLoading: Boolean = false,
     val hasGroups: Boolean = false,
     val groupsCount: Int = 0,
@@ -272,6 +275,19 @@ class DashboardViewModel :
             try {
                 val profiles = ProfileManager.list()
                 val selectedId = Settings.selectedProfile
+                val nodesMap = profiles.associate { profile ->
+                    val info = try {
+                        val file = File(profile.typed.path)
+                        if (file.exists()) {
+                            SubscriptionNodesHelper.extractNodesInfo(file.readText())
+                        } else {
+                            ProfileNodesInfo()
+                        }
+                    } catch (_: Exception) {
+                        ProfileNodesInfo()
+                    }
+                    profile.id to info
+                }
 
                 withContext(Dispatchers.Main) {
                     updateState {
@@ -279,6 +295,7 @@ class DashboardViewModel :
                             profiles = profiles,
                             selectedProfileId = selectedId,
                             selectedProfileName = profiles.find { it.id == selectedId }?.name,
+                            profileNodesMap = nodesMap,
                         )
                     }
                 }
@@ -389,6 +406,43 @@ class DashboardViewModel :
                 sendError(e)
             } finally {
                 updateState { copy(isLoading = false) }
+            }
+        }
+    }
+
+    fun selectProfileNode(profileId: Long, nodeTag: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val profile = ProfileManager.get(profileId) ?: return@launch
+                val file = File(profile.typed.path)
+                if (!file.exists()) return@launch
+
+                val rawJson = file.readText()
+                val currentInfo = SubscriptionNodesHelper.extractNodesInfo(rawJson)
+                val selectorTag = currentInfo.selectorTag ?: return@launch
+
+                val updatedJson = SubscriptionNodesHelper.selectNodeInConfig(rawJson, selectorTag, nodeTag)
+                if (updatedJson != null) {
+                    file.writeText(updatedJson)
+                }
+
+                val updatedInfo = currentInfo.copy(selectedNodeTag = nodeTag)
+                withContext(Dispatchers.Main) {
+                    updateState {
+                        copy(profileNodesMap = profileNodesMap + (profileId to updatedInfo))
+                    }
+                }
+
+                val wasDifferentProfile = Settings.selectedProfile != profileId
+                if (wasDifferentProfile) {
+                    selectProfile(profileId)
+                } else if (_serviceStatus.value == Status.Started) {
+                    runCatching {
+                        CommandTarget.standaloneClient().selectOutbound(selectorTag, nodeTag)
+                    }
+                }
+            } catch (e: Exception) {
+                sendError(e)
             }
         }
     }
