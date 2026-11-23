@@ -154,7 +154,9 @@ class VPNService :
             }
 
             val includePackage = options.includePackage
+            var hasIncludePackages = false
             if (includePackage.hasNext()) {
+                hasIncludePackages = true
                 perAppProxyApplied = true
                 while (includePackage.hasNext()) {
                     try {
@@ -182,8 +184,9 @@ class VPNService :
             }
 
             // Always exclude our own app from TUN when not using an allow-list so child cores
-            // like xray-core / byedpi can dial the physical network directly without looping.
-            if (!includePackage.hasNext()) {
+            // like xray-core can dial the physical network directly without looping.
+            // Exit IP checks inside this app explicitly route through the local mixed probe inbound.
+            if (!hasIncludePackages) {
                 runCatching { builder.addDisallowedApplication(packageName) }
             }
         }

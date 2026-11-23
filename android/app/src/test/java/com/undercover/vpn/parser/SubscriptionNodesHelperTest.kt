@@ -3,8 +3,10 @@ package com.undercover.vpn.parser
 import com.undercover.vpn.shared.parser.ConfigParser
 import com.undercover.vpn.shared.parser.SubscriptionContentParser
 import com.undercover.vpn.shared.parser.SubscriptionNodesHelper
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SubscriptionNodesHelperTest {
@@ -87,6 +89,29 @@ class SubscriptionNodesHelperTest {
             assertEquals("XHTTP", info.nodes[1].type)
             assertEquals("app.larp333.tech", info.nodes[1].server)
             assertEquals(443, info.nodes[1].port)
+
+            // Verify sing-box config uses gvisor stack and proxied remote DNS + local resolver
+            val sbRoot = JSONObject(multiCore.singBoxJson)
+            val tun = sbRoot.getJSONArray("inbounds").getJSONObject(0)
+            assertEquals("gvisor", tun.getString("stack"))
+            val dnsServers = sbRoot.getJSONObject("dns").getJSONArray("servers")
+            assertEquals("dns-remote", dnsServers.getJSONObject(0).getString("tag"))
+            assertEquals("proxy", dnsServers.getJSONObject(0).getString("detour"))
+            assertEquals("dns-local", dnsServers.getJSONObject(1).getString("tag"))
+            assertEquals("local", dnsServers.getJSONObject(1).getString("type"))
+            assertEquals("dns-local", sbRoot.getJSONObject("route").getString("default_domain_resolver"))
+
+            // Verify xray config forces internal DNS resolution via sockopt and routes dns-out direct
+            val xrayJson = multiCore.xrayConfigsByTag.values.first()
+            val xrayRoot = JSONObject(xrayJson)
+            assertEquals("dns-out", xrayRoot.getJSONObject("dns").getString("tag"))
+            assertEquals("UseIPv4", xrayRoot.getJSONObject("dns").getString("queryStrategy"))
+            val xrayOutbound = xrayRoot.getJSONArray("outbounds").getJSONObject(0)
+            assertEquals(
+                "UseIPv4",
+                xrayOutbound.getJSONObject("streamSettings").getJSONObject("sockopt").getString("domainStrategy"),
+            )
+            assertTrue(xrayRoot.getJSONObject("routing").getJSONArray("rules").length() >= 1)
         } finally {
             SubscriptionNodesHelper.xraySidecarFile(tempFile.absolutePath).delete()
             tempFile.delete()

@@ -162,10 +162,10 @@ object ConfigParser {
         if (security == "tls" || security == "reality") {
             val tls = mutableMapOf<String, Any>(
                 "enabled" to true,
-                "server_name" to (query["sni"] ?: server),
+                "server_name" to (query["sni"]?.takeIf { it.isNotEmpty() } ?: server),
                 "utls" to mapOf(
                     "enabled" to true,
-                    "fingerprint" to (query["fp"] ?: "chrome")
+                    "fingerprint" to (query["fp"]?.takeIf { it.isNotEmpty() } ?: "chrome")
                 )
             )
             
@@ -179,14 +179,14 @@ object ConfigParser {
             outbound["tls"] = tls
         }
 
-        val type = query["type"] ?: "tcp"
+        val type = query["type"]?.takeIf { it.isNotEmpty() } ?: "tcp"
         if (type == "ws") {
             val headers = mutableMapOf<String, String>()
-            query["host"]?.let { headers["Host"] = it }
+            query["host"]?.takeIf { it.isNotEmpty() }?.let { headers["Host"] = it }
             
             outbound["transport"] = mapOf(
                 "type" to "ws",
-                "path" to (query["path"] ?: "/"),
+                "path" to (query["path"]?.takeIf { it.isNotEmpty() } ?: "/"),
                 "headers" to headers
             )
         } else if (type == "grpc") {
@@ -389,6 +389,7 @@ object ConfigParser {
                     "tag" to "proxy",
                     "outbounds" to JSONArray().also { tags -> nodeTags.forEach { tags.put(it) } },
                     "default" to nodeTags.first(),
+                    "interrupt_exist_connections" to true,
                 ),
             ),
         )
@@ -445,49 +446,59 @@ object ConfigParser {
     }
 
     private fun buildSingBoxJson(outbounds: JSONArray): String {
-        val dohDns = JSONObject(mapOf(
-            "tag" to "cloudflare-doh",
+        val remoteDns = JSONObject(mapOf(
+            "tag" to "dns-remote",
             "type" to "https",
-            "server" to "1.1.1.1"
+            "server" to "1.1.1.1",
+            "detour" to "proxy",
+        ))
+        val localDns = JSONObject(mapOf(
+            "tag" to "dns-local",
+            "type" to "local",
         ))
 
         val dns = JSONObject()
-        dns.put("servers", JSONArray().put(dohDns))
-        dns.put("final", "cloudflare-doh")
-        dns.put("strategy", "ipv4_only")
+        dns.put("servers", JSONArray().put(remoteDns).put(localDns))
+        dns.put("final", "dns-remote")
+        dns.put("strategy", "prefer_ipv4")
 
-        val inbound = JSONObject(mapOf(
-            "type" to "tun",
-            "tag" to "tun-in",
-            "interface_name" to "tun0",
-            "mtu" to 1500,
-            "auto_route" to true,
-            "auto_redirect" to false,
-            "stack" to "system",
-            "address" to listOf("172.19.0.1/30")
-        ))
+        val inbound = JSONObject().apply {
+            put("type", "tun")
+            put("tag", "tun-in")
+            put("interface_name", "tun0")
+            put("mtu", 9000)
+            put("auto_route", true)
+            put("auto_redirect", false)
+            put("stack", "gvisor")
+            put("address", JSONArray().put("172.19.0.1/30").put("fdfe:dcba:9876::1/126"))
+        }
 
         val inbounds = JSONArray().put(inbound)
 
         val routeRules = JSONArray()
         routeRules.put(JSONObject(mapOf(
-            "action" to "sniff"
+            "action" to "sniff",
         )))
 
         routeRules.put(JSONObject(mapOf(
             "protocol" to "dns",
-            "action" to "hijack-dns"
+            "action" to "hijack-dns",
+        )))
+
+        routeRules.put(JSONObject(mapOf(
+            "ip_is_private" to true,
+            "outbound" to "direct-out",
         )))
 
         val route = JSONObject()
-        route.put("default_domain_resolver", JSONObject(mapOf("server" to "cloudflare-doh")))
+        route.put("default_domain_resolver", "dns-local")
         route.put("auto_detect_interface", true)
         route.put("rules", routeRules)
         route.put("final", "proxy")
 
         val log = JSONObject(mapOf(
             "level" to "info",
-            "timestamp" to true
+            "timestamp" to true,
         ))
 
         val fullConfig = JSONObject()

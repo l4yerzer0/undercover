@@ -14,6 +14,7 @@ import com.undercover.vpn.database.Profile
 import com.undercover.vpn.database.ProfileManager
 import com.undercover.vpn.database.Settings
 import com.undercover.vpn.database.TypedProfile
+import com.undercover.vpn.routing.RoutingConfig
 import com.undercover.vpn.shared.parser.ProfileNodesInfo
 import com.undercover.vpn.shared.parser.SubscriptionContentParser
 import com.undercover.vpn.shared.parser.SubscriptionMetadataFetcher
@@ -220,7 +221,7 @@ class DashboardViewModel :
     /** Polls latency while the service is up and the app is in the foreground. */
     private suspend fun probeLatency() {
         while (currentCoroutineContext().isActive) {
-            val latency = LatencyProbe.measure()
+            val latency = LatencyProbe.measure(proxyPort = RoutingConfig.PROBE_PROXY_PORT)
             updateState { copy(ping = latency?.let { "$it ms" } ?: "—") }
             delay(PING_INTERVAL_MS)
         }
@@ -245,7 +246,7 @@ class DashboardViewModel :
         }
         delay(1200L)
         while (currentCoroutineContext().isActive) {
-            val info = IpInfoProbe.fetchExitNodeInfo()
+            val info = IpInfoProbe.fetchExitNodeInfo(proxyPort = RoutingConfig.PROBE_PROXY_PORT)
             if (info != null) {
                 updateState {
                     copy(
@@ -422,7 +423,7 @@ class DashboardViewModel :
                 if (!file.exists()) return@launch
 
                 val rawJson = file.readText()
-                val currentInfo = SubscriptionNodesHelper.extractNodesInfo(rawJson)
+                val currentInfo = SubscriptionNodesHelper.extractNodesInfo(rawJson, profile.typed.path)
                 val selectorTag = currentInfo.selectorTag ?: return@launch
 
                 val updatedJson = SubscriptionNodesHelper.selectNodeInConfig(rawJson, selectorTag, nodeTag)
@@ -444,6 +445,10 @@ class DashboardViewModel :
                     XrayManager.ensureForConfig(Application.application, profile.typed.path)
                     runCatching {
                         CommandTarget.standaloneClient().selectOutbound(selectorTag, nodeTag)
+                    }
+                    withContext(Dispatchers.Main) {
+                        exitInfoJob?.cancel()
+                        exitInfoJob = viewModelScope.launch { probeExitNodeInfo() }
                     }
                 }
             } catch (e: Exception) {

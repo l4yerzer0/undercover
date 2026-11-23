@@ -95,7 +95,7 @@ jobs:
       - name: Run Unit Tests
         run: |
           cd android
-          ./gradlew testPlayDebugUnitTest --no-daemon
+          ./gradlew testPlayDebugUnitTest testOtherDebugUnitTest --no-daemon
 
       - name: Assemble Release APKs
         run: |
@@ -144,6 +144,8 @@ jobs:
 
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
             TAG_NAME="${{ github.ref_name }}"
+          elif [[ "${{ github.ref_name }}" == "dev" ]] && [[ "$VERSION_NAME" != *"-"* ]]; then
+            TAG_NAME="v${VERSION_NAME}-beta.${{ github.run_number }}"
           else
             TAG_NAME="v${VERSION_NAME}"
           fi

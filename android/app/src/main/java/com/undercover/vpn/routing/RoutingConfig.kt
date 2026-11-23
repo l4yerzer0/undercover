@@ -17,6 +17,11 @@ import org.json.JSONObject
 object RoutingConfig {
     private const val TAG = "RoutingConfig"
     private const val BYEDPI_ADDRESS = "127.0.0.1"
+    private const val PROBE_INBOUND_TAG = "undercover-probe-in"
+    private const val DIRECT_DNS_SERVER_TAG = "undercover-dns-local"
+
+    /** Loopback mixed inbound port used by IpInfoProbe to measure the real VPN exit IP. */
+    const val PROBE_PROXY_PORT = 20808
 
     val RU_DOMAINS_PRESET = listOf(
         "ru",
@@ -124,15 +129,22 @@ object RoutingConfig {
         return try {
             val config = JSONObject(configJson)
             stripGenerated(config)
-            if (directApps.isNotEmpty() || directDomains.isNotEmpty()) ensureDirectOutbound(config)
-            if ((byeDpiApps.isNotEmpty() || byeDpiDomains.isNotEmpty()) && byeDpiPort != null) {
+            repairAndroidConfig(config)
+            ensureProbeInbound(config)
+            val distinctDirectDomains = directDomains.distinct()
+            val distinctByeDpiDomains = byeDpiDomains.distinct()
+            if (directApps.isNotEmpty() || distinctDirectDomains.isNotEmpty()) ensureDirectOutbound(config)
+            if ((byeDpiApps.isNotEmpty() || distinctByeDpiDomains.isNotEmpty()) && byeDpiPort != null) {
                 ensureByeDpiOutbound(config, byeDpiPort)
             }
-            insertRules(config, directApps, byeDpiApps, directDomains.distinct(), byeDpiDomains.distinct())
+            insertRules(config, directApps, byeDpiApps, distinctDirectDomains, distinctByeDpiDomains)
+            if (distinctDirectDomains.isNotEmpty()) {
+                insertDirectDnsRule(config, distinctDirectDomains)
+            }
             Log.i(
                 TAG,
-                "routing applied: directApps=${directApps.size} directDomains=${directDomains.size} " +
-                    "byedpiApps=${byeDpiApps.size} byedpiDomains=${byeDpiDomains.size}",
+                "routing applied: directApps=${directApps.size} directDomains=${distinctDirectDomains.size} " +
+                    "byedpiApps=${byeDpiApps.size} byedpiDomains=${distinctByeDpiDomains.size}",
             )
             config.toString()
         } catch (e: Exception) {
@@ -142,7 +154,7 @@ object RoutingConfig {
     }
 
     /**
-     * Removes rules and outbounds generated on an earlier run.
+     * Removes rules, inbounds, DNS entries, and outbounds generated on an earlier run.
      */
     private fun stripGenerated(config: JSONObject) {
         val tags = RoutingSection.entries.map { it.outboundTag }.toSet()
@@ -163,6 +175,96 @@ object RoutingConfig {
         config.optJSONArray("outbounds")?.let { outbounds ->
             removeMatching(outbounds) { it.optString("tag") in tags }
         }
+
+        config.optJSONArray("inbounds")?.let { inbounds ->
+            removeMatching(inbounds) { it.optString("tag") == PROBE_INBOUND_TAG }
+        }
+
+        config.optJSONObject("dns")?.let { dns ->
+            dns.optJSONArray("rules")?.let { dnsRules ->
+                removeMatching(dnsRules) { it.optString("server") == DIRECT_DNS_SERVER_TAG }
+            }
+            dns.optJSONArray("servers")?.let { dnsServers ->
+                removeMatching(dnsServers) { it.optString("tag") == DIRECT_DNS_SERVER_TAG }
+            }
+        }
+    }
+
+    /**
+     * Repairs previously-generated profiles on Android:
+     *  1. Replaces TUN `stack: "system"` with `stack: "gvisor"` (non-root Android VpnService drops TCP on `system`).
+     *  2. Upgrades the old single direct `cloudflare-doh` (blocked in RU, no detour) to
+     *     `dns-remote` (DoH via proxy) + `dns-local` (Android system DNS as default_domain_resolver).
+     */
+    private fun repairAndroidConfig(config: JSONObject) {
+        config.optJSONArray("inbounds")?.let { inbounds ->
+            for (i in 0 until inbounds.length()) {
+                val inbound = inbounds.optJSONObject(i) ?: continue
+                if (inbound.optString("type") == "tun" && inbound.optString("stack") == "system") {
+                    inbound.put("stack", "gvisor")
+                }
+            }
+        }
+
+        val dns = config.optJSONObject("dns")
+        val servers = dns?.optJSONArray("servers")
+        if (dns != null && servers != null && servers.length() == 1) {
+            val only = servers.optJSONObject(0)
+            if (only != null &&
+                only.optString("tag") == "cloudflare-doh" &&
+                only.optString("detour").isEmpty()
+            ) {
+                val route = config.optJSONObject("route") ?: JSONObject().also { config.put("route", it) }
+                val detourTag = route.optString("final").ifEmpty { "proxy" }
+                val remoteDns = JSONObject()
+                    .put("tag", "dns-remote")
+                    .put("type", "https")
+                    .put("server", "1.1.1.1")
+                    .put("detour", detourTag)
+                val localDns = JSONObject()
+                    .put("tag", "dns-local")
+                    .put("type", "local")
+                dns.put("servers", JSONArray().put(remoteDns).put(localDns))
+                dns.put("final", "dns-remote")
+                dns.put("strategy", "prefer_ipv4")
+                route.put("default_domain_resolver", "dns-local")
+            }
+        }
+    }
+
+    private fun ensureProbeInbound(config: JSONObject) {
+        val inbounds = config.optJSONArray("inbounds") ?: JSONArray().also { config.put("inbounds", it) }
+        for (i in 0 until inbounds.length()) {
+            val existing = inbounds.optJSONObject(i) ?: continue
+            if (existing.optInt("listen_port", -1) == PROBE_PROXY_PORT) return
+        }
+        inbounds.put(
+            JSONObject()
+                .put("type", "mixed")
+                .put("tag", PROBE_INBOUND_TAG)
+                .put("listen", BYEDPI_ADDRESS)
+                .put("listen_port", PROBE_PROXY_PORT),
+        )
+    }
+
+    private fun insertDirectDnsRule(config: JSONObject, directDomains: List<String>) {
+        val dns = config.optJSONObject("dns") ?: return
+        val servers = dns.optJSONArray("servers") ?: return
+        if (servers.length() == 0) return
+
+        servers.put(
+            JSONObject()
+                .put("tag", DIRECT_DNS_SERVER_TAG)
+                .put("type", "local"),
+        )
+        val rules = dns.optJSONArray("rules") ?: JSONArray().also { dns.put("rules", it) }
+        insertAt(
+            rules,
+            0,
+            JSONObject()
+                .put("domain_suffix", JSONArray(directDomains))
+                .put("server", DIRECT_DNS_SERVER_TAG),
+        )
     }
 
     private fun removeMatching(array: JSONArray, predicate: (JSONObject) -> Boolean) {

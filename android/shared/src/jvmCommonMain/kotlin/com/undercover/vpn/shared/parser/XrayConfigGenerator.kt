@@ -50,9 +50,21 @@ object XrayConfigGenerator {
         val root = JSONObject()
         root.put("log", JSONObject().put("loglevel", "warning"))
 
-        val dns = JSONObject()
-        dns.put("servers", JSONArray().put("1.1.1.1").put("8.8.8.8"))
+        val dns = JSONObject().apply {
+            put("tag", "dns-out")
+            put("queryStrategy", "UseIPv4")
+            put("servers", JSONArray().put("77.88.8.8").put("8.8.8.8").put("1.1.1.1"))
+        }
         root.put("dns", dns)
+
+        val routing = JSONObject().apply {
+            put("rules", JSONArray().put(JSONObject().apply {
+                put("type", "field")
+                put("inboundTag", JSONArray().put("dns-out"))
+                put("outboundTag", "direct")
+            }))
+        }
+        root.put("routing", routing)
 
         val socksInbound = JSONObject().apply {
             put("tag", "socks-in")
@@ -338,6 +350,8 @@ object XrayConfigGenerator {
                 stream.put("httpupgradeSettings", hu)
             }
         }
+
+        stream.put("sockopt", JSONObject().put("domainStrategy", "UseIPv4"))
 
         return stream
     }

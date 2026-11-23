@@ -5,7 +5,9 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.Inet4Address
+import java.net.InetSocketAddress
 import java.net.NetworkInterface
+import java.net.Proxy
 import java.net.URL
 import java.util.Collections
 import java.util.Locale
@@ -78,24 +80,33 @@ object IpInfoProbe {
     }
 
     /**
-     * Fetches public exit node IP, city, country, and timezone over the current network path
-     * (which goes through the VPN tunnel when active).
+     * Fetches public exit node IP, city, country, and timezone.
+     * When [proxyPort] is provided, routes the probe through the local sing-box loopback
+     * mixed inbound (`127.0.0.1:[proxyPort]`) so the query exits through the active VPN
+     * tunnel even when our own app is excluded from TUN.
      */
-    suspend fun fetchExitNodeInfo(): ExitNodeInfo? = withContext(Dispatchers.IO) {
-        fetchFromIpWhoIs() ?: fetchFromIpApiCo() ?: fetchFromIpify()
+    suspend fun fetchExitNodeInfo(proxyPort: Int? = null): ExitNodeInfo? = withContext(Dispatchers.IO) {
+        val proxy = proxyPort?.let {
+            Proxy(Proxy.Type.HTTP, InetSocketAddress("127.0.0.1", it))
+        }
+        fetchFromIpWhoIs(proxy) ?: fetchFromIpApiCo(proxy) ?: fetchFromIpify(proxy)
     }
 
-    private fun fetchFromIpWhoIs(): ExitNodeInfo? {
+    private fun openConnection(url: URL, proxy: Proxy?): HttpURLConnection {
+        val raw = if (proxy != null) url.openConnection(proxy) else url.openConnection()
+        return (raw as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = CONNECT_TIMEOUT_MS
+            readTimeout = READ_TIMEOUT_MS
+            setRequestProperty("User-Agent", "Undercover/0.5")
+            useCaches = false
+        }
+    }
+
+    private fun fetchFromIpWhoIs(proxy: Proxy?): ExitNodeInfo? {
         var conn: HttpURLConnection? = null
         try {
-            val url = URL("https://ipwho.is/")
-            conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = CONNECT_TIMEOUT_MS
-                readTimeout = READ_TIMEOUT_MS
-                setRequestProperty("User-Agent", "Undercover/0.1")
-                useCaches = false
-            }
+            conn = openConnection(URL("https://ipwho.is/"), proxy)
             if (conn.responseCode == 200) {
                 val body = conn.inputStream.bufferedReader().use { it.readText() }
                 val json = JSONObject(body)
@@ -127,17 +138,10 @@ object IpInfoProbe {
         return null
     }
 
-    private fun fetchFromIpApiCo(): ExitNodeInfo? {
+    private fun fetchFromIpApiCo(proxy: Proxy?): ExitNodeInfo? {
         var conn: HttpURLConnection? = null
         try {
-            val url = URL("https://ipapi.co/json/")
-            conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = CONNECT_TIMEOUT_MS
-                readTimeout = READ_TIMEOUT_MS
-                setRequestProperty("User-Agent", "Undercover/0.1")
-                useCaches = false
-            }
+            conn = openConnection(URL("https://ipapi.co/json/"), proxy)
             if (conn.responseCode == 200) {
                 val body = conn.inputStream.bufferedReader().use { it.readText() }
                 val json = JSONObject(body)
@@ -166,17 +170,10 @@ object IpInfoProbe {
         return null
     }
 
-    private fun fetchFromIpify(): ExitNodeInfo? {
+    private fun fetchFromIpify(proxy: Proxy?): ExitNodeInfo? {
         var conn: HttpURLConnection? = null
         try {
-            val url = URL("https://api.ipify.org?format=json")
-            conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = CONNECT_TIMEOUT_MS
-                readTimeout = READ_TIMEOUT_MS
-                setRequestProperty("User-Agent", "Undercover/0.1")
-                useCaches = false
-            }
+            conn = openConnection(URL("https://api.ipify.org?format=json"), proxy)
             if (conn.responseCode == 200) {
                 val body = conn.inputStream.bufferedReader().use { it.readText() }
                 val json = JSONObject(body)
