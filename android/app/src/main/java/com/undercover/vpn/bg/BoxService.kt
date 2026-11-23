@@ -190,7 +190,9 @@ class BoxService(private val service: Service, private val platformInterface: Pl
             Log.e(TAG, "ByeDPI did not start; its apps will fall through to the profile rules")
         }
 
-        val generated = RoutingConfig.apply(migrated, byeDpiPort)
+        val xrayTags = com.undercover.vpn.shared.parser.SubscriptionNodesHelper.loadXrayMap(profile.typed.path).keys
+        val xrayBridge = if (xrayTags.isNotEmpty()) XrayManager.ensureSessionBridge() else null
+        val generated = RoutingConfig.apply(migrated, byeDpiPort, xrayTags, xrayBridge)
 
         // Persist so the profile on disk always reflects what the UI says. Generation
         // strips its own previous output first, so rewriting on every start converges
@@ -320,7 +322,8 @@ class BoxService(private val service: Service, private val platformInterface: Pl
     }
 
     private fun closeService() {
-        XrayManager.stop()
+        XrayManager.stop(clearSession = true)
+        RoutingConfig.clearProbeEndpoint()
         runBlocking {
             ByeDpiManager.stop()
         }

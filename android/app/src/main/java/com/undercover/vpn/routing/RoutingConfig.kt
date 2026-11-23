@@ -1,9 +1,13 @@
 package com.undercover.vpn.routing
 
 import android.util.Log
+import com.undercover.vpn.bg.XrayManager
 import com.undercover.vpn.database.Settings
 import org.json.JSONArray
 import org.json.JSONObject
+import java.net.InetAddress
+import java.net.ServerSocket
+import java.security.SecureRandom
 
 /**
  * Generates per-app and per-domain routing rules from the UI settings and injects them
@@ -19,9 +23,41 @@ object RoutingConfig {
     private const val BYEDPI_ADDRESS = "127.0.0.1"
     private const val PROBE_INBOUND_TAG = "undercover-probe-in"
     private const val DIRECT_DNS_SERVER_TAG = "undercover-dns-local"
+    private val secureRandom = SecureRandom()
 
-    /** Loopback mixed inbound port used by IpInfoProbe to measure the real VPN exit IP. */
-    const val PROBE_PROXY_PORT = 20808
+    data class ProbeEndpoint(
+        val port: Int,
+        val username: String,
+        val password: String,
+    )
+
+    /** Ephemeral authenticated loopback mixed inbound used by IpInfoProbe & LatencyProbe. */
+    @Volatile
+    var activeProbeEndpoint: ProbeEndpoint? = null
+        private set
+
+    fun clearProbeEndpoint() {
+        activeProbeEndpoint = null
+    }
+
+    private fun allocateProbeEndpoint(): ProbeEndpoint {
+        val port = ServerSocket(0, 1, InetAddress.getByName(BYEDPI_ADDRESS)).use { it.localPort }
+        return ProbeEndpoint(
+            port = port,
+            username = randomHex(12),
+            password = randomHex(24),
+        )
+    }
+
+    private fun randomHex(byteCount: Int): String {
+        val bytes = ByteArray(byteCount)
+        secureRandom.nextBytes(bytes)
+        val sb = StringBuilder(byteCount * 2)
+        for (b in bytes) {
+            sb.append(String.format("%02x", b))
+        }
+        return sb.toString()
+    }
 
     val RU_DOMAINS_PRESET = listOf(
         "ru",
@@ -99,9 +135,15 @@ object RoutingConfig {
     )
 
     /**
-     * Returns [configJson] with generated outbounds and route rules.
+     * Returns [configJson] with generated outbounds, authenticated loopback endpoints,
+     * Android TUN/DNS repairs, and route rules.
      */
-    fun apply(configJson: String, byeDpiPort: Int?): String {
+    fun apply(
+        configJson: String,
+        byeDpiPort: Int?,
+        xrayBridgeTags: Set<String> = emptySet(),
+        xrayBridge: XrayManager.BridgeEndpoint? = null,
+    ): String {
         val directApps = Settings.routingList(RoutingSection.DIRECT)
         val byeDpiApps = if (byeDpiPort != null) {
             Settings.routingList(RoutingSection.BYEDPI)
@@ -131,6 +173,9 @@ object RoutingConfig {
             stripGenerated(config)
             repairAndroidConfig(config)
             ensureProbeInbound(config)
+            if (xrayBridge != null && xrayBridgeTags.isNotEmpty()) {
+                applyXrayBridgeCredentials(config, xrayBridgeTags, xrayBridge)
+            }
             val distinctDirectDomains = directDomains.distinct()
             val distinctByeDpiDomains = byeDpiDomains.distinct()
             if (directApps.isNotEmpty() || distinctDirectDomains.isNotEmpty()) ensureDirectOutbound(config)
@@ -144,7 +189,8 @@ object RoutingConfig {
             Log.i(
                 TAG,
                 "routing applied: directApps=${directApps.size} directDomains=${distinctDirectDomains.size} " +
-                    "byedpiApps=${byeDpiApps.size} byedpiDomains=${distinctByeDpiDomains.size}",
+                    "byedpiApps=${byeDpiApps.size} byedpiDomains=${distinctByeDpiDomains.size} " +
+                    "xrayBridges=${xrayBridgeTags.size}",
             )
             config.toString()
         } catch (e: Exception) {
@@ -193,15 +239,31 @@ object RoutingConfig {
     /**
      * Repairs previously-generated profiles on Android:
      *  1. Replaces TUN `stack: "system"` with `stack: "gvisor"` (non-root Android VpnService drops TCP on `system`).
-     *  2. Upgrades the old single direct `cloudflare-doh` (blocked in RU, no detour) to
+     *  2. Ensures TUN `address` includes IPv6 (`fdfe:dcba:9876::1/126`) so dual-stack IPv6 traffic cannot leak.
+     *  3. Upgrades the old single direct `cloudflare-doh` (blocked in RU, no detour) to
      *     `dns-remote` (DoH via proxy) + `dns-local` (Android system DNS as default_domain_resolver).
      */
     private fun repairAndroidConfig(config: JSONObject) {
         config.optJSONArray("inbounds")?.let { inbounds ->
             for (i in 0 until inbounds.length()) {
                 val inbound = inbounds.optJSONObject(i) ?: continue
-                if (inbound.optString("type") == "tun" && inbound.optString("stack") == "system") {
-                    inbound.put("stack", "gvisor")
+                if (inbound.optString("type") == "tun") {
+                    if (inbound.optString("stack") == "system") {
+                        inbound.put("stack", "gvisor")
+                    }
+                    val addrArr = inbound.optJSONArray("address")
+                    if (addrArr != null) {
+                        var hasIpv6 = false
+                        for (j in 0 until addrArr.length()) {
+                            if (addrArr.optString(j).contains(':')) {
+                                hasIpv6 = true
+                                break
+                            }
+                        }
+                        if (!hasIpv6) {
+                            addrArr.put("fdfe:dcba:9876::1/126")
+                        }
+                    }
                 }
             }
         }
@@ -233,18 +295,44 @@ object RoutingConfig {
     }
 
     private fun ensureProbeInbound(config: JSONObject) {
+        val endpoint = allocateProbeEndpoint()
+        activeProbeEndpoint = endpoint
         val inbounds = config.optJSONArray("inbounds") ?: JSONArray().also { config.put("inbounds", it) }
-        for (i in 0 until inbounds.length()) {
-            val existing = inbounds.optJSONObject(i) ?: continue
-            if (existing.optInt("listen_port", -1) == PROBE_PROXY_PORT) return
-        }
         inbounds.put(
             JSONObject()
                 .put("type", "mixed")
                 .put("tag", PROBE_INBOUND_TAG)
                 .put("listen", BYEDPI_ADDRESS)
-                .put("listen_port", PROBE_PROXY_PORT),
+                .put("listen_port", endpoint.port)
+                .put(
+                    "users",
+                    JSONArray().put(
+                        JSONObject()
+                            .put("username", endpoint.username)
+                            .put("password", endpoint.password),
+                    ),
+                ),
         )
+    }
+
+    private fun applyXrayBridgeCredentials(
+        config: JSONObject,
+        xrayBridgeTags: Set<String>,
+        bridge: XrayManager.BridgeEndpoint,
+    ) {
+        val outbounds = config.optJSONArray("outbounds") ?: return
+        for (i in 0 until outbounds.length()) {
+            val ob = outbounds.optJSONObject(i) ?: continue
+            if (ob.optString("type").equals("socks", ignoreCase = true) &&
+                ob.optString("tag") in xrayBridgeTags
+            ) {
+                ob.put("server", BYEDPI_ADDRESS)
+                ob.put("server_port", bridge.port)
+                ob.put("version", "5")
+                ob.put("username", bridge.username)
+                ob.put("password", bridge.password)
+            }
+        }
     }
 
     private fun insertDirectDnsRule(config: JSONObject, directDomains: List<String>) {
@@ -307,7 +395,15 @@ object RoutingConfig {
 
         val generated = mutableListOf<JSONObject>()
 
-        // 1. ByeDPI rules (domains & apps)
+        // 1. Direct apps FIRST so apps marked "direct" are strictly isolated from VPN/ByeDPI
+        if (directApps.isNotEmpty()) {
+            generated += JSONObject()
+                .put("package_name", JSONArray(directApps.toList()))
+                .put("action", "route")
+                .put("outbound", RoutingSection.DIRECT.outboundTag)
+        }
+
+        // 2. ByeDPI rules (domains & apps)
         if (byeDpiDomains.isNotEmpty()) {
             generated += JSONObject()
                 .put("domain_suffix", JSONArray(byeDpiDomains))
@@ -332,17 +428,10 @@ object RoutingConfig {
                 .put("outbound", RoutingSection.BYEDPI.outboundTag)
         }
 
-        // 2. Direct rules (domains & apps)
+        // 3. Direct domains
         if (directDomains.isNotEmpty()) {
             generated += JSONObject()
                 .put("domain_suffix", JSONArray(directDomains))
-                .put("action", "route")
-                .put("outbound", RoutingSection.DIRECT.outboundTag)
-        }
-
-        if (directApps.isNotEmpty()) {
-            generated += JSONObject()
-                .put("package_name", JSONArray(directApps.toList()))
                 .put("action", "route")
                 .put("outbound", RoutingSection.DIRECT.outboundTag)
         }

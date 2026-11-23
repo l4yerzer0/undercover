@@ -352,10 +352,11 @@ fun CoreSettingsScreen(navController: NavController) {
                         )
                     },
                     supportingContent = {
-                        val statusText = if (XrayManager.isRunning) {
-                            "Активен · SOCKS5 127.0.0.1:10808"
+                        val activePort = XrayManager.activePort
+                        val statusText = if (activePort != null) {
+                            "Активен · SOCKS5 127.0.0.1:$activePort (Auth)"
                         } else {
-                            "Готов к работе · Автозапуск для XHTTP/mKCP"
+                            "Готов к работе · Динамический порт + авторизация"
                         }
                         Text(
                             statusText,

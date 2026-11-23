@@ -221,8 +221,11 @@ class DashboardViewModel :
     /** Polls latency while the service is up and the app is in the foreground. */
     private suspend fun probeLatency() {
         while (currentCoroutineContext().isActive) {
-            val latency = LatencyProbe.measure(proxyPort = RoutingConfig.PROBE_PROXY_PORT)
-            updateState { copy(ping = latency?.let { "$it ms" } ?: "—") }
+            val endpoint = RoutingConfig.activeProbeEndpoint
+            if (endpoint != null) {
+                val latency = LatencyProbe.measure(probeEndpoint = endpoint)
+                updateState { copy(ping = latency?.let { "$it ms" } ?: "—") }
+            }
             delay(PING_INTERVAL_MS)
         }
     }
@@ -246,7 +249,12 @@ class DashboardViewModel :
         }
         delay(1200L)
         while (currentCoroutineContext().isActive) {
-            val info = IpInfoProbe.fetchExitNodeInfo(proxyPort = RoutingConfig.PROBE_PROXY_PORT)
+            val endpoint = RoutingConfig.activeProbeEndpoint
+            val info = if (endpoint != null) {
+                IpInfoProbe.fetchExitNodeInfo(probeEndpoint = endpoint)
+            } else {
+                null
+            }
             if (info != null) {
                 updateState {
                     copy(

@@ -1,13 +1,12 @@
 package com.undercover.vpn.utils
 
+import com.undercover.vpn.routing.RoutingConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.Inet4Address
-import java.net.InetSocketAddress
 import java.net.NetworkInterface
-import java.net.Proxy
 import java.net.URL
 import java.util.Collections
 import java.util.Locale
@@ -81,77 +80,55 @@ object IpInfoProbe {
 
     /**
      * Fetches public exit node IP, city, country, and timezone.
-     * When [proxyPort] is provided, routes the probe through the local sing-box loopback
-     * mixed inbound (`127.0.0.1:[proxyPort]`) so the query exits through the active VPN
-     * tunnel even when our own app is excluded from TUN.
+     * When [probeEndpoint] is provided, routes the probe through the authenticated local
+     * sing-box loopback mixed inbound so the query exits through the active VPN tunnel
+     * even when our own app is excluded from TUN.
      */
-    suspend fun fetchExitNodeInfo(proxyPort: Int? = null): ExitNodeInfo? = withContext(Dispatchers.IO) {
-        val proxy = proxyPort?.let {
-            Proxy(Proxy.Type.HTTP, InetSocketAddress("127.0.0.1", it))
-        }
-        fetchFromIpWhoIs(proxy) ?: fetchFromIpApiCo(proxy) ?: fetchFromIpify(proxy)
+    suspend fun fetchExitNodeInfo(
+        probeEndpoint: RoutingConfig.ProbeEndpoint? = null,
+    ): ExitNodeInfo? = withContext(Dispatchers.IO) {
+        fetchFromIpWhoIs(probeEndpoint)
+            ?: fetchFromIpApiCo(probeEndpoint)
+            ?: fetchFromIpify(probeEndpoint)
     }
 
-    private fun openConnection(url: URL, proxy: Proxy?): HttpURLConnection {
-        val raw = if (proxy != null) url.openConnection(proxy) else url.openConnection()
-        return (raw as HttpURLConnection).apply {
-            requestMethod = "GET"
-            connectTimeout = CONNECT_TIMEOUT_MS
-            readTimeout = READ_TIMEOUT_MS
-            setRequestProperty("User-Agent", "Undercover/0.5")
-            useCaches = false
+    private fun fetchBody(urlString: String, endpoint: RoutingConfig.ProbeEndpoint?): String? {
+        if (endpoint != null) {
+            val resp = TunnelHttpClient.httpsGet(urlString, endpoint, CONNECT_TIMEOUT_MS)
+            return if (resp.statusCode == 200) resp.body else null
         }
-    }
-
-    private fun fetchFromIpWhoIs(proxy: Proxy?): ExitNodeInfo? {
         var conn: HttpURLConnection? = null
-        try {
-            conn = openConnection(URL("https://ipwho.is/"), proxy)
-            if (conn.responseCode == 200) {
-                val body = conn.inputStream.bufferedReader().use { it.readText() }
-                val json = JSONObject(body)
-                if (json.optBoolean("success", true)) {
-                    val ip = json.optString("ip")
-                    if (ip.isNotEmpty()) {
-                        val country = json.optString("country")
-                        val countryCode = json.optString("country_code")
-                        val city = json.optString("city")
-                        val tzObj = json.optJSONObject("timezone")
-                        val tzId = tzObj?.optString("id") ?: ""
-                        val tzUtc = tzObj?.optString("utc")
-                        val formattedTz = formatTimeZone(tzId, tzUtc)
-                        return ExitNodeInfo(
-                            ip = ip,
-                            country = country,
-                            countryCode = countryCode,
-                            city = city,
-                            timezone = formattedTz,
-                            locale = getLocaleForCountry(countryCode),
-                        )
-                    }
-                }
+        return try {
+            conn = (URL(urlString).openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = CONNECT_TIMEOUT_MS
+                readTimeout = READ_TIMEOUT_MS
+                setRequestProperty("User-Agent", "Undercover/0.5")
+                useCaches = false
             }
-        } catch (_: Exception) {
+            if (conn.responseCode == 200) {
+                conn.inputStream.bufferedReader().use { it.readText() }
+            } else {
+                null
+            }
         } finally {
             conn?.disconnect()
         }
-        return null
     }
 
-    private fun fetchFromIpApiCo(proxy: Proxy?): ExitNodeInfo? {
-        var conn: HttpURLConnection? = null
+    private fun fetchFromIpWhoIs(endpoint: RoutingConfig.ProbeEndpoint?): ExitNodeInfo? {
         try {
-            conn = openConnection(URL("https://ipapi.co/json/"), proxy)
-            if (conn.responseCode == 200) {
-                val body = conn.inputStream.bufferedReader().use { it.readText() }
-                val json = JSONObject(body)
+            val body = fetchBody("https://ipwho.is/", endpoint) ?: return null
+            val json = JSONObject(body)
+            if (json.optBoolean("success", true)) {
                 val ip = json.optString("ip")
                 if (ip.isNotEmpty()) {
-                    val country = json.optString("country_name")
+                    val country = json.optString("country")
                     val countryCode = json.optString("country_code")
                     val city = json.optString("city")
-                    val tzId = json.optString("timezone")
-                    val tzUtc = json.optString("utc_offset")
+                    val tzObj = json.optJSONObject("timezone")
+                    val tzId = tzObj?.optString("id") ?: ""
+                    val tzUtc = tzObj?.optString("utc")
                     val formattedTz = formatTimeZone(tzId, tzUtc)
                     return ExitNodeInfo(
                         ip = ip,
@@ -164,34 +141,52 @@ object IpInfoProbe {
                 }
             }
         } catch (_: Exception) {
-        } finally {
-            conn?.disconnect()
         }
         return null
     }
 
-    private fun fetchFromIpify(proxy: Proxy?): ExitNodeInfo? {
-        var conn: HttpURLConnection? = null
+    private fun fetchFromIpApiCo(endpoint: RoutingConfig.ProbeEndpoint?): ExitNodeInfo? {
         try {
-            conn = openConnection(URL("https://api.ipify.org?format=json"), proxy)
-            if (conn.responseCode == 200) {
-                val body = conn.inputStream.bufferedReader().use { it.readText() }
-                val json = JSONObject(body)
-                val ip = json.optString("ip")
-                if (ip.isNotEmpty()) {
-                    return ExitNodeInfo(
-                        ip = ip,
-                        country = "Protected",
-                        countryCode = "VPN",
-                        city = "In-Tunnel",
-                        timezone = "UTC+00",
-                        locale = "en-US",
-                    )
-                }
+            val body = fetchBody("https://ipapi.co/json/", endpoint) ?: return null
+            val json = JSONObject(body)
+            val ip = json.optString("ip")
+            if (ip.isNotEmpty()) {
+                val country = json.optString("country_name")
+                val countryCode = json.optString("country_code")
+                val city = json.optString("city")
+                val tzId = json.optString("timezone")
+                val tzUtc = json.optString("utc_offset")
+                val formattedTz = formatTimeZone(tzId, tzUtc)
+                return ExitNodeInfo(
+                    ip = ip,
+                    country = country,
+                    countryCode = countryCode,
+                    city = city,
+                    timezone = formattedTz,
+                    locale = getLocaleForCountry(countryCode),
+                )
             }
         } catch (_: Exception) {
-        } finally {
-            conn?.disconnect()
+        }
+        return null
+    }
+
+    private fun fetchFromIpify(endpoint: RoutingConfig.ProbeEndpoint?): ExitNodeInfo? {
+        try {
+            val body = fetchBody("https://api.ipify.org?format=json", endpoint) ?: return null
+            val json = JSONObject(body)
+            val ip = json.optString("ip")
+            if (ip.isNotEmpty()) {
+                return ExitNodeInfo(
+                    ip = ip,
+                    country = "Protected",
+                    countryCode = "VPN",
+                    city = "In-Tunnel",
+                    timezone = "UTC+00",
+                    locale = "en-US",
+                )
+            }
+        } catch (_: Exception) {
         }
         return null
     }

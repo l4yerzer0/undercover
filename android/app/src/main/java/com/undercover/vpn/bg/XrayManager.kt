@@ -12,12 +12,21 @@ import java.io.File
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.net.ServerSocket
 import java.net.Socket
+import java.security.SecureRandom
 import java.util.zip.ZipFile
 
 object XrayManager {
     private const val TAG = "XrayManager"
     private val lock = Any()
+    private val secureRandom = SecureRandom()
+
+    data class BridgeEndpoint(
+        val port: Int,
+        val username: String,
+        val password: String,
+    )
 
     @Volatile
     private var process: Process? = null
@@ -25,8 +34,43 @@ object XrayManager {
     @Volatile
     private var activeConfigText: String? = null
 
+    @Volatile
+    private var sessionBridge: BridgeEndpoint? = null
+
     val isRunning: Boolean
         get() = process?.isAlive == true
+
+    val activePort: Int?
+        get() = if (isRunning) sessionBridge?.port else null
+
+    /**
+     * Allocates (or reuses for the current VPN session) an ephemeral loopback port and
+     * cryptographically random SOCKS5 credentials so other apps on the device cannot probe
+     * or tunnel through xray-core over localhost.
+     */
+    fun ensureSessionBridge(): BridgeEndpoint {
+        synchronized(lock) {
+            sessionBridge?.let { return it }
+            val port = ServerSocket(0, 1, InetAddress.getByName(XrayConfigGenerator.LOCAL_SOCKS_HOST)).use { it.localPort }
+            val endpoint = BridgeEndpoint(
+                port = port,
+                username = randomHex(12),
+                password = randomHex(24),
+            )
+            sessionBridge = endpoint
+            return endpoint
+        }
+    }
+
+    private fun randomHex(byteCount: Int): String {
+        val bytes = ByteArray(byteCount)
+        secureRandom.nextBytes(bytes)
+        val sb = StringBuilder(byteCount * 2)
+        for (b in bytes) {
+            sb.append(String.format("%02x", b))
+        }
+        return sb.toString()
+    }
 
     fun getVersion(context: Context): String {
         return try {
@@ -43,7 +87,7 @@ object XrayManager {
     fun ensureForConfig(context: Context, singBoxConfigPath: String) {
         val xrayJson = SubscriptionNodesHelper.resolveActiveXrayConfig(singBoxConfigPath)
         if (xrayJson == null) {
-            stop()
+            stop(clearSession = false)
             return
         }
         startWithJson(context, xrayJson)
@@ -51,22 +95,23 @@ object XrayManager {
 
     fun startWithJson(context: Context, xrayJson: String) {
         synchronized(lock) {
+            val bridge = ensureSessionBridge()
             val current = process
             if (current != null && current.isAlive && activeConfigText == xrayJson) {
                 return
             }
-            stopLocked()
+            stopLocked(clearSession = false)
 
             val binary = resolveXrayBinary(context)
             if (!binary.canExecute()) {
                 binary.setExecutable(true)
             }
 
-            val preparedJson = prepareAndroidConfig(context, xrayJson)
+            val preparedJson = prepareAndroidConfig(context, xrayJson, bridge)
             val configFile = File(context.cacheDir, "xray-active.json")
             configFile.writeText(preparedJson)
 
-            Log.i(TAG, "Starting xray-core from ${binary.absolutePath}")
+            Log.i(TAG, "Starting xray-core from ${binary.absolutePath} on 127.0.0.1:${bridge.port} (auth=password)")
             val proc = ProcessBuilder(binary.absolutePath, "run", "-c", configFile.absolutePath)
                 .directory(context.cacheDir)
                 .redirectErrorStream(true)
@@ -87,21 +132,46 @@ object XrayManager {
                 start()
             }
 
-            waitForSocksReady(proc)
+            waitForSocksReady(proc, bridge.port)
         }
     }
 
     /**
-     * Enhances an Xray JSON config for Android where /etc/resolv.conf does not exist:
+     * Enhances an Xray JSON config for Android where /etc/resolv.conf does not exist,
+     * and hardens the local SOCKS5 bridge against active localhost probing:
+     *  - Binds socks-in to the per-session ephemeral port with random password auth
      *  - Pre-resolves proxy server domains via Android's native netd resolver into dns.hosts
      *  - Injects active system DNS servers + Yandex/Google/Cloudflare fallbacks
      *  - Routes Xray's own DNS queries ("dns-out") to the "direct" freedom outbound
      *  - Forces streamSettings.sockopt.domainStrategy = "UseIPv4" so Xray uses its internal
      *    DNS/hosts table instead of Go's net.Dialer (/etc/resolv.conf).
      */
-    private fun prepareAndroidConfig(context: Context, xrayJson: String): String {
+    private fun prepareAndroidConfig(context: Context, xrayJson: String, bridge: BridgeEndpoint): String {
         return try {
             val root = JSONObject(xrayJson)
+
+            // Harden socks-in with per-session ephemeral port and password auth
+            root.optJSONArray("inbounds")?.let { inbounds ->
+                for (i in 0 until inbounds.length()) {
+                    val inbound = inbounds.optJSONObject(i) ?: continue
+                    if (inbound.optString("protocol").equals("socks", ignoreCase = true)) {
+                        inbound.put("listen", XrayConfigGenerator.LOCAL_SOCKS_HOST)
+                        inbound.put("port", bridge.port)
+                        val settings = inbound.optJSONObject("settings") ?: JSONObject().also { inbound.put("settings", it) }
+                        settings.put("auth", "password")
+                        settings.put("udp", true)
+                        settings.put(
+                            "accounts",
+                            JSONArray().put(
+                                JSONObject()
+                                    .put("user", bridge.username)
+                                    .put("pass", bridge.password),
+                            ),
+                        )
+                    }
+                }
+            }
+
             val dns = root.optJSONObject("dns") ?: JSONObject().also { root.put("dns", it) }
             dns.put("tag", "dns-out")
             dns.put("queryStrategy", "UseIPv4")
@@ -250,7 +320,7 @@ object XrayManager {
         throw IllegalStateException("Xray core binary not found: ${nativeLib.absolutePath}")
     }
 
-    private fun waitForSocksReady(proc: Process) {
+    private fun waitForSocksReady(proc: Process, port: Int) {
         val deadline = System.currentTimeMillis() + 3000L
         while (System.currentTimeMillis() < deadline) {
             if (!proc.isAlive) {
@@ -259,26 +329,29 @@ object XrayManager {
             try {
                 Socket().use { socket ->
                     socket.connect(
-                        InetSocketAddress(XrayConfigGenerator.LOCAL_SOCKS_HOST, XrayConfigGenerator.LOCAL_SOCKS_PORT),
+                        InetSocketAddress(XrayConfigGenerator.LOCAL_SOCKS_HOST, port),
                         100,
                     )
                 }
-                Log.i(TAG, "xray-core SOCKS5 bridge ready on ${XrayConfigGenerator.LOCAL_SOCKS_HOST}:${XrayConfigGenerator.LOCAL_SOCKS_PORT}")
+                Log.i(TAG, "xray-core SOCKS5 bridge ready on ${XrayConfigGenerator.LOCAL_SOCKS_HOST}:$port")
                 return
             } catch (_: Exception) {
                 Thread.sleep(50)
             }
         }
-        Log.w(TAG, "Timed out waiting for xray-core SOCKS5 port, proceeding anyway")
+        Log.w(TAG, "Timed out waiting for xray-core SOCKS5 port $port, proceeding anyway")
     }
 
-    fun stop() {
+    fun stop(clearSession: Boolean = true) {
         synchronized(lock) {
-            stopLocked()
+            stopLocked(clearSession)
         }
     }
 
-    private fun stopLocked() {
+    private fun stopLocked(clearSession: Boolean) {
+        if (clearSession) {
+            sessionBridge = null
+        }
         val proc = process ?: return
         process = null
         activeConfigText = null

@@ -1,17 +1,16 @@
 package com.undercover.vpn.utils
 
+import com.undercover.vpn.routing.RoutingConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
-import java.net.InetSocketAddress
-import java.net.Proxy
 import java.net.URL
 
 /**
  * Measures round-trip latency through the active VPN tunnel.
  *
- * When [proxyPort] is supplied, routes the probe via sing-box's loopback mixed inbound
- * (`127.0.0.1:[proxyPort]`) so the measurement traverses sing-box → active outbound → target
+ * When [probeEndpoint] is supplied, routes the probe via sing-box's authenticated
+ * loopback mixed inbound so the measurement traverses sing-box → active outbound → target
  * even when this app's own UID is excluded from TUN for child cores like xray-core.
  */
 object LatencyProbe {
@@ -19,16 +18,26 @@ object LatencyProbe {
     private const val TIMEOUT_MS = 5_000
 
     /** Round trip in milliseconds, or null if the probe failed. */
-    suspend fun measure(proxyPort: Int? = null): Long? = withContext(Dispatchers.IO) {
+    suspend fun measure(
+        probeEndpoint: RoutingConfig.ProbeEndpoint? = null,
+    ): Long? = withContext(Dispatchers.IO) {
+        if (probeEndpoint != null) {
+            return@withContext try {
+                val startedAt = System.nanoTime()
+                val resp = TunnelHttpClient.httpsGet(PROBE_URL, probeEndpoint, TIMEOUT_MS)
+                if (resp.statusCode in 200..399) {
+                    (System.nanoTime() - startedAt) / 1_000_000
+                } else {
+                    null
+                }
+            } catch (_: Exception) {
+                null
+            }
+        }
         var connection: HttpURLConnection? = null
         try {
-            val proxy = proxyPort?.let {
-                Proxy(Proxy.Type.HTTP, InetSocketAddress("127.0.0.1", it))
-            }
             val startedAt = System.nanoTime()
-            val url = URL(PROBE_URL)
-            val raw = if (proxy != null) url.openConnection(proxy) else url.openConnection()
-            connection = (raw as HttpURLConnection).apply {
+            connection = (URL(PROBE_URL).openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
                 connectTimeout = TIMEOUT_MS
                 readTimeout = TIMEOUT_MS
