@@ -33,12 +33,14 @@ object SingBoxCoreManager {
     fun getRecentLogs(): List<String> = synchronized(recentLogs) { recentLogs.toList() }
 
     private var currentProcess: Process? = null
+    private var currentXrayProcess: Process? = null
     private val isStopping = AtomicBoolean(false)
 
     init {
         // Restore system proxy on JVM exit
         Runtime.getRuntime().addShutdownHook(Thread {
             try {
+                currentXrayProcess?.destroyForcibly()
                 currentProcess?.destroyForcibly()
                 runBlocking { SystemProxyController.disableSystemProxy() }
             } catch (_: Exception) {}
@@ -167,6 +169,9 @@ object SingBoxCoreManager {
         }
 
         try {
+            // Start xray-core automatically if the selected node requires it (e.g., xhttp / kcp)
+            startXrayIfNeeded(profile)
+
             // Build runnable configuration
             val runnableConfig = buildRunnableConfig(profile, settings)
             StorageManager.runningConfigFile.writeText(runnableConfig)
@@ -257,9 +262,100 @@ object SingBoxCoreManager {
             } catch (_: Exception) {}
         }
         currentProcess = null
+        stopXray()
 
         _vpnState.value = VpnState.Disconnected
         log("[APP] Disconnected. System network settings restored.")
+    }
+
+    private suspend fun startXrayIfNeeded(profile: DesktopProfile) {
+        val activeTag = profile.selectedOutboundTag ?: "proxy"
+        val xrayJson = profile.xrayConfigsByTag[activeTag] ?: profile.xrayConfigsByTag["proxy"]
+        if (xrayJson == null) {
+            stopXray()
+            return
+        }
+        stopXray()
+        val xrayBin = ensureXrayBinary()
+            ?: throw IllegalStateException("xray-core binary not found for current platform")
+
+        val configFile = File(StorageManager.runningConfigFile.parentFile, "xray-running.json")
+        configFile.writeText(xrayJson)
+
+        log("[CORE] Starting xray-core for $activeTag...")
+        val proc = ProcessBuilder(xrayBin.absolutePath, "run", "-c", configFile.absolutePath)
+            .redirectErrorStream(true)
+            .start()
+        currentXrayProcess = proc
+
+        scope.launch {
+            val reader = BufferedReader(InputStreamReader(proc.inputStream))
+            var line: String?
+            while (reader.readLine().also { line = it } != null) {
+                line?.let { log("[XRAY] $it") }
+            }
+        }
+
+        val deadline = System.currentTimeMillis() + 3000L
+        while (System.currentTimeMillis() < deadline) {
+            if (!proc.isAlive) {
+                throw IllegalStateException("xray-core exited prematurely with code ${proc.exitValue()}")
+            }
+            try {
+                java.net.Socket().use { s ->
+                    s.connect(java.net.InetSocketAddress("127.0.0.1", 10808), 100)
+                }
+                log("[CORE] xray-core SOCKS5 bridge ready on 127.0.0.1:10808")
+                return
+            } catch (_: Exception) {
+                delay(50)
+            }
+        }
+    }
+
+    private fun stopXray() {
+        currentXrayProcess?.let { proc ->
+            try {
+                proc.destroy()
+                if (proc.isAlive) proc.destroyForcibly()
+            } catch (_: Exception) {}
+        }
+        currentXrayProcess = null
+    }
+
+    private fun ensureXrayBinary(): File? {
+        val home = System.getProperty("user.home")
+        val isWindows = System.getProperty("os.name").lowercase().contains("win")
+        val exeName = if (isWindows) "xray.exe" else "xray"
+        val targetDir = File(home, ".local/share/undercover").also { it.mkdirs() }
+        val localBin = File(targetDir, exeName)
+        if (localBin.exists() && localBin.canExecute() && localBin.length() > 1000) {
+            return localBin
+        }
+        val osName = System.getProperty("os.name").lowercase()
+        val archName = System.getProperty("os.arch").lowercase()
+        val osPart = when {
+            osName.contains("win") -> "windows"
+            osName.contains("mac") -> "darwin"
+            else -> "linux"
+        }
+        val archPart = when {
+            archName.contains("aarch64") || archName.contains("arm64") -> "arm64"
+            else -> "amd64"
+        }
+        val resourceStream = SingBoxCoreManager::class.java.getResourceAsStream("/bin/$osPart-$archPart/$exeName")
+        if (resourceStream != null) {
+            localBin.outputStream().use { out -> resourceStream.copyTo(out) }
+            localBin.setExecutable(true, false)
+            return localBin
+        }
+        val pathEnv = System.getenv("PATH") ?: ""
+        val separator = if (isWindows) ";" else ":"
+        for (dir in pathEnv.split(separator)) {
+            val candidate = File(dir, exeName)
+            if (candidate.exists() && candidate.canExecute()) return candidate
+        }
+        return null
     }
 
     private fun buildRunnableConfig(profile: DesktopProfile, settings: DesktopSettings): String {

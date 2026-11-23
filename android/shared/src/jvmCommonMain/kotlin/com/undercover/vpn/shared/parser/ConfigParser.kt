@@ -15,6 +15,11 @@ data class ParsedProxyConfig(
     val outboundJson: Map<String, Any>
 )
 
+data class MultiCoreConfigResult(
+    val singBoxJson: String,
+    val xrayConfigsByTag: Map<String, String> = emptyMap(),
+)
+
 object ConfigParser {
     
     fun isSupportedUri(uriString: String): Boolean {
@@ -31,14 +36,28 @@ object ConfigParser {
                 trimmed.startsWith("hy2://")
     }
 
-    fun parseUriToSingBoxJson(uriString: String): String? {
+    fun parseUriToSingBoxJson(uriString: String): String? =
+        parseUriWithXraySupport(uriString)?.singBoxJson
+
+    fun parseUriWithXraySupport(uriString: String): MultiCoreConfigResult? {
         val effectiveUri = if (HappDecoder.isHappOrV2Link(uriString)) {
             HappDecoder.decrypt(uriString) ?: return null
         } else {
             uriString
         }
+        if (XrayConfigGenerator.requiresXrayCore(effectiveUri)) {
+            val xrayConfig = XrayConfigGenerator.generateXrayConfigFromUri(effectiveUri) ?: return null
+            val outbounds = JSONArray().apply {
+                put(buildXrayBridgeSocksOutbound("proxy"))
+                put(JSONObject(mapOf("type" to "direct", "tag" to "direct-out")))
+            }
+            return MultiCoreConfigResult(
+                singBoxJson = buildSingBoxJson(outbounds),
+                xrayConfigsByTag = mapOf("proxy" to xrayConfig),
+            )
+        }
         val parsed = parseUri(effectiveUri) ?: return null
-        return generateSingBoxJson(parsed)
+        return MultiCoreConfigResult(singBoxJson = generateSingBoxJson(parsed))
     }
 
     fun parseUriToName(uriString: String): String? {
@@ -323,48 +342,95 @@ object ConfigParser {
      * (the format most subscription servers return after base64 decoding).
      * Nodes are wrapped in a "proxy" selector so the route can pick one of them.
      */
-    fun parseUriListToSingBoxJson(uriStrings: List<String>): String? {
-        val nodes = mutableListOf<ParsedProxyConfig>()
+    fun parseUriListToSingBoxJson(uriStrings: List<String>): String? =
+        parseUriListWithXraySupport(uriStrings)?.singBoxJson
+
+    fun parseUriListWithXraySupport(uriStrings: List<String>): MultiCoreConfigResult? {
+        val outbounds = JSONArray()
+        val nodeTags = mutableListOf<String>()
         val usedTags = mutableSetOf<String>()
+        val xrayConfigsByTag = LinkedHashMap<String, String>()
+        val nodeOutboundObjects = mutableListOf<JSONObject>()
 
         uriStrings.forEachIndexed { index, raw ->
             val uri = raw.trim()
             if (uri.isEmpty()) return@forEachIndexed
-            val parsed = parseUri(uri) ?: return@forEachIndexed
-
-            val base = parsed.name.ifBlank { "Node ${index + 1}" }
-            var tag = base
-            var suffix = 2
-            while (!usedTags.add(tag)) {
-                tag = "$base ($suffix)"
-                suffix++
+            val effectiveUri = if (HappDecoder.isHappOrV2Link(uri)) {
+                HappDecoder.decrypt(uri) ?: return@forEachIndexed
+            } else {
+                uri
             }
-            nodes.add(parsed.copy(name = tag))
+
+            if (XrayConfigGenerator.requiresXrayCore(effectiveUri)) {
+                val xrayConfig = XrayConfigGenerator.generateXrayConfigFromUri(effectiveUri) ?: return@forEachIndexed
+                val baseName = extractRawFragmentName(effectiveUri)?.ifBlank { null }
+                    ?: "Node ${index + 1}"
+                val tag = deduplicateTag(baseName, usedTags)
+                nodeTags.add(tag)
+                xrayConfigsByTag[tag] = xrayConfig
+                nodeOutboundObjects.add(buildXrayBridgeSocksOutbound(tag))
+            } else {
+                val parsed = parseUri(effectiveUri) ?: return@forEachIndexed
+                val base = parsed.name.ifBlank { "Node ${index + 1}" }
+                val tag = deduplicateTag(base, usedTags)
+                nodeTags.add(tag)
+                val outboundObj = JSONObject(parsed.outboundJson)
+                outboundObj.put("tag", tag)
+                nodeOutboundObjects.add(outboundObj)
+            }
         }
 
-        if (nodes.isEmpty()) return null
+        if (nodeTags.isEmpty()) return null
 
-        val outbounds = JSONArray()
         outbounds.put(
             JSONObject(
                 mapOf(
                     "type" to "selector",
                     "tag" to "proxy",
-                    "outbounds" to JSONArray().also { tags -> nodes.forEach { tags.put(it.name) } },
-                    "default" to nodes.first().name,
+                    "outbounds" to JSONArray().also { tags -> nodeTags.forEach { tags.put(it) } },
+                    "default" to nodeTags.first(),
                 ),
             ),
         )
-
-        nodes.forEach { node ->
-            val outboundObj = JSONObject(node.outboundJson)
-            outboundObj.put("tag", node.name)
-            outbounds.put(outboundObj)
-        }
+        nodeOutboundObjects.forEach { outbounds.put(it) }
         outbounds.put(JSONObject(mapOf("type" to "direct", "tag" to "direct-out")))
 
-        return buildSingBoxJson(outbounds)
+        return MultiCoreConfigResult(
+            singBoxJson = buildSingBoxJson(outbounds),
+            xrayConfigsByTag = xrayConfigsByTag,
+        )
     }
+
+    private fun deduplicateTag(base: String, usedTags: MutableSet<String>): String {
+        var tag = base
+        var suffix = 2
+        while (!usedTags.add(tag)) {
+            tag = "$base ($suffix)"
+            suffix++
+        }
+        return tag
+    }
+
+    private fun extractRawFragmentName(uri: String): String? {
+        val hashIdx = uri.indexOf('#')
+        if (hashIdx == -1) return null
+        val raw = uri.substring(hashIdx + 1).trim()
+        return if (raw.isEmpty()) null else try {
+            URLDecoder.decode(raw, "UTF-8").trim()
+        } catch (_: Exception) {
+            raw
+        }
+    }
+
+    private fun buildXrayBridgeSocksOutbound(tag: String): JSONObject = JSONObject(
+        mapOf(
+            "type" to "socks",
+            "tag" to tag,
+            "server" to XrayConfigGenerator.LOCAL_SOCKS_HOST,
+            "server_port" to XrayConfigGenerator.LOCAL_SOCKS_PORT,
+            "version" to "5",
+        ),
+    )
 
     private fun generateSingBoxJson(config: ParsedProxyConfig): String {
         val outbounds = JSONArray()

@@ -62,4 +62,34 @@ class SubscriptionNodesHelperTest {
         assertEquals("1.2.3.4", info.nodes[1].server)
         assertEquals(443, info.nodes[1].port)
     }
+
+    @Test
+    fun testMultiCoreSubscriptionWithTcpAndXhttp() {
+        val uris = """
+            vless://f6a0820a-0a24-41b1-9bcf-b114f6c9e468@185.246.223.18:443?security=reality&type=tcp&sni=larp333.tech&fp=chrome&pbk=D2qIa_M1TGoPToIocKIqyQ-H0gPm2QXYWSUEWp-7xVo&sid=deadbeef#%F0%9F%9A%80%20Marz%20%28Pal-Laich%29%20%5BVLESS%20-%20tcp%5D
+            vless://f6a0820a-0a24-41b1-9bcf-b114f6c9e468@app.larp333.tech:443?security=tls&type=xhttp&path=%2Fv-sync-e89f3569c66a&host=app.larp333.tech&mode=auto&extra=%7B%22scMaxEachPostBytes%22%3A+1000000%7D&sni=app.larp333.tech&fp=chrome&alpn=h2#%F0%9F%9A%80%20Marz%20%28Pal-Laich%29%20%5BVLESS%20-%20xhttp%5D
+        """.trimIndent()
+
+        val multiCore = SubscriptionContentParser.toMultiCoreConfig(uris)
+        assertNotNull(multiCore)
+        assertEquals(1, multiCore!!.xrayConfigsByTag.size)
+
+        val tempFile = java.io.File.createTempFile("test_sub", ".json")
+        try {
+            tempFile.writeText(multiCore.singBoxJson)
+            SubscriptionNodesHelper.saveXraySidecar(tempFile.absolutePath, multiCore.xrayConfigsByTag)
+
+            val info = SubscriptionNodesHelper.extractNodesInfo(multiCore.singBoxJson, tempFile.absolutePath)
+            assertEquals(2, info.nodes.size)
+            assertEquals("SING-BOX", info.nodes[0].core)
+            assertEquals("VLESS", info.nodes[0].type)
+            assertEquals("XRAY", info.nodes[1].core)
+            assertEquals("XHTTP", info.nodes[1].type)
+            assertEquals("app.larp333.tech", info.nodes[1].server)
+            assertEquals(443, info.nodes[1].port)
+        } finally {
+            SubscriptionNodesHelper.xraySidecarFile(tempFile.absolutePath).delete()
+            tempFile.delete()
+        }
+    }
 }

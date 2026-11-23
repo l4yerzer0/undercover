@@ -13,6 +13,7 @@ import com.undercover.vpn.database.TypedProfile
 import com.undercover.vpn.utils.HTTPClient
 import com.undercover.vpn.shared.parser.SubscriptionContentParser
 import com.undercover.vpn.shared.parser.SubscriptionMetadataFetcher
+import com.undercover.vpn.shared.parser.SubscriptionNodesHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -342,13 +343,14 @@ class NewProfileViewModel(application: Application) : AndroidViewModel(applicati
             SubscriptionMetadataFetcher.fetch(state.remoteUrl, HTTPClient.userAgent).content
         }
         // Subscriptions may be a sing-box JSON config, base64, or a plain list of proxy links.
-        val normalized = SubscriptionContentParser.toSingBoxConfig(rawContent)
+        val multiCore = SubscriptionContentParser.toMultiCoreConfig(rawContent)
             ?: throw IllegalStateException("Не удалось распознать формат подписки: ожидается конфигурация sing-box или список прокси-ссылок")
-        val migratedContent = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(normalized)
+        val migratedContent = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(multiCore.singBoxJson)
         Libbox.checkConfig(migratedContent)
         val configContent = migratedContent
 
         configFile.writeText(configContent)
+        SubscriptionNodesHelper.saveXraySidecar(configFile.path, multiCore.xrayConfigsByTag)
 
         // Create profile in database and select it
         ProfileManager.create(profile, andSelect = true)

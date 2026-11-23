@@ -568,13 +568,16 @@ fun ConnectionsConfigsScreen(
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Box(
                                                 modifier = Modifier
-                                                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                                                    .background(
+                                                        if (node.requiresXray) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                                                    )
                                                     .padding(horizontal = 6.dp, vertical = 2.dp),
                                             ) {
                                                 Text(
-                                                    text = node.type,
+                                                    text = if (node.requiresXray) "${node.type} · XRAY" else node.type,
                                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                                    color = if (node.requiresXray) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                                 )
                                             }
                                         }

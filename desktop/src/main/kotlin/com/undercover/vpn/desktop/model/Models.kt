@@ -22,7 +22,8 @@ data class ProxyNode(
     val type: String,
     val server: String = "",
     val port: Int = 0,
-    val latencyMs: Int? = null
+    val latencyMs: Int? = null,
+    val core: String = "SING-BOX"
 )
 
 @Serializable
@@ -36,7 +37,8 @@ data class DesktopProfile(
     val outbounds: List<ProxyNode> = emptyList(),
     val selectedOutboundTag: String? = null,
     val lastUpdated: Long = System.currentTimeMillis(),
-    val latencyMs: Int? = null
+    val latencyMs: Int? = null,
+    val xrayConfigsByTag: Map<String, String> = emptyMap()
 )
 
 @Serializable

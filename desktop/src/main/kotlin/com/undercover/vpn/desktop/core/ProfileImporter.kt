@@ -7,6 +7,7 @@ import com.undercover.vpn.shared.parser.ConfigParser
 import com.undercover.vpn.shared.parser.SingBoxConfigMigrator
 import com.undercover.vpn.shared.parser.SubscriptionContentParser
 import com.undercover.vpn.shared.parser.SubscriptionMetadataFetcher
+import com.undercover.vpn.shared.parser.SubscriptionNodesHelper
 import com.undercover.vpn.shared.parser.happ.HappDecoder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -34,21 +35,22 @@ object ProfileImporter {
 
         // 3. Check if standard proxy URI (vless, hysteria2, vmess, etc.)
         if (ConfigParser.isSupportedUri(trimmed)) {
-            val jsonConfig = ConfigParser.parseUriToSingBoxJson(trimmed)
+            val multiCore = ConfigParser.parseUriWithXraySupport(trimmed)
                 ?: throw IllegalArgumentException("Could not parse proxy URI")
             val name = ConfigParser.parseUriToName(trimmed) ?: "Imported Proxy"
-            val migrated = SingBoxConfigMigrator.migrate(jsonConfig)
-            val nodes = extractNodes(migrated)
+            val migrated = SingBoxConfigMigrator.migrate(multiCore.singBoxJson)
+            val nodes = extractNodes(migrated, multiCore.xrayConfigsByTag)
 
             return@withContext DesktopProfile(
                 id = UUID.randomUUID().toString(),
                 name = name,
                 type = ProfileType.SINGLE_LINK,
                 sourceUrl = trimmed,
-                rawConfig = jsonConfig,
+                rawConfig = multiCore.singBoxJson,
                 migratedConfig = migrated,
                 outbounds = nodes,
-                selectedOutboundTag = nodes.firstOrNull()?.tag
+                selectedOutboundTag = nodes.firstOrNull()?.tag,
+                xrayConfigsByTag = multiCore.xrayConfigsByTag
             )
         }
 
@@ -79,38 +81,23 @@ object ProfileImporter {
             rawConfig = updated.rawConfig,
             migratedConfig = updated.migratedConfig,
             outbounds = updated.outbounds,
+            xrayConfigsByTag = updated.xrayConfigsByTag,
             lastUpdated = System.currentTimeMillis()
         )
     }
 
     private fun fetchRemoteSubscription(urlStr: String): DesktopProfile {
-        val url = URL(urlStr)
-        val conn = url.openConnection() as HttpURLConnection
-        conn.requestMethod = "GET"
-        conn.connectTimeout = 15000
-        conn.readTimeout = 15000
-        // Set User-Agent so sing-box compatible backends (Remnawave, 3X-UI) return JSON configuration
-        conn.setRequestProperty("User-Agent", "SFA/0.4 (sing-box 1.14.4; linux)")
-        conn.setRequestProperty("Accept", "application/json, text/plain, */*")
-
-        val responseCode = conn.responseCode
-        if (responseCode !in 200..299) {
-            throw IllegalStateException("Subscription request failed with HTTP $responseCode")
-        }
-
-        val headers = conn.headerFields
-        val content = conn.inputStream.bufferedReader().use { it.readText() }.trim()
+        val fetchResult = SubscriptionMetadataFetcher.fetch(urlStr, "SFA/0.4 (sing-box 1.14.4; linux)")
 
         // A subscription can be a sing-box JSON config, a base64 blob, or a plain list of proxy links.
-        val normalized = SubscriptionContentParser.toSingBoxConfig(content)
+        val multiCore = SubscriptionContentParser.toMultiCoreConfig(fetchResult.content)
             ?: throw IllegalStateException(
                 "Subscription response is neither a sing-box configuration nor a list of proxy links"
             )
 
-        val migrated = SingBoxConfigMigrator.migrate(normalized)
-        val nodes = extractNodes(migrated)
-        val metadata = SubscriptionMetadataFetcher.parseMetadata(headers, urlStr, content)
-        val title = metadata.title
+        val migrated = SingBoxConfigMigrator.migrate(multiCore.singBoxJson)
+        val nodes = extractNodes(migrated, multiCore.xrayConfigsByTag)
+        val title = fetchResult.metadata.title
             ?: extractProfileTitle(migrated)?.takeIf { it != "proxy" }
             ?: extractDomainFromUrl(urlStr)
 
@@ -119,34 +106,28 @@ object ProfileImporter {
             name = title,
             type = ProfileType.REMOTE_SUBSCRIPTION,
             sourceUrl = urlStr,
-            rawConfig = normalized,
+            rawConfig = multiCore.singBoxJson,
             migratedConfig = migrated,
             outbounds = nodes,
-            selectedOutboundTag = nodes.firstOrNull()?.tag
+            selectedOutboundTag = nodes.firstOrNull()?.tag,
+            xrayConfigsByTag = multiCore.xrayConfigsByTag
         )
     }
 
-    private fun extractNodes(migratedJson: String): List<ProxyNode> {
-        return try {
-            val root = JSONObject(migratedJson)
-            val outbounds = root.optJSONArray("outbounds") ?: return emptyList()
-            val list = mutableListOf<ProxyNode>()
-            for (i in 0 until outbounds.length()) {
-                val ob = outbounds.optJSONObject(i) ?: continue
-                val type = ob.optString("type")
-                if (type == "selector" || type == "urltest" || type == "direct" || type == "block" || type == "dns") {
-                    continue
-                }
-                val tag = ob.optString("tag")
-                val server = ob.optString("server")
-                val port = ob.optInt("server_port")
-                if (tag.isNotEmpty()) {
-                    list.add(ProxyNode(tag = tag, type = type.uppercase(), server = server, port = port))
-                }
-            }
-            list
-        } catch (_: Exception) {
-            emptyList()
+    private fun extractNodes(
+        migratedJson: String,
+        xrayConfigsByTag: Map<String, String> = emptyMap(),
+    ): List<ProxyNode> {
+        val info = SubscriptionNodesHelper.extractNodesInfo(migratedJson)
+        return info.nodes.map { node ->
+            val hasXray = xrayConfigsByTag.containsKey(node.tag)
+            ProxyNode(
+                tag = node.tag,
+                type = if (hasXray) "XHTTP" else node.type,
+                server = node.server,
+                port = node.port,
+                core = if (hasXray) "XRAY" else node.core,
+            )
         }
     }
 

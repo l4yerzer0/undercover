@@ -180,6 +180,12 @@ class VPNService :
                     }
                 }
             }
+
+            // Always exclude our own app from TUN when not using an allow-list so child cores
+            // like xray-core / byedpi can dial the physical network directly without looping.
+            if (!includePackage.hasNext()) {
+                runCatching { builder.addDisallowedApplication(packageName) }
+            }
         }
 
         // ProxyInfo from VpnService.Builder is not scoped to the VPN's UID range: the system

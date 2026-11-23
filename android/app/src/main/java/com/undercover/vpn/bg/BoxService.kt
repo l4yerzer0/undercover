@@ -201,6 +201,8 @@ class BoxService(private val service: Service, private val platformInterface: Pl
                 .onFailure { Log.e(TAG, "failed to persist generated routing rules", it) }
         }
 
+        XrayManager.ensureForConfig(service, profile.typed.path)
+
         return generated
     }
 
@@ -318,6 +320,7 @@ class BoxService(private val service: Service, private val platformInterface: Pl
     }
 
     private fun closeService() {
+        XrayManager.stop()
         runBlocking {
             ByeDpiManager.stop()
         }

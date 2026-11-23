@@ -4,7 +4,9 @@ import androidx.lifecycle.viewModelScope
 import io.nekohasekai.libbox.Libbox
 import io.nekohasekai.libbox.OutboundGroup
 import io.nekohasekai.libbox.StatusMessage
+import com.undercover.vpn.Application
 import com.undercover.vpn.bg.BoxService
+import com.undercover.vpn.bg.XrayManager
 import com.undercover.vpn.compose.base.BaseViewModel
 import com.undercover.vpn.compose.base.UiEvent
 import com.undercover.vpn.constant.Status
@@ -13,6 +15,8 @@ import com.undercover.vpn.database.ProfileManager
 import com.undercover.vpn.database.Settings
 import com.undercover.vpn.database.TypedProfile
 import com.undercover.vpn.shared.parser.ProfileNodesInfo
+import com.undercover.vpn.shared.parser.SubscriptionContentParser
+import com.undercover.vpn.shared.parser.SubscriptionMetadataFetcher
 import com.undercover.vpn.shared.parser.SubscriptionNodesHelper
 import com.undercover.vpn.utils.AppLifecycleObserver
 import com.undercover.vpn.utils.CommandClient
@@ -279,7 +283,7 @@ class DashboardViewModel :
                     val info = try {
                         val file = File(profile.typed.path)
                         if (file.exists()) {
-                            SubscriptionNodesHelper.extractNodesInfo(file.readText())
+                            SubscriptionNodesHelper.extractNodesInfo(file.readText(), profile.typed.path)
                         } else {
                             ProfileNodesInfo()
                         }
@@ -437,6 +441,7 @@ class DashboardViewModel :
                 if (wasDifferentProfile) {
                     selectProfile(profileId)
                 } else if (_serviceStatus.value == Status.Started) {
+                    XrayManager.ensureForConfig(Application.application, profile.typed.path)
                     runCatching {
                         CommandTarget.standaloneClient().selectOutbound(selectorTag, nodeTag)
                     }
@@ -490,9 +495,11 @@ class DashboardViewModel :
             }
 
             try {
-                // Fetch remote config
-                val rawContent = HTTPClient().use { it.getString(profile.typed.remoteURL) }
-                val content = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(rawContent)
+                // Fetch remote config using SubscriptionMetadataFetcher (supports xhttp/base64/sing-box JSON)
+                val fetchResult = SubscriptionMetadataFetcher.fetch(profile.typed.remoteURL, HTTPClient.userAgent)
+                val multiCore = SubscriptionContentParser.toMultiCoreConfig(fetchResult.content)
+                    ?: throw IllegalStateException("Unsupported subscription format")
+                val content = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(multiCore.singBoxJson)
                 Libbox.checkConfig(content)
 
                 // Check if content changed
@@ -502,6 +509,7 @@ class DashboardViewModel :
                     file.writeText(content)
                     contentChanged = true
                 }
+                SubscriptionNodesHelper.saveXraySidecar(profile.typed.path, multiCore.xrayConfigsByTag)
 
                 // Update last updated time
                 profile.typed.lastUpdated = Date()

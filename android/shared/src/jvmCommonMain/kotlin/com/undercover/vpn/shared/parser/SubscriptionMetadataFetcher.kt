@@ -170,6 +170,24 @@ object SubscriptionMetadataFetcher {
                 resolvedUrl = decrypted
             }
         }
+        // Request as Happ/2.0 first so panels like Marzban return all transports (including xhttp)
+        // instead of stripping them for sing-box; fall back to caller User-Agent if needed.
+        val candidates = listOf("Happ/2.0", userAgent).distinct()
+        var lastError: Exception? = null
+        for (ua in candidates) {
+            try {
+                val result = executeFetch(resolvedUrl, ua)
+                if (SubscriptionContentParser.toMultiCoreConfig(result.content) != null || ua == candidates.last()) {
+                    return result
+                }
+            } catch (e: Exception) {
+                lastError = e
+            }
+        }
+        throw lastError ?: IllegalStateException("Subscription request failed")
+    }
+
+    private fun executeFetch(resolvedUrl: String, userAgent: String): FetchSubscriptionResult {
         val url = URL(resolvedUrl)
         val conn = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"

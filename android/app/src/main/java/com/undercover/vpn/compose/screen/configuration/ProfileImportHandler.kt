@@ -58,10 +58,10 @@ class ProfileImportHandler(private val context: Context) {
             val dataString = String(data)
 
             if (com.undercover.vpn.shared.parser.ConfigParser.isSupportedUri(dataString)) {
-                val json = com.undercover.vpn.shared.parser.ConfigParser.parseUriToSingBoxJson(dataString)
-                if (json != null) {
+                val multiCore = com.undercover.vpn.shared.parser.ConfigParser.parseUriWithXraySupport(dataString)
+                if (multiCore != null) {
                     val name = com.undercover.vpn.shared.parser.ConfigParser.parseUriToName(dataString) ?: filename
-                    return@withContext importJsonConfiguration(json, name)
+                    return@withContext importJsonConfiguration(multiCore.singBoxJson, name, multiCore.xrayConfigsByTag)
                 }
             }
 
@@ -208,10 +208,10 @@ class ProfileImportHandler(private val context: Context) {
 
             // Check if it's a supported VPN share link
             if (com.undercover.vpn.shared.parser.ConfigParser.isSupportedUri(resolvedData)) {
-                val json = com.undercover.vpn.shared.parser.ConfigParser.parseUriToSingBoxJson(resolvedData)
-                if (json != null) {
+                val multiCore = com.undercover.vpn.shared.parser.ConfigParser.parseUriWithXraySupport(resolvedData)
+                if (multiCore != null) {
                     val name = com.undercover.vpn.shared.parser.ConfigParser.parseUriToName(resolvedData) ?: "Imported Proxy"
-                    return@withContext importJsonConfiguration(json, name)
+                    return@withContext importJsonConfiguration(multiCore.singBoxJson, name, multiCore.xrayConfigsByTag)
                 }
             }
 
@@ -310,13 +310,13 @@ class ProfileImportHandler(private val context: Context) {
             }
 
         // A subscription can be a sing-box JSON config, base64, or a plain list of proxy links.
-        val normalized =
-            SubscriptionContentParser.toSingBoxConfig(fetchResult.content)
+        val multiCore =
+            SubscriptionContentParser.toMultiCoreConfig(fetchResult.content)
                 ?: return ImportResult.Error(
                     "Не удалось распознать формат подписки: ожидается конфигурация sing-box или список прокси-ссылок",
                 )
 
-        val migrated = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(normalized)
+        val migrated = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(multiCore.singBoxJson)
         try {
             Libbox.checkConfig(migrated)
         } catch (e: Exception) {
@@ -329,6 +329,10 @@ class ProfileImportHandler(private val context: Context) {
         val configDirectory = File(context.filesDir, "configs").also { it.mkdirs() }
         val configFile = File(configDirectory, "$fileID.json")
         configFile.writeText(migrated)
+        com.undercover.vpn.shared.parser.SubscriptionNodesHelper.saveXraySidecar(
+            configFile.path,
+            multiCore.xrayConfigsByTag,
+        )
 
         val profileName =
             fetchResult.metadata.title
@@ -440,7 +444,11 @@ class ProfileImportHandler(private val context: Context) {
         }
     }
 
-    private suspend fun importJsonConfiguration(jsonContent: String, profileName: String): ImportResult {
+    private suspend fun importJsonConfiguration(
+        jsonContent: String,
+        profileName: String,
+        xrayConfigsByTag: Map<String, String> = emptyMap(),
+    ): ImportResult {
         return try {
             val migratedContent = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(jsonContent)
             // Validate the JSON configuration using sing-box
@@ -473,6 +481,10 @@ class ProfileImportHandler(private val context: Context) {
             val configDirectory = File(context.filesDir, "configs").also { it.mkdirs() }
             val configFile = File(configDirectory, "$fileID.json")
             configFile.writeText(migratedContent)
+            com.undercover.vpn.shared.parser.SubscriptionNodesHelper.saveXraySidecar(
+                configFile.path,
+                xrayConfigsByTag,
+            )
             typedProfile.path = configFile.path
 
             // Create profile in database and select it

@@ -82,10 +82,10 @@ class UpdateProfileWork {
                             profile.typed.remoteURL,
                             HTTPClient.userAgent,
                         ).content
-                    val normalized =
-                        SubscriptionContentParser.toSingBoxConfig(rawContent)
+                    val multiCore =
+                        SubscriptionContentParser.toMultiCoreConfig(rawContent)
                             ?: throw IllegalStateException("Unsupported subscription format")
-                    val content = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(normalized)
+                    val content = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(multiCore.singBoxJson)
                     Libbox.checkConfig(content)
                     val file = File(profile.typed.path)
                     if (file.readText() != content) {
@@ -94,6 +94,10 @@ class UpdateProfileWork {
                             selectedProfileUpdated = true
                         }
                     }
+                    com.undercover.vpn.shared.parser.SubscriptionNodesHelper.saveXraySidecar(
+                        profile.typed.path,
+                        multiCore.xrayConfigsByTag,
+                    )
                     profile.typed.lastUpdated = Date()
                     ProfileManager.update(profile)
                 } catch (e: Exception) {

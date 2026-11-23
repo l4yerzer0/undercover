@@ -17,16 +17,18 @@ object SubscriptionContentParser {
 
     private const val MAX_DECODE_DEPTH = 3
 
-    fun toSingBoxConfig(rawContent: String): String? = normalize(rawContent, 0)
+    fun toSingBoxConfig(rawContent: String): String? = toMultiCoreConfig(rawContent)?.singBoxJson
 
-    private fun normalize(input: String, depth: Int): String? {
+    fun toMultiCoreConfig(rawContent: String): MultiCoreConfigResult? = normalizeMultiCore(rawContent, 0)
+
+    private fun normalizeMultiCore(input: String, depth: Int): MultiCoreConfigResult? {
         if (depth > MAX_DECODE_DEPTH) return null
 
         val text = input.trim().removePrefix("\uFEFF").trim()
         if (text.isEmpty()) return null
 
         // A sing-box configuration object is returned as-is; the caller migrates/validates it.
-        if (text.startsWith("{")) return text
+        if (text.startsWith("{")) return MultiCoreConfigResult(singBoxJson = text)
         // A bare JSON array is not a valid sing-box root configuration.
         if (text.startsWith("[")) return null
 
@@ -36,7 +38,7 @@ object SubscriptionContentParser {
             if (decodedTrimmed.isNotEmpty() && decodedTrimmed != text &&
                 (decodedTrimmed.startsWith("{") || decodedTrimmed.contains("://"))
             ) {
-                normalize(decodedTrimmed, depth + 1)?.let { return it }
+                normalizeMultiCore(decodedTrimmed, depth + 1)?.let { return it }
             }
         }
 
@@ -45,7 +47,7 @@ object SubscriptionContentParser {
             .filter { it.isNotEmpty() && ConfigParser.isSupportedUri(it) }
 
         if (uris.isNotEmpty()) {
-            return ConfigParser.parseUriListToSingBoxJson(uris)
+            return ConfigParser.parseUriListWithXraySupport(uris)
         }
 
         return null
