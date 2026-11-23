@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Undercover — открытый VPN-клиент</title>
+  <meta name="description" content="Открытый VPN-клиент на базе sing-box и Xray. Поддержка VLESS Reality, Hysteria2, ByeDPI. Без телеметрии и лишнего шума.">
+  <meta name="theme-color" content="#0C0C0C">
+  <meta property="og:title" content="Undercover — открытый VPN-клиент">
+  <meta property="og:description" content="Полностью открытый код, кроссплатформенность и современные протоколы обхода блокировок без телеметрии.">
+  <meta property="og:type" content="website">
+  <link rel="icon" type="image/png" href="assets/logo.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <canvas class="bg-canvas" id="bg-canvas" aria-hidden="true"></canvas>
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- Top Navigation -->
+  <header class="topbar">
+    <div class="container topbar__inner">
+      <a href="#" class="brand" aria-label="Undercover">
+        <span class="status-dot status-dot--active" aria-hidden="true"></span>
+        <img src="assets/logo.png" alt="" class="brand__logo" width="22" height="22">
+        <span class="brand__name">UNDERCOVER</span>
+      </a>
+
+      <nav class="nav" aria-label="Основная навигация">
+        <a href="#advantages" class="nav__link">ПРЕИМУЩЕСТВА</a>
+        <a href="#download" class="nav__link">СКАЧАТЬ</a>
+        <a href="#faq" class="nav__link">FAQ</a>
+        <a href="https://github.com/l4yerzer0/undercover" class="nav__link nav__link--ext" target="_blank" rel="noopener noreferrer">
+          GITHUB <span aria-hidden="true">↗</span>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero -->
+    <section class="hero">
+      <div class="container hero__grid">
+        <div class="hero__copy">
+          <div class="eyebrow reveal">
+            <span class="eyebrow__tag">DOSSIER // <span id="hero-version">v0.5</span></span>
+            <span class="eyebrow__sep" aria-hidden="true">·</span>
+            <span>OPEN SOURCE</span>
+          </div>
+
+          <h1 class="hero__title reveal" data-delay="1">
+            VPN-клиент на базе<br>
+            <span class="serif-latin">sing-box</span> и <span class="serif-latin">Xray</span>.
+          </h1>
+
+          <p class="hero__desc reveal" data-delay="2">
+            Работает тихо и предсказуемо. Поддержка VLESS Reality, Hysteria2 и встроенного ByeDPI — без телеметрии, аккаунтов и скрытых бинарников.
+          </p>
+
+          <div class="hero__actions reveal" data-delay="3">
+            <a href="#download" class="btn btn--primary" id="hero-download-btn">
+              <span id="hero-download-label">СКАЧАТЬ КЛИЕНТ</span>
+            </a>
+            <a href="https://github.com/l4yerzer0/undercover" class="btn btn--outlined" target="_blank" rel="noopener noreferrer">
+              ИСХОДНЫЙ КОД ↗
+            </a>
+          </div>
+
+          <div class="hero__meta reveal" data-delay="4">
+            <div class="meta-item">
+              <span class="meta-item__label">ЯДРО</span>
+              <span class="meta-item__val">sing-box / Xray</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-item__label">ТЕЛЕМЕТРИЯ</span>
+              <span class="meta-item__val">Отсутствует</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-item__label">СТАТУС</span>
+              <span class="meta-item__val">Android готов · Desktop/CLI в работе</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive "What to choose" Card (App vs CLI) -->
+        <div class="hero__preview reveal" data-delay="2">
+          <div class="dossier-panel" id="choice-panel">
+            <div class="dossier-panel__head">
+              <div class="dossier-panel__status">
+                <img src="assets/logo.png" alt="" width="16" height="16" class="brand__logo">
+                <span class="label-mono">ЧТО ВЫБРАТЬ</span>
+              </div>
+              <span class="label-mono label-mono--muted">APP / CLI</span>
+            </div>
+
+            <div class="spec-tabs spec-tabs--two" role="tablist" aria-label="Выбор формата">
+              <button type="button" class="spec-tab is-active" role="tab" aria-selected="true" data-choice="app">
+                ПРИЛОЖЕНИЕ
+              </button>
+              <button type="button" class="spec-tab" role="tab" aria-selected="false" data-choice="cli">
+                CLI (UC)
+              </button>
+            </div>
+
+            <div class="spec-body" id="choice-body">
+              <div class="spec-headline">
+                <div class="spec-headline__title" id="choice-title">Клиент с интерфейсом</div>
+                <span class="badge badge--ready" id="choice-badge">ANDROID ГОТОВ</span>
+              </div>
+              <p class="spec-desc" id="choice-desc">
+                Для повседневного использования на телефоне и компьютере. Импорт профилей по ссылке или QR, переключение узлов и встроенный ByeDPI.
+              </p>
+
+              <div class="dossier-table spec-table" role="table" aria-label="Характеристики">
+                <div id="choice-rows"></div>
+              </div>
+            </div>
+
+            <div class="spec-foot">
+              <span class="label-mono label-mono--muted" id="choice-foot-note">ДЛЯ ПОЛЬЗОВАТЕЛЕЙ</span>
+              <a href="#download" class="spec-foot__link" id="choice-foot-link">К ЗАГРУЗКЕ ↓</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Hairline Divider -->
+    <div class="container">
+      <div class="rule reveal-rule" aria-hidden="true"></div>
+    </div>
+
+    <!-- Advantages -->
+    <section class="section" id="advantages">
+      <div class="container">
+        <div class="section__head reveal">
+          <span class="label-mono label-mono--muted">01 // ПРИНЦИПЫ</span>
+          <h2 class="section__title">Что внутри</h2>
+        </div>
+
+        <div class="pillars">
+          <article class="pillar reveal" data-delay="1">
+            <div class="pillar__top">
+              <span class="label-mono label-mono--muted">01</span>
+              <span class="badge badge--neutral">OPEN SOURCE</span>
+            </div>
+            <h3 class="pillar__title">Полностью открытый код</h3>
+            <p class="pillar__text">
+              Исходники клиента, обёрток и CI-сборок полностью открыты на GitHub. Нет закрытых трекеров, рекламы и скрытых запросов — любую версию можно проверить и собрать самостоятельно.
+            </p>
+            <div class="pillar__spec">
+              <span>GitHub</span>
+              <span>Воспроизводимые сборки</span>
+              <span>0 трекеров</span>
+            </div>
+          </article>
+
+          <article class="pillar reveal" data-delay="2">
+            <div class="pillar__top">
+              <span class="label-mono label-mono--muted">02</span>
+              <span class="badge badge--neutral">MULTI-PLATFORM</span>
+            </div>
+            <h3 class="pillar__title">Кроссплатформенность</h3>
+            <p class="pillar__text">
+              Единый интерфейс и совместимые профили. Android-клиент уже работает и регулярно обновляется; десктопная версия (Linux, macOS, Windows) и CLI-утилита <code class="inline-code">uc</code> находятся в активной разработке.
+            </p>
+            <div class="pillar__spec">
+              <span>Android</span>
+              <span>Linux · macOS · Windows</span>
+              <span>CLI (Go)</span>
+            </div>
+          </article>
+
+          <article class="pillar reveal" data-delay="3">
+            <div class="pillar__top">
+              <span class="label-mono label-mono--muted">03</span>
+              <span class="badge badge--neutral">SECURITY</span>
+            </div>
+            <h3 class="pillar__title">Безопасность</h3>
+            <p class="pillar__text">
+              Поверх проверенных ядер <code class="inline-code">sing-box</code> и <code class="inline-code">Xray</code>: поддержка VLESS Reality, Hysteria2 и встроенного обхода DPI (ByeDPI). Конфиги и ключи хранятся только локально на вашем устройстве.
+            </p>
+            <div class="pillar__spec">
+              <span>VLESS Reality</span>
+              <span>Hysteria2</span>
+              <span>ByeDPI</span>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Hairline Divider -->
+    <div class="container">
+      <div class="rule reveal-rule" aria-hidden="true"></div>
+    </div>
+
+    <!-- Download Section -->
+    <section class="section" id="download">
+      <div class="container">
+        <div class="section__head section__head--split reveal">
+          <div>
+            <span class="label-mono label-mono--muted">02 // ЗАГРУЗКА</span>
+            <h2 class="section__title">Скачать Undercover</h2>
+          </div>
+
+          <div class="detect-bar" aria-live="polite">
+            <span class="status-dot status-dot--active" id="detect-dot" aria-hidden="true"></span>
+            <span class="label-mono label-mono--muted">ПЛАТФОРМА:</span>
+            <span class="label-mono" id="detected-platform-label">ОПРЕДЕЛЕНИЕ...</span>
+          </div>
+        </div>
+
+        <!-- Primary Auto-Detected Recommendation -->
+        <div class="download-featured reveal" id="download-featured" data-delay="1">
+          <!-- Populated by app.js based on detected OS -->
+        </div>
+
+        <!-- Platform Switcher / All Targets -->
+        <div class="targets reveal" data-delay="2">
+          <div class="targets__head">
+            <span class="label-mono label-mono--muted">ВСЕ ПЛАТФОРМЫ</span>
+            <div class="tabs" role="tablist" aria-label="Фильтр платформ">
+              <button type="button" class="tab is-active" role="tab" aria-selected="true" data-filter="all">ВСЕ</button>
+              <button type="button" class="tab" role="tab" aria-selected="false" data-filter="android">ANDROID</button>
+              <button type="button" class="tab" role="tab" aria-selected="false" data-filter="desktop">DESKTOP</button>
+              <button type="button" class="tab" role="tab" aria-selected="false" data-filter="cli">CLI</button>
+            </div>
+          </div>
+
+          <div class="target-list" id="target-list">
+            <!-- Android -->
+            <div class="target-row" data-target="android">
+              <div class="target-row__main">
+                <div class="target-row__title-wrap">
+                  <span class="target-row__title">Android клиент</span>
+                  <span class="badge badge--ready">ДОСТУПНО</span>
+                </div>
+                <p class="target-row__desc">
+                  Android 7.0+ (API 24) · ARM64 / ARMv7 / x86_64 · APK из GitHub Releases
+                </p>
+              </div>
+              <div class="target-row__actions">
+                <span class="label-mono label-mono--muted" data-release-version>v0.5</span>
+                <a href="https://github.com/l4yerzer0/undercover/releases/latest" class="btn btn--primary btn--sm" data-apk-link target="_blank" rel="noopener noreferrer">
+                  СКАЧАТЬ APK
+                </a>
+              </div>
+            </div>
+
+            <!-- Desktop -->
+            <div class="target-row" data-target="desktop">
+              <div class="target-row__main">
+                <div class="target-row__title-wrap">
+                  <span class="target-row__title">Desktop клиент</span>
+                  <span class="badge badge--wip">В РАЗРАБОТКЕ</span>
+                </div>
+                <p class="target-row__desc">
+                  Linux, macOS, Windows · Compose Desktop поверх sing-box · общий интерфейс Dossier
+                </p>
+              </div>
+              <div class="target-row__actions">
+                <span class="label-mono label-mono--muted">WIP</span>
+                <a href="https://github.com/l4yerzer0/undercover/tree/main/desktop" class="btn btn--outlined btn--sm" target="_blank" rel="noopener noreferrer">
+                  СМОТРЕТЬ КОД ↗
+                </a>
+              </div>
+            </div>
+
+            <!-- CLI -->
+            <div class="target-row" data-target="cli">
+              <div class="target-row__main">
+                <div class="target-row__title-wrap">
+                  <span class="target-row__title">CLI-утилита <code class="inline-code">uc</code></span>
+                  <span class="badge badge--wip">В РАЗРАБОТКЕ</span>
+                </div>
+                <p class="target-row__desc">
+                  Linux, macOS, Windows (amd64 / arm64) · Go · деплой своих VLESS Reality серверов и клиентский режим
+                </p>
+              </div>
+              <div class="target-row__actions">
+                <span class="label-mono label-mono--muted">WIP</span>
+                <a href="https://github.com/l4yerzer0/undercover/tree/main/cli" class="btn btn--outlined btn--sm" target="_blank" rel="noopener noreferrer">
+                  СМОТРЕТЬ КОД ↗
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Hairline Divider -->
+    <div class="container">
+      <div class="rule reveal-rule" aria-hidden="true"></div>
+    </div>
+
+    <!-- FAQ Section -->
+    <section class="section" id="faq">
+      <div class="container">
+        <div class="section__head reveal">
+          <span class="label-mono label-mono--muted">03 // СПРАВКА</span>
+          <h2 class="section__title">Частые вопросы</h2>
+        </div>
+
+        <div class="faq-list reveal" data-delay="1">
+          <details class="faq-item" open>
+            <summary class="faq-item__q">
+              <span class="faq-item__num label-mono label-mono--muted">01</span>
+              <span class="faq-item__text">Undercover — это VPN с готовыми серверами?</span>
+              <span class="faq-item__icon" aria-hidden="true"></span>
+            </summary>
+            <div class="faq-item__a">
+              <p>
+                Нет. Undercover — это открытый клиент, а не коммерческий VPN-провайдер. Вы подключаетесь к собственному серверу или импортируете готовую конфигурацию / подписку по ссылке или QR-коду.
+              </p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary class="faq-item__q">
+              <span class="faq-item__num label-mono label-mono--muted">02</span>
+              <span class="faq-item__text">Какие протоколы и форматы поддерживаются?</span>
+              <span class="faq-item__icon" aria-hidden="true"></span>
+            </summary>
+            <div class="faq-item__a">
+              <p>
+                Клиент работает поверх ядер <code class="inline-code">sing-box</code> и <code class="inline-code">Xray</code>: поддерживаются VLESS Reality, VMess, Trojan, Hysteria2, Shadowsocks, WireGuard и стандартные JSON-профили. Дополнительно встроен локальный обход DPI на базе ByeDPI.
+              </p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary class="faq-item__q">
+              <span class="faq-item__num label-mono label-mono--muted">03</span>
+              <span class="faq-item__text">Когда выйдут Desktop-клиент и CLI?</span>
+              <span class="faq-item__icon" aria-hidden="true"></span>
+            </summary>
+            <div class="faq-item__a">
+              <p>
+                Сейчас основной приоритет — стабильность Android-версии. Десктопное приложение (Compose Desktop) и консольная утилита <code class="inline-code">uc</code> (Go) уже развиваются в основном репозитории, их исходный код открыт и доступен для тестирования, а готовые релизные сборки появятся по мере готовности.
+              </p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary class="faq-item__q">
+              <span class="faq-item__num label-mono label-mono--muted">04</span>
+              <span class="faq-item__text">Собирает ли клиент телеметрию или логи?</span>
+              <span class="faq-item__icon" aria-hidden="true"></span>
+            </summary>
+            <div class="faq-item__a">
+              <p>
+                Нет. В приложении нет аналитики, рекламных SDK и внешних серверов сбора данных. Профили, ключи и локальные логи остаются только на вашем устройстве. Единственный сторонний запрос — проверка обновлений в GitHub Releases, если вы её запускаете.
+              </p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary class="faq-item__q">
+              <span class="faq-item__num label-mono label-mono--muted">05</span>
+              <span class="faq-item__text">Как обновлять приложение на Android?</span>
+              <span class="faq-item__icon" aria-hidden="true"></span>
+            </summary>
+            <div class="faq-item__a">
+              <p>
+                В клиент встроен механизм проверки новых версий напрямую через GitHub Releases — достаточно нажать иконку обновления в шапке экрана. Также любую версию APK всегда можно скачать вручную со страницы релизов.
+              </p>
+            </div>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer__inner">
+      <div class="footer__left">
+        <img src="assets/logo.png" alt="" width="18" height="18" class="brand__logo">
+        <span class="label-mono">UNDERCOVER</span>
+        <span class="label-mono label-mono--muted">·</span>
+        <span class="label-mono label-mono--muted">OPEN SOURCE VPN</span>
+      </div>
+      <div class="footer__links">
+        <a href="https://github.com/l4yerzer0/undercover" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/l4yerzer0/undercover/releases" target="_blank" rel="noopener noreferrer">Releases</a>
+        <a href="https://github.com/l4yerzer0/undercover/issues" target="_blank" rel="noopener noreferrer">Issues</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
