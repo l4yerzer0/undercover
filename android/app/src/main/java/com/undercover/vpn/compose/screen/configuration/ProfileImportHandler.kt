@@ -45,7 +45,7 @@ class ProfileImportHandler(private val context: Context) {
         data class Error(val message: String) : UriParseResult()
     }
 
-    suspend fun importFromUri(uri: Uri): ImportResult = withContext(Dispatchers.IO) {
+    suspend fun importFromUri(uri: Uri, assignedProfileId: Long = 0L): ImportResult = withContext(Dispatchers.IO) {
         try {
             val data =
                 context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
@@ -61,13 +61,13 @@ class ProfileImportHandler(private val context: Context) {
                 val multiCore = com.undercover.vpn.shared.parser.ConfigParser.parseUriWithXraySupport(dataString)
                 if (multiCore != null) {
                     val name = com.undercover.vpn.shared.parser.ConfigParser.parseUriToName(dataString) ?: filename
-                    return@withContext importJsonConfiguration(multiCore.singBoxJson, name, multiCore.xrayConfigsByTag)
+                    return@withContext importJsonConfiguration(multiCore.singBoxJson, name, multiCore.xrayConfigsByTag, assignedProfileId)
                 }
             }
 
             if (isJsonConfiguration(dataString)) {
                 // It's a JSON configuration, import it directly as a local profile
-                return@withContext importJsonConfiguration(dataString, filename)
+                return@withContext importJsonConfiguration(dataString, filename, emptyMap(), assignedProfileId)
             }
 
             // Try to decode as ProfileContent (the old way)
@@ -77,14 +77,14 @@ class ProfileImportHandler(private val context: Context) {
                 } catch (e: Exception) {
                     // If it fails, try one more time as JSON
                     if (dataString.trimStart().startsWith("{") || dataString.trimStart().startsWith("[")) {
-                        return@withContext importJsonConfiguration(dataString, filename)
+                        return@withContext importJsonConfiguration(dataString, filename, emptyMap(), assignedProfileId)
                     }
                     return@withContext ImportResult.Error(
                         context.getString(R.string.error_decode_profile, e.message),
                     )
                 }
 
-            importProfile(content)
+            importProfile(content, assignedProfileId)
         } catch (e: Exception) {
             ImportResult.Error(e.message ?: "Unknown error")
         }
@@ -184,7 +184,7 @@ class ProfileImportHandler(private val context: Context) {
         }
     }
 
-    suspend fun importFromQRCode(data: String): ImportResult = withContext(Dispatchers.IO) {
+    suspend fun importFromQRCode(data: String, assignedProfileId: Long = 0L): ImportResult = withContext(Dispatchers.IO) {
         try {
             var resolvedData = data.trim()
             if (com.undercover.vpn.shared.parser.happ.HappDecoder.isHappOrV2Link(resolvedData)) {
@@ -198,7 +198,7 @@ class ProfileImportHandler(private val context: Context) {
             if (resolvedData.startsWith("sing-box://import-remote-profile")) {
                 try {
                     val profileInfo = Libbox.parseRemoteProfileImportLink(resolvedData)
-                    return@withContext importRemoteProfile(profileInfo.name, profileInfo.url)
+                    return@withContext importRemoteProfile(profileInfo.name, profileInfo.url, assignedProfileId)
                 } catch (e: Exception) {
                     return@withContext ImportResult.Error(
                         context.getString(R.string.error_decode_profile, e.message),
@@ -211,7 +211,7 @@ class ProfileImportHandler(private val context: Context) {
                 val multiCore = com.undercover.vpn.shared.parser.ConfigParser.parseUriWithXraySupport(resolvedData)
                 if (multiCore != null) {
                     val name = com.undercover.vpn.shared.parser.ConfigParser.parseUriToName(resolvedData) ?: "Imported Proxy"
-                    return@withContext importJsonConfiguration(multiCore.singBoxJson, name, multiCore.xrayConfigsByTag)
+                    return@withContext importJsonConfiguration(multiCore.singBoxJson, name, multiCore.xrayConfigsByTag, assignedProfileId)
                 }
             }
 
@@ -219,7 +219,7 @@ class ProfileImportHandler(private val context: Context) {
             if (resolvedData.startsWith("http://") || resolvedData.startsWith("https://")) {
                 // Handle remote profile URL
                 val profileName = extractProfileNameFromUrl(resolvedData)
-                importRemoteProfile(profileName, resolvedData)
+                importRemoteProfile(profileName, resolvedData, assignedProfileId)
             } else {
                 // Try to decode as profile content
                 val content =
@@ -230,7 +230,7 @@ class ProfileImportHandler(private val context: Context) {
                             context.getString(R.string.error_decode_profile, e.message),
                         )
                     }
-                importProfile(content)
+                importProfile(content, assignedProfileId)
             }
         } catch (e: Exception) {
             ImportResult.Error(e.message ?: "Unknown error")
@@ -267,9 +267,9 @@ class ProfileImportHandler(private val context: Context) {
         }
     }
 
-    private suspend fun importProfile(content: ProfileContent): ImportResult {
+    private suspend fun importProfile(content: ProfileContent, assignedProfileId: Long = 0L): ImportResult {
         val typedProfile = TypedProfile()
-        val profile = Profile(name = content.name, typed = typedProfile)
+        val profile = Profile(name = content.name, typed = typedProfile, assignedProfileId = assignedProfileId)
         profile.userOrder = ProfileManager.nextOrder()
 
         when (content.type) {
@@ -297,11 +297,16 @@ class ProfileImportHandler(private val context: Context) {
 
         // Create profile in database and select it
         ProfileManager.create(profile, andSelect = true)
+        val activeUserProf = com.undercover.vpn.database.UserProfileManager.getActiveProfile()
+        if (activeUserProf.primaryServerId <= 0L || assignedProfileId > 0L) {
+            activeUserProf.primaryServerId = profile.id
+            com.undercover.vpn.database.UserProfileManager.update(activeUserProf)
+        }
 
         return ImportResult.Success(profile)
     }
 
-    private suspend fun importRemoteProfile(name: String, url: String): ImportResult {
+    private suspend fun importRemoteProfile(name: String, url: String, assignedProfileId: Long = 0L): ImportResult {
         val fetchResult =
             try {
                 SubscriptionMetadataFetcher.fetch(url, HTTPClient.userAgent)
@@ -351,12 +356,17 @@ class ProfileImportHandler(private val context: Context) {
             }
 
         val profile =
-            Profile(name = profileName, typed = typedProfile).apply {
+            Profile(name = profileName, typed = typedProfile, assignedProfileId = assignedProfileId).apply {
                 userOrder = ProfileManager.nextOrder()
             }
 
         // Create profile in database and select it
         ProfileManager.create(profile, andSelect = true)
+        val activeUserProf = com.undercover.vpn.database.UserProfileManager.getActiveProfile()
+        if (activeUserProf.primaryServerId <= 0L || assignedProfileId > 0L) {
+            activeUserProf.primaryServerId = profile.id
+            com.undercover.vpn.database.UserProfileManager.update(activeUserProf)
+        }
 
         return ImportResult.Success(profile)
     }
@@ -448,6 +458,7 @@ class ProfileImportHandler(private val context: Context) {
         jsonContent: String,
         profileName: String,
         xrayConfigsByTag: Map<String, String> = emptyMap(),
+        assignedProfileId: Long = 0L,
     ): ImportResult {
         return try {
             val migratedContent = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(jsonContent)
@@ -472,6 +483,7 @@ class ProfileImportHandler(private val context: Context) {
                 Profile(
                     name = profileName.ifEmpty { "Imported Profile" },
                     typed = typedProfile,
+                    assignedProfileId = assignedProfileId,
                 ).apply {
                     userOrder = ProfileManager.nextOrder()
                 }
@@ -489,6 +501,11 @@ class ProfileImportHandler(private val context: Context) {
 
             // Create profile in database and select it
             ProfileManager.create(profile, andSelect = true)
+            val activeUserProf = com.undercover.vpn.database.UserProfileManager.getActiveProfile()
+            if (activeUserProf.primaryServerId <= 0L || assignedProfileId > 0L) {
+                activeUserProf.primaryServerId = profile.id
+                com.undercover.vpn.database.UserProfileManager.update(activeUserProf)
+            }
 
             ImportResult.Success(profile)
         } catch (e: Exception) {

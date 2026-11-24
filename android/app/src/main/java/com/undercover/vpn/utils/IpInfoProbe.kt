@@ -85,17 +85,33 @@ object IpInfoProbe {
         fetchFromIpWhoIs() ?: fetchFromIpApiCo() ?: fetchFromIpify()
     }
 
+    private fun openConnection(url: URL): HttpURLConnection {
+        val conn = if (com.undercover.vpn.bg.XrayManager.isRunning) {
+            val proxy = java.net.Proxy(
+                java.net.Proxy.Type.SOCKS,
+                java.net.InetSocketAddress(
+                    com.undercover.vpn.shared.parser.XrayConfigGenerator.LOCAL_SOCKS_HOST,
+                    com.undercover.vpn.shared.parser.XrayConfigGenerator.LOCAL_SOCKS_PORT,
+                ),
+            )
+            url.openConnection(proxy)
+        } else {
+            url.openConnection()
+        }
+        return (conn as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = CONNECT_TIMEOUT_MS
+            readTimeout = READ_TIMEOUT_MS
+            setRequestProperty("User-Agent", "Undercover/0.1")
+            useCaches = false
+        }
+    }
+
     private fun fetchFromIpWhoIs(): ExitNodeInfo? {
         var conn: HttpURLConnection? = null
         try {
             val url = URL("https://ipwho.is/")
-            conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = CONNECT_TIMEOUT_MS
-                readTimeout = READ_TIMEOUT_MS
-                setRequestProperty("User-Agent", "Undercover/0.1")
-                useCaches = false
-            }
+            conn = openConnection(url)
             if (conn.responseCode == 200) {
                 val body = conn.inputStream.bufferedReader().use { it.readText() }
                 val json = JSONObject(body)
@@ -131,13 +147,7 @@ object IpInfoProbe {
         var conn: HttpURLConnection? = null
         try {
             val url = URL("https://ipapi.co/json/")
-            conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = CONNECT_TIMEOUT_MS
-                readTimeout = READ_TIMEOUT_MS
-                setRequestProperty("User-Agent", "Undercover/0.1")
-                useCaches = false
-            }
+            conn = openConnection(url)
             if (conn.responseCode == 200) {
                 val body = conn.inputStream.bufferedReader().use { it.readText() }
                 val json = JSONObject(body)
@@ -170,13 +180,7 @@ object IpInfoProbe {
         var conn: HttpURLConnection? = null
         try {
             val url = URL("https://api.ipify.org?format=json")
-            conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = CONNECT_TIMEOUT_MS
-                readTimeout = READ_TIMEOUT_MS
-                setRequestProperty("User-Agent", "Undercover/0.1")
-                useCaches = false
-            }
+            conn = openConnection(url)
             if (conn.responseCode == 200) {
                 val body = conn.inputStream.bufferedReader().use { it.readText() }
                 val json = JSONObject(body)

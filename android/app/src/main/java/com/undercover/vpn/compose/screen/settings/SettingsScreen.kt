@@ -174,25 +174,19 @@ fun SettingsScreen(navController: NavController) {
             }
 
             // Section 1: Configuration
-            DossierSectionHeader(title = "CONFIGURATION")
+            DossierSectionHeader(title = stringResource(R.string.settings_configuration))
 
             DossierSettingRow(
                 title = stringResource(R.string.title_app_settings),
-                subtitle = "Общие параметры и обновления",
+                subtitle = stringResource(R.string.settings_app_desc),
                 badgeText = if (hasUpdate) "NEW" else null,
                 onClick = { navController.navigate("settings/app") },
             )
 
             DossierSettingRow(
                 title = stringResource(R.string.routing),
-                subtitle = "Правила маршрутизации и обход сайтов",
+                subtitle = stringResource(R.string.settings_routing_desc),
                 onClick = { navController.navigate("settings/routing") },
-            )
-
-            DossierSettingRow(
-                title = stringResource(R.string.byedpi),
-                subtitle = "Обход замедления и DPI",
-                onClick = { navController.navigate("settings/byedpi") },
             )
 
             // Section 2: For Developers (Collapsible, closed by default)

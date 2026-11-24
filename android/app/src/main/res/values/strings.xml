@@ -1,12 +1,9 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <!-- App -->
     <string name="app_name" translatable="false">Undercover</string>
     <string name="app_version_title">App version</string>
     <string name="language">Language</string>
     <string name="system_default">System default</string>
-
-    <!-- Common Actions -->
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>
     <string name="save">Save</string>
@@ -36,8 +33,6 @@
     <string name="no_thanks">No, thanks</string>
     <string name="options">Options</string>
     <string name="more_options">More options</string>
-
-    <!-- Common States -->
     <string name="enabled">Enabled</string>
     <string name="disabled">Disabled</string>
     <string name="loading">Loading…</string>
@@ -45,8 +40,6 @@
     <string name="auto">Auto</string>
     <string name="success">Success</string>
     <string name="default_text">Default</string>
-
-    <!-- Navigation Titles -->
     <string name="title_dashboard">Dashboard</string>
     <string name="title_configuration">Profiles</string>
     <string name="title_log">Logs</string>
@@ -61,14 +54,10 @@
     <string name="title_connections">Connections</string>
     <string name="title_others">Others</string>
     <string name="title_scan_result">Scan Result</string>
-
-    <!-- Status -->
     <string name="status_default">Service not started</string>
     <string name="status_starting">Starting</string>
     <string name="status_stopping">Stopping</string>
     <string name="status_started">Started</string>
-
-    <!-- Dashboard -->
     <string name="dossier_select_profile">SELECT PROFILE</string>
     <string name="dossier_go_undercover">CONNECT</string>
     <string name="dossier_build_cover">BUILD PROFILE</string>
@@ -86,8 +75,6 @@
     <string name="dossier_fake_location">(Fake Location)</string>
     <string name="dossier_fake_isp">(Fake ISP)</string>
     <string name="dossier_randomized_device">(Randomized Device)</string>
-    
-    <!-- Onboarding -->
     <string name="onboarding_slide1_text">Everything you do online is [REDACTED]</string>
     <string name="onboarding_slide2_text">All methods for bypassing blockages and censorship are collected in one app. Everything you need is right here.</string>
     <string name="onboarding_slide3_text">Create your cover, protect your data, and go fully Undercover.</string>
@@ -100,7 +87,6 @@
     <string name="onboarding_profile_imported">Connection added successfully</string>
     <string name="error_no_qr_found">No QR code found in selected image</string>
     <string name="import_from_gallery">Import from Gallery</string>
-
     <string name="dashboard_items">Dashboard Items</string>
     <string name="memory">Memory</string>
     <string name="goroutines">Goroutines</string>
@@ -115,8 +101,6 @@
     <string name="drag_handle_to_reorder">Drag handle to reorder items</string>
     <string name="drag_to_reorder">Drag to reorder</string>
     <string name="reset_order">Reset order</string>
-
-    <!-- Connections -->
     <string name="search_connections">Search connections…</string>
     <string name="close_connections_confirm">Close all connections?</string>
     <string name="connection_state_all">All</string>
@@ -156,8 +140,6 @@
     <string name="connection_user_name">User Name</string>
     <string name="connection_process_path">Process Path</string>
     <string name="connection_package_name">Package Name</string>
-
-    <!-- Profiles -->
     <string name="no_profiles">No profiles configured</string>
     <string name="add_profile">Add Profile</string>
     <string name="update_profile">Update profile</string>
@@ -204,11 +186,7 @@
     <string name="import_profile_confirm_title">Import Profile</string>
     <string name="import_profile_confirm_message">Import profile \"%s\"?</string>
     <string name="import_action">Import</string>
-
-    <!-- Groups -->
     <string name="group_selected_title">Selected</string>
-
-    <!-- Log -->
     <string name="log_level">Log Level</string>
     <string name="filter_label">Filter: %s</string>
     <string name="clear_filter">Clear</string>
@@ -222,8 +200,6 @@
     <string name="not_selected">Not selected</string>
     <string name="save_to_clipboard">To Clipboard</string>
     <string name="save_to_file">To File</string>
-
-    <!-- Settings -->
     <string name="service">Service</string>
     <string name="core">Core</string>
     <string name="core_version_title">Core Version</string>
@@ -237,7 +213,6 @@
     <string name="app_theme">App Theme</string>
     <string name="app_theme_light">Light</string>
     <string name="app_theme_dark">Dark</string>
-    
     <string name="cache_size">Cache Size</string>
     <string name="clear_cache">Clear Cache</string>
     <string name="notification_settings">Notification</string>
@@ -249,6 +224,7 @@
     <string name="routing_description">Apps assigned here are routed by Undercover rules generated at service start. Everything else follows the profile.</string>
     <string name="routing_direct">Direct</string>
     <string name="routing_byedpi">Through ByeDPI</string>
+    <string name="routing_secondary">Through Server 2 (Dual)</string>
     <string name="routing_byedpi_disabled">ByeDPI is off</string>
     <string name="routing_apps_selected">%1$d apps</string>
     <string name="byedpi">ByeDPI</string>
@@ -265,8 +241,6 @@
     <string name="auto_redirect_description">ROOT permission required</string>
     <string name="system_http_proxy">System HTTP Proxy</string>
     <string name="update_settings">Update Settings</string>
-
-    <!-- Per-App Proxy -->
     <string name="per_app_proxy">Per-App Proxy</string>
     <string name="per_app_proxy_mode">Proxy Mode</string>
     <string name="per_app_proxy_mode_include">Include</string>
@@ -303,8 +277,6 @@
     <string name="per_app_proxy_shizuku_required">When installed from the Play Store, per-app proxy requires Shizuku. Google Play refuses to allow us to use the QUERY_ALL_PACKAGES permission (while not prohibiting other similar apps from doing so), which is required for listing apps.</string>
     <string name="per_app_proxy_root_required">When installed from the Play Store, per-app proxy requires ROOT. Google Play refuses to allow us to use the QUERY_ALL_PACKAGES permission (while not prohibiting other similar apps from doing so), which is required for listing apps.</string>
     <string name="privileged_access_required">Root or Shizuku access required to get the complete app list</string>
-
-    <!-- Permissions -->
     <string name="background_permission">Background permission</string>
     <string name="background_permission_description">Apply for the necessary permissions in order for the VPN to function properly.\n\nIf you are using a device made by a Chinese company, the card may not disappear after the permission is granted.</string>
     <string name="request_background_permission">Ignore</string>
@@ -317,8 +289,6 @@
     <string name="notification_permission_required_description">Undercover is unable to show real-time network speeds without the permission to send notifications. Please grant the permission or disable real-time network speeds notification before starting the service.</string>
     <string name="root_access_required">Root access required</string>
     <string name="root_access_denied">Root access denied</string>
-
-    <!-- Updates -->
     <string name="check_update">Check Update</string>
     <string name="check_update_automatic">Automatic Update Check</string>
     <string name="check_update_prompt_play">Would you like to enable automatic update checking from **Play Store**?</string>
@@ -352,8 +322,6 @@
     <string name="fdroid_mirror_invalid_url">Invalid URL</string>
     <string name="fdroid_mirror_add_action">Add</string>
     <string name="fdroid_mirror_delete">Delete</string>
-
-    <!-- Silent Install -->
     <string name="silent_install">Silent Install</string>
     <string name="silent_install_description">Install updates without interaction</string>
     <string name="silent_install_method">Install Method</string>
@@ -364,15 +332,11 @@
     <string name="package_installer_not_available">Install permission not granted</string>
     <string name="grant_install_permission">Grant Install Permission</string>
     <string name="grant_install_permission_description">Allow installing apps from this source</string>
-
-    <!-- Shizuku -->
     <string name="shizuku_not_available">Shizuku is not installed or not running</string>
     <string name="shizuku_description">Shizuku allows apps to use system APIs directly with higher privileges</string>
     <string name="get_shizuku">Get Shizuku</string>
     <string name="start_shizuku">Start Shizuku</string>
     <string name="request_shizuku">Request Shizuku</string>
-
-    <!-- Time -->
     <string name="time_just_now">Just now</string>
     <string name="time_yesterday">Yesterday</string>
     <string name="time_now">Now</string>
@@ -392,15 +356,11 @@
         <item quantity="one">%d day ago</item>
         <item quantity="other">%d days ago</item>
     </plurals>
-
-    <!-- Menu -->
     <string name="menu_undo">Undo</string>
     <string name="menu_redo">Redo</string>
     <string name="menu_format">Format</string>
     <string name="menu_delete">Delete</string>
     <string name="menu_share">Share</string>
-
-    <!-- Errors -->
     <string name="error_title">Error</string>
     <string name="error_missing_vpn_permission">Missiong VPN permission</string>
     <string name="error_empty_configuration">Empty configuration</string>
@@ -414,33 +374,23 @@
     <string name="error_deprecated_documentation">Documentation</string>
     <string name="file_manager_missing">Your device lacks an Android standard file selector, please install one, such as Material Files.</string>
     <string name="no_file_manager">No file manager found</string>
-
-    <!-- Failed Operations -->
     <string name="failed_save_profile">Failed to save profile: %s</string>
     <string name="failed_save_logs">Failed to save logs: %s</string>
     <string name="failed_share_logs">Failed to share logs: %s</string>
     <string name="failed_read_configuration">Failed to read configuration: %s</string>
-
-    <!-- Success Messages -->
     <string name="success_profile_saved">Profile saved successfully</string>
     <string name="success_logs_saved">Logs saved successfully</string>
     <string name="success_configuration_saved">Configuration saved</string>
     <string name="copied_to_clipboard">Copied to clipboard</string>
-
-    <!-- Toast Messages -->
     <string name="toast_clipboard_empty">Clipboard is empty</string>
     <string name="toast_copied_to_clipboard">Exported to clipboard</string>
     <string name="toast_imported_from_clipboard">Imported from clipboard</string>
-
-    <!-- Scanning -->
     <string name="profile_add_scan_use_front_camera">Front camera</string>
     <string name="profile_add_scan_use_vendor_analyzer">MLKit analyzer</string>
     <string name="profile_add_scan_enable_torch">Torch</string>
     <string name="message_scanning">Scanning…</string>
     <string name="message_scan_app_no_apps_found">No matching apps found</string>
     <string name="message_scan_app_found">Found the following apps, please choose the action you want.</string>
-
-    <!-- Icon Selection -->
     <string name="icon">Icon</string>
     <string name="icon_count_format">%d icons</string>
     <string name="no_icons_found">No icons found</string>
@@ -455,19 +405,11 @@
     <string name="categories">Categories</string>
     <string name="all_icons">All Icons</string>
     <string name="back_to_categories">Back to categories</string>
-
-    <!-- QR Code -->
-
-    <!-- QR Stream (QRS) -->
     <string name="share_as_qrs">Share as QR Stream</string>
     <string name="qrs_fps">FPS</string>
     <string name="qrs_slice_size">Slice Size</string>
     <string name="qrs_what_is_qrs">What is QRS</string>
-
-    <!-- Search -->
     <string name="search_placeholder">Find in document</string>
-
-    <!-- Content Descriptions (Accessibility) -->
     <string name="content_description_back">Back</string>
     <string name="content_description_scroll_to_bottom">Scroll to bottom</string>
     <string name="content_description_exit_selection_mode">Exit selection mode</string>
@@ -478,8 +420,6 @@
     <string name="content_description_pause_logs">Pause logs</string>
     <string name="content_description_collapse_search">Collapse search</string>
     <string name="content_description_search_logs">Search logs</string>
-
-    <!-- Tools -->
     <string name="title_tools">Tools</string>
     <string name="title_network">Network</string>
     <string name="network_quality">Network Quality</string>
@@ -506,12 +446,9 @@
     <string name="tool_results">Results</string>
     <string name="tool_outbound">Outbound</string>
     <string name="tool_default_outbound">Default</string>
-
-    <!-- Tailscale -->
     <string name="tailscale" translatable="false">Tailscale</string>
     <string name="tailscale_with_tag" translatable="false">Tailscale: %s</string>
     <string name="tailscale_endpoints">Endpoints</string>
-
     <string name="tailscale_status">Status</string>
     <string name="tailscale_state">State</string>
     <string name="tailscale_network">Network</string>
@@ -548,8 +485,6 @@
     <string name="tailscale_ssh" translatable="false">SSH</string>
     <string name="tailscale_available">Available</string>
     <string name="tailscale_yes">Yes</string>
-
-    <!-- Tailscale SSH -->
     <string name="tailscale_ssh_connect">Connect via SSH</string>
     <string name="tailscale_ssh_options">SSH Options</string>
     <string name="tailscale_ssh_username">Username</string>
@@ -561,8 +496,6 @@
     <string name="tailscale_ssh_connecting">Connecting…</string>
     <string name="tailscale_ssh_no_sessions">No active sessions</string>
     <string name="tailscale_ssh_new_session">New session</string>
-
-    <!-- Terminal Configuration -->
     <string name="tailscale_terminal_config">Termux Configuration</string>
     <string name="tailscale_terminal_color_theme">Color Theme</string>
     <string name="tailscale_terminal_light_theme">Light Theme</string>
@@ -575,8 +508,6 @@
     <string name="tailscale_terminal_font_imported">Imported Fonts</string>
     <string name="tailscale_terminal_import_font">Import from File</string>
     <string name="tailscale_terminal_search_themes">Search themes</string>
-
-    <!-- STUN Test -->
     <string name="stun_test">STUN Test</string>
     <string name="stun_server">Server</string>
     <string name="stun_start">Start Test</string>
@@ -587,8 +518,6 @@
     <string name="stun_nat_filtering">NAT Filtering</string>
     <string name="stun_nat_type_detection">NAT Type Detection</string>
     <string name="stun_nat_not_supported">Not supported by server</string>
-
-    <!-- Shared Report -->
     <string name="report_empty">Empty</string>
     <string name="report_section_reports">Reports</string>
     <string name="report_section_files">Files</string>
@@ -608,14 +537,10 @@
     <string name="service_not_started">Service not started</string>
     <string name="service_reload_required">Reload service to apply changes</string>
     <string name="service_restart_required">Restart service to apply changes</string>
-
-    <!-- Crash Report -->
     <string name="crash_report">Crash Report</string>
     <string name="crash_report_go_log">Go Crash Log</string>
     <string name="crash_report_jvm_log">JVM Crash Log</string>
     <string name="crash_report_description">You will receive a report when a crash occurs.</string>
-
-    <!-- OOM Report -->
     <string name="oom_report">OOM Report</string>
     <string name="oom_report_description">When memory limit is enabled, you will receive a report if the service memory exceeds the limit. You can also manually trigger report collection.</string>
     <string name="oom_report_fetch">Fetch Memory Report</string>
@@ -624,11 +549,7 @@
     <string name="oom_report_memory_limit">Memory Limit</string>
     <string name="oom_report_kill_connections">Kill Connections</string>
     <string name="oom_report_kill_connections_description">Kill all connections to free memory when the service memory exceeds the limit.</string>
-
-    <!-- Xposed Module -->
     <string name="xposed_description">Privileged Enhancement for Undercover</string>
-
-    <!-- Privileged Enhancement -->
     <string name="privilege_module_title">Privilege modules</string>
     <string name="lsposed_module_activated">LSPosed module activated</string>
     <string name="lsposed_module_pending_update">LSPosed module update pending</string>
@@ -661,8 +582,6 @@
     <string name="privilege_module_restart_notification_title">Reboot required</string>
     <string name="privilege_module_restart_notification_message">LSPosed module updated. Reboot to apply changes.</string>
     <string name="privilege_module_restart_channel">LSPosed Module</string>
-
-    <!-- Remote Control -->
     <string name="remote_control">Remote Control</string>
     <string name="remote_servers">Servers</string>
     <string name="remote_no_servers">No servers</string>
@@ -680,7 +599,6 @@
     <string name="remote_checking">Checking…</string>
     <string name="remote_available">Available</string>
     <string name="remote_unavailable">Unavailable</string>
-
     <string name="title_services">Services</string>
     <string name="title_usbip">USB/IP</string>
     <string name="usbip_with_tag">USB/IP: %1$s</string>
@@ -713,7 +631,6 @@
         <item quantity="one">Sharing %1$d USB device</item>
         <item quantity="other">Sharing %1$d USB devices</item>
     </plurals>
-
     <string name="openconnect" translatable="false">OpenConnect</string>
     <string name="openconnect_with_tag" translatable="false">OpenConnect: %1$s</string>
     <string name="openvpn" translatable="false">OpenVPN</string>
@@ -744,4 +661,50 @@
     <string name="endpoint_browser_navigation_failed">Browser navigation failed: %1$s</string>
     <string name="endpoint_browser_too_many_windows">The authentication page opened too many browser windows.</string>
     <string name="endpoint_browser_profile_unavailable">Browser authentication is unavailable on this device.</string>
+    <string name="dossier_status_connected">CONNECTED</string>
+    <string name="dossier_securing_connection">Securing connection · %1$s</string>
+    <string name="dossier_table_detail">DETAIL</string>
+    <string name="dossier_table_real">REAL</string>
+    <string name="dossier_table_seen_as">SEEN AS</string>
+    <string name="dossier_row_exit_ip">EXIT IP</string>
+    <string name="dossier_row_ping">PING</string>
+    <string name="dossier_row_timezone">TIME ZONE</string>
+    <string name="dossier_row_speed">SPEED</string>
+    <string name="dossier_row_locale">LOCALE</string>
+    <string name="dossier_direct">Direct</string>
+    <string name="dossier_no_profile_selected">No Profile Selected</string>
+    <string name="dossier_active_server_count">ACTIVE SERVER (%1$d)</string>
+    <string name="dossier_select_server_count">SELECT SERVER (%1$d)</string>
+    <string name="dossier_subscription">SUBSCRIPTION</string>
+    <string name="tools_network_utilities">NETWORK UTILITIES</string>
+    <string name="tools_diagnostics">DIAGNOSTICS</string>
+    <string name="tools_network_quality_desc">Measure latency and network speed</string>
+    <string name="tools_stun_test_desc">NAT type and port mapping diagnostics</string>
+    <string name="tools_active_sessions">Active Sessions</string>
+    <string name="tools_active_sessions_desc">Monitor active TCP and UDP tunnel connections</string>
+    <string name="tools_byedpi_desc">DPI and throttling bypass (YouTube, Discord, etc.)</string>
+    <string name="settings_configuration">CONFIGURATION</string>
+    <string name="settings_app_desc">General settings and updates</string>
+    <string name="settings_routing_desc">Routing rules and site bypass</string>
+    <string name="dossier_operational_profiles">OPERATIONAL PROFILES</string>
+    <string name="dossier_profile_selection">Profile selection</string>
+    <string name="dossier_create_profile_btn">[ + CREATE PROFILE ]</string>
+    <string name="dossier_create_profile_title">New Profile</string>
+    <string name="dossier_enter_profile_name">Enter profile name:</string>
+    <string name="dossier_delete_profile_title">Delete Profile?</string>
+    <string name="dossier_delete_profile_confirm">Are you sure you want to delete profile \"%1$s\"?</string>
+    <string name="dossier_no_server_assigned">No server assigned</string>
+    <string name="dossier_operational_profile_label">OPERATIONAL PROFILE</string>
+    <string name="dossier_primary_server_label">PRIMARY RELAY (SERVER 1)</string>
+    <string name="dossier_dual_server_label">DUAL RELAY (SERVER 2 · SPLIT)</string>
+    <string name="dossier_activate_dual_btn">[ + ACTIVATE SECOND SERVER (DUAL) ]</string>
+    <string name="dossier_dual_rules_summary">Split: %1$d rules (apps + domains)</string>
+    <string name="dossier_select_secondary_server">Select second server</string>
+    <string name="dossier_import_scope_title">Profile Scope</string>
+    <string name="dossier_import_scope_all">Add to all profiles (default)</string>
+    <string name="dossier_import_scope_current">Current profile only: %1$s</string>
+    <string name="dossier_dual_server_title">Dual Active Server (Traffic Split)</string>
+    <string name="dossier_dual_server_desc">Route traffic through two active servers simultaneously</string>
+    <string name="dossier_secondary_apps_title">Apps through Server 2</string>
+    <string name="dossier_secondary_domains_title">Domains through Server 2</string>
 </resources>

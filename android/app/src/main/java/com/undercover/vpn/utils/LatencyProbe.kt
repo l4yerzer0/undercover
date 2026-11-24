@@ -25,7 +25,20 @@ object LatencyProbe {
         var connection: HttpURLConnection? = null
         try {
             val startedAt = System.nanoTime()
-            connection = (URL(PROBE_URL).openConnection() as HttpURLConnection).apply {
+            val url = URL(PROBE_URL)
+            val rawConn = if (com.undercover.vpn.bg.XrayManager.isRunning) {
+                val proxy = java.net.Proxy(
+                    java.net.Proxy.Type.SOCKS,
+                    java.net.InetSocketAddress(
+                        com.undercover.vpn.shared.parser.XrayConfigGenerator.LOCAL_SOCKS_HOST,
+                        com.undercover.vpn.shared.parser.XrayConfigGenerator.LOCAL_SOCKS_PORT,
+                    ),
+                )
+                url.openConnection(proxy)
+            } else {
+                url.openConnection()
+            }
+            connection = (rawConn as HttpURLConnection).apply {
                 requestMethod = "GET"
                 connectTimeout = TIMEOUT_MS
                 readTimeout = TIMEOUT_MS

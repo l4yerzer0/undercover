@@ -13,6 +13,9 @@ enum class RoutingSection(val outboundTag: String) {
 
     /** Through the embedded ByeDPI proxy, which then goes out directly. */
     BYEDPI("byedpi-out"),
+
+    /** Through the secondary active server in dual server mode. */
+    SECONDARY("proxy-secondary"),
     ;
 
     companion object {

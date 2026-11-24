@@ -40,6 +40,7 @@ data class NewProfileUiState(
     val importFileName: String? = null,
     // QRS import
     val qrsData: ByteArray? = null,
+    val assignedProfileId: Long = 0L,
     // State
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
@@ -66,7 +67,7 @@ class NewProfileViewModel(application: Application) : AndroidViewModel(applicati
     private val _uiState = MutableStateFlow(NewProfileUiState())
     val uiState: StateFlow<NewProfileUiState> = _uiState.asStateFlow()
 
-    fun initializeFromQRImport(name: String?, url: String?) {
+    fun initializeFromQRImport(name: String?, url: String?, assignedProfileId: Long = 0L) {
         if (!url.isNullOrBlank()) {
             _uiState.update {
                 it.copy(
@@ -74,6 +75,7 @@ class NewProfileViewModel(application: Application) : AndroidViewModel(applicati
                     profileType = ProfileType.Remote,
                     remoteUrl = url,
                     isLoadingMetadata = true,
+                    assignedProfileId = assignedProfileId,
                 )
             }
             viewModelScope.launch {
@@ -106,15 +108,20 @@ class NewProfileViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun initializeFromQRSImport(name: String?, qrsData: ByteArray) {
+    fun initializeFromQRSImport(name: String?, qrsData: ByteArray, assignedProfileId: Long = 0L) {
         _uiState.update {
             it.copy(
                 name = name ?: "",
                 profileType = ProfileType.Local,
                 profileSource = ProfileSource.Import,
                 qrsData = qrsData,
+                assignedProfileId = assignedProfileId,
             )
         }
+    }
+
+    fun updateAssignedProfileId(id: Long) {
+        _uiState.update { it.copy(assignedProfileId = id) }
     }
 
     fun updateName(name: String) {
@@ -270,6 +277,7 @@ class NewProfileViewModel(application: Application) : AndroidViewModel(applicati
         val profile =
             Profile(name = state.name, typed = typedProfile).apply {
                 userOrder = ProfileManager.nextOrder()
+                assignedProfileId = state.assignedProfileId
             }
 
         val fileID = ProfileManager.nextFileID()
@@ -331,6 +339,7 @@ class NewProfileViewModel(application: Application) : AndroidViewModel(applicati
         val profile =
             Profile(name = state.name, typed = typedProfile).apply {
                 userOrder = ProfileManager.nextOrder()
+                assignedProfileId = state.assignedProfileId
             }
 
         val fileID = ProfileManager.nextFileID()

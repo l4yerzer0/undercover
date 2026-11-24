@@ -40,6 +40,7 @@ object Settings {
     }
     val dataStore = RoomPreferenceDataStore(instance.keyValuePairDao())
     var selectedProfile by dataStore.long(SettingsKey.SELECTED_PROFILE) { -1L }
+    var activeUserProfileId by dataStore.long("active_user_profile_id") { 1L }
     var serviceMode by dataStore.string(SettingsKey.SERVICE_MODE) { ServiceMode.NORMAL }
     var startedByUser by dataStore.boolean(SettingsKey.STARTED_BY_USER)
 
@@ -102,20 +103,45 @@ object Settings {
     var routingDirectList by dataStore.stringSet(SettingsKey.ROUTING_DIRECT_LIST) { emptySet() }
     var routingByeDpiList by dataStore.stringSet(SettingsKey.ROUTING_BYEDPI_LIST) { emptySet() }
     var routingDirectRuSites by dataStore.boolean(SettingsKey.ROUTING_DIRECT_RU_SITES) { true }
+    var routingDirectRuApps by dataStore.boolean(SettingsKey.ROUTING_DIRECT_RU_APPS) { true }
+    var routingRuleSetsUpdatedAt by dataStore.long(SettingsKey.ROUTING_RULE_SETS_UPDATED_AT) { 0L }
     var routingByeDpiYouTube by dataStore.boolean(SettingsKey.ROUTING_BYEDPI_YOUTUBE) { false }
     var routingByeDpiDiscord by dataStore.boolean(SettingsKey.ROUTING_BYEDPI_DISCORD) { false }
     var routingCustomDirectDomains by dataStore.stringSet(SettingsKey.ROUTING_CUSTOM_DIRECT_DOMAINS) { emptySet() }
     var routingCustomByeDpiDomains by dataStore.stringSet(SettingsKey.ROUTING_CUSTOM_BYEDPI_DOMAINS) { emptySet() }
 
-    fun routingList(section: RoutingSection): Set<String> = when (section) {
-        RoutingSection.DIRECT -> routingDirectList
-        RoutingSection.BYEDPI -> routingByeDpiList
+    fun routingList(section: RoutingSection): Set<String> {
+        val userProfile = runCatching { kotlinx.coroutines.runBlocking { UserProfileManager.getActiveProfile() } }.getOrNull()
+        return when (section) {
+            RoutingSection.DIRECT -> userProfile?.directApps ?: routingDirectList
+            RoutingSection.BYEDPI -> userProfile?.byeDpiApps ?: routingByeDpiList
+            RoutingSection.SECONDARY -> userProfile?.secondaryApps ?: emptySet()
+        }
     }
 
     fun setRoutingList(section: RoutingSection, packages: Set<String>) {
+        val userProfile = runCatching { kotlinx.coroutines.runBlocking { UserProfileManager.getActiveProfile() } }.getOrNull()
         when (section) {
-            RoutingSection.DIRECT -> routingDirectList = packages
-            RoutingSection.BYEDPI -> routingByeDpiList = packages
+            RoutingSection.DIRECT -> {
+                routingDirectList = packages
+                if (userProfile != null) {
+                    userProfile.directApps = packages
+                    runCatching { kotlinx.coroutines.runBlocking { UserProfileManager.update(userProfile) } }
+                }
+            }
+            RoutingSection.BYEDPI -> {
+                routingByeDpiList = packages
+                if (userProfile != null) {
+                    userProfile.byeDpiApps = packages
+                    runCatching { kotlinx.coroutines.runBlocking { UserProfileManager.update(userProfile) } }
+                }
+            }
+            RoutingSection.SECONDARY -> {
+                if (userProfile != null) {
+                    userProfile.secondaryApps = packages
+                    runCatching { kotlinx.coroutines.runBlocking { UserProfileManager.update(userProfile) } }
+                }
+            }
         }
     }
 

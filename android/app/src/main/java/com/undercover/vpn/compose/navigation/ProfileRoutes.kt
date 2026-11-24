@@ -1,6 +1,11 @@
 package com.undercover.vpn.compose.navigation
 
-data class NewProfileArgs(val importName: String? = null, val importUrl: String? = null, val qrsData: ByteArray? = null)
+data class NewProfileArgs(
+    val importName: String? = null,
+    val importUrl: String? = null,
+    val qrsData: ByteArray? = null,
+    val assignedProfileId: Long = 0L,
+)
 
 object ProfileRoutes {
     const val NewProfile = "profile/new"

@@ -313,6 +313,7 @@ fun PerAppProxyScreen(
                         when (section) {
                             RoutingSection.DIRECT -> R.string.routing_direct
                             RoutingSection.BYEDPI -> R.string.routing_byedpi
+                            RoutingSection.SECONDARY -> R.string.routing_secondary
                         },
                     ),
                 )

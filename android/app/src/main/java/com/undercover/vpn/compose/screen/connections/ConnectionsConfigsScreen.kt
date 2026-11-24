@@ -112,15 +112,17 @@ fun ConnectionsConfigsScreen(
     var profileToShare by remember { mutableStateOf<Profile?>(null) }
     var showLinkInputDialog by remember { mutableStateOf(false) }
     var linkInputText by remember { mutableStateOf("") }
+    var importOnlyCurrentProfile by remember { mutableStateOf(false) }
     var expandedProfileIds by remember(selectedProfileId) { mutableStateOf(setOf(selectedProfileId)) }
 
     val importFromFileLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             if (uri != null) {
                 scope.launch {
+                    val targetProfileId = if (importOnlyCurrentProfile) (uiState.activeUserProfile?.id ?: 1L) else 0L
                     when (val parseResult = importHandler.parseUri(uri)) {
                         is ProfileImportHandler.UriParseResult.Success -> {
-                            when (val result = importHandler.importFromUri(uri)) {
+                            when (val result = importHandler.importFromUri(uri, assignedProfileId = targetProfileId)) {
                                 is ProfileImportHandler.ImportResult.Success -> {
                                     withContext(Dispatchers.Main) {
                                         Toast.makeText(context, R.string.onboarding_profile_imported, Toast.LENGTH_SHORT).show()
@@ -365,20 +367,43 @@ fun ConnectionsConfigsScreen(
 
                                 Spacer(modifier = Modifier.width(8.dp))
 
-                                val isRemote = profile.typed.type == TypedProfile.Type.Remote
-                                Box(
-                                    modifier = Modifier
-                                        .background(
-                                            if (isRemote) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                                             else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    val assignedProfName = if (profile.assignedProfileId > 0L) {
+                                        uiState.userProfiles.find { it.id == profile.assignedProfileId }?.name
+                                    } else null
+
+                                    Box(
+                                        modifier = Modifier
+                                            .background(
+                                                if (assignedProfName != null) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                                            )
+                                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                                    ) {
+                                        Text(
+                                            text = if (assignedProfName != null) "[ $assignedProfName ]" else "[ ВСЕ ]",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                            color = if (assignedProfName != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                                         )
-                                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                                ) {
-                                    Text(
-                                        text = if (isRemote) "REMOTE" else "LOCAL",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                        color = if (isRemote) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                    )
+                                    }
+
+                                    Spacer(modifier = Modifier.width(6.dp))
+
+                                    val isRemote = profile.typed.type == TypedProfile.Type.Remote
+                                    Box(
+                                        modifier = Modifier
+                                            .background(
+                                                if (isRemote) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                            )
+                                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                                    ) {
+                                        Text(
+                                            text = if (isRemote) "REMOTE" else "LOCAL",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                            color = if (isRemote) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                        )
+                                    }
                                 }
                             }
 
@@ -611,6 +636,7 @@ fun ConnectionsConfigsScreen(
     // Modal Bottom Sheet: Add Profile
     if (showAddSheet) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val activeProfName = uiState.activeUserProfile?.name ?: "Основной"
         ModalBottomSheet(
             onDismissRequest = { showAddSheet = false },
             sheetState = sheetState,
@@ -635,7 +661,61 @@ fun ConnectionsConfigsScreen(
                     color = MaterialTheme.colorScheme.primary,
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Scope selector
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f))
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.4f))
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "ОБЛАСТЬ ПРИВЯЗКИ:",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { importOnlyCurrentProfile = false },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = if (!importOnlyCurrentProfile) "[ X ]" else "[   ]",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = if (!importOnlyCurrentProfile) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Для всех профилей (глобально)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { importOnlyCurrentProfile = true },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = if (importOnlyCurrentProfile) "[ X ]" else "[   ]",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = if (importOnlyCurrentProfile) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Только для: $activeProfName",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // Option 1: By Link
                 DossierAddOption(
@@ -656,6 +736,29 @@ fun ConnectionsConfigsScreen(
                     onClick = {
                         showAddSheet = false
                         showQRScanSheet = true
+                    },
+                )
+
+                // Option 3: Import from file
+                DossierAddOption(
+                    title = "Импорт из файла",
+                    subtitle = "Выбрать .json или .txt файл конфигурации",
+                    icon = Icons.Outlined.FileUpload,
+                    onClick = {
+                        showAddSheet = false
+                        importFromFileLauncher.launch("*/*")
+                    },
+                )
+
+                // Option 4: Manual creation
+                DossierAddOption(
+                    title = "Создать вручную",
+                    subtitle = "Настроить параметры профиля самостоятельно",
+                    icon = Icons.Outlined.Create,
+                    onClick = {
+                        showAddSheet = false
+                        val targetProfileId = if (importOnlyCurrentProfile) (uiState.activeUserProfile?.id ?: 1L) else 0L
+                        onOpenNewProfile(NewProfileArgs(assignedProfileId = targetProfileId))
                     },
                 )
 
@@ -711,6 +814,24 @@ fun ConnectionsConfigsScreen(
                         ),
                     )
                     Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { importOnlyCurrentProfile = !importOnlyCurrentProfile },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = if (importOnlyCurrentProfile) "[ X ]" else "[   ]",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = if (importOnlyCurrentProfile) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Только для активного профиля (${uiState.activeUserProfile?.name ?: "Основной"})",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                        )
+                    }
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End,
                     ) {
@@ -740,6 +861,7 @@ fun ConnectionsConfigsScreen(
                         if (input.isNotBlank()) {
                             showLinkInputDialog = false
                             linkInputText = ""
+                            val targetProfileId = if (importOnlyCurrentProfile) (uiState.activeUserProfile?.id ?: 1L) else 0L
                             scope.launch {
                                 when (val parseResult = importHandler.parseQRCode(input)) {
                                     is ProfileImportHandler.QRCodeParseResult.RemoteProfile -> {
@@ -748,12 +870,13 @@ fun ConnectionsConfigsScreen(
                                                 NewProfileArgs(
                                                     importName = parseResult.name,
                                                     importUrl = parseResult.url,
+                                                    assignedProfileId = targetProfileId,
                                                 )
                                             )
                                         }
                                     }
                                     is ProfileImportHandler.QRCodeParseResult.LocalProfile -> {
-                                        when (val result = importHandler.importFromQRCode(input)) {
+                                        when (val result = importHandler.importFromQRCode(input, assignedProfileId = targetProfileId)) {
                                             is ProfileImportHandler.ImportResult.Success -> {
                                                 withContext(Dispatchers.Main) {
                                                     Toast.makeText(context, R.string.onboarding_profile_imported, Toast.LENGTH_SHORT).show()
@@ -804,6 +927,7 @@ fun ConnectionsConfigsScreen(
 
     // QR Scan Sheet
     if (showQRScanSheet) {
+        val targetProfileId = if (importOnlyCurrentProfile) (uiState.activeUserProfile?.id ?: 1L) else 0L
         QRScanSheet(
             onDismiss = { showQRScanSheet = false },
             onScanResult = { result ->
@@ -818,12 +942,13 @@ fun ConnectionsConfigsScreen(
                                             NewProfileArgs(
                                                 importName = parseResult.name,
                                                 importUrl = parseResult.url,
+                                                assignedProfileId = targetProfileId,
                                             ),
                                         )
                                     }
                                 }
                                 is ProfileImportHandler.QRCodeParseResult.LocalProfile -> {
-                                    when (val importResult = importHandler.importFromQRCode(result.uri.toString())) {
+                                    when (val importResult = importHandler.importFromQRCode(result.uri.toString(), assignedProfileId = targetProfileId)) {
                                         is ProfileImportHandler.ImportResult.Success -> {
                                             withContext(Dispatchers.Main) {
                                                 Toast.makeText(context, R.string.onboarding_profile_imported, Toast.LENGTH_SHORT).show()

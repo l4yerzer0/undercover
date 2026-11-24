@@ -162,13 +162,17 @@ object ConfigParser {
         if (security == "tls" || security == "reality") {
             val tls = mutableMapOf<String, Any>(
                 "enabled" to true,
-                "server_name" to (query["sni"] ?: server),
+                "server_name" to (query["sni"]?.takeIf { it.isNotEmpty() } ?: server),
                 "utls" to mapOf(
                     "enabled" to true,
-                    "fingerprint" to (query["fp"] ?: "chrome")
+                    "fingerprint" to (query["fp"]?.takeIf { it.isNotEmpty() } ?: "chrome")
                 )
             )
-            
+
+            if (query["allowInsecure"] == "1" || query["allowinsecure"] == "1" || query["insecure"] == "1") {
+                tls["insecure"] = true
+            }
+
             if (security == "reality") {
                 tls["reality"] = mapOf(
                     "enabled" to true,
@@ -448,11 +452,16 @@ object ConfigParser {
         val dohDns = JSONObject(mapOf(
             "tag" to "cloudflare-doh",
             "type" to "https",
-            "server" to "1.1.1.1"
+            "server" to "1.1.1.1",
+            "detour" to "proxy"
+        ))
+        val localDns = JSONObject(mapOf(
+            "tag" to "local-dns",
+            "type" to "local"
         ))
 
         val dns = JSONObject()
-        dns.put("servers", JSONArray().put(dohDns))
+        dns.put("servers", JSONArray().put(dohDns).put(localDns))
         dns.put("final", "cloudflare-doh")
         dns.put("strategy", "ipv4_only")
 
@@ -463,7 +472,7 @@ object ConfigParser {
             "mtu" to 1500,
             "auto_route" to true,
             "auto_redirect" to false,
-            "stack" to "system",
+            "stack" to "gvisor",
             "address" to listOf("172.19.0.1/30")
         ))
 
@@ -480,7 +489,7 @@ object ConfigParser {
         )))
 
         val route = JSONObject()
-        route.put("default_domain_resolver", JSONObject(mapOf("server" to "cloudflare-doh")))
+        route.put("default_domain_resolver", JSONObject(mapOf("server" to "local-dns")))
         route.put("auto_detect_interface", true)
         route.put("rules", routeRules)
         route.put("final", "proxy")

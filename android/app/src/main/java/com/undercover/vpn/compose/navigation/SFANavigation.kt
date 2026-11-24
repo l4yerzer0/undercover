@@ -212,6 +212,7 @@ fun SFANavHost(
                 importName = newProfileArgs.importName,
                 importUrl = newProfileArgs.importUrl,
                 qrsData = newProfileArgs.qrsData,
+                assignedProfileId = newProfileArgs.assignedProfileId,
                 onNavigateBack = {
                     onClearNewProfileArgs()
                     navController.navigateUp()
@@ -456,7 +457,7 @@ fun SFANavHost(
         }
 
         composable(
-            route = "settings/byedpi",
+            route = "tools/byedpi",
             enterTransition = slideInFromRight,
             exitTransition = slideOutToLeft,
             popEnterTransition = slideInFromLeft,

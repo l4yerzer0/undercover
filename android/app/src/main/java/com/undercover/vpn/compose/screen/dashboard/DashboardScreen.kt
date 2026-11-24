@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -19,7 +20,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.GridView
@@ -141,13 +144,17 @@ fun DashboardScreen(
         return
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
     ) {
         val isConnected = serviceStatus == Status.Started || serviceStatus == Status.Starting
-        
+
         Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = maxHeight)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp)
         ) {
             Spacer(modifier = Modifier.height(32.dp))
             
@@ -168,7 +175,7 @@ fun DashboardScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (isConnected) "CONNECTED" else "UNDERCOVER",
+                        text = if (isConnected) stringResource(R.string.dossier_status_connected) else "UNDERCOVER",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                         letterSpacing = 1.5.sp
@@ -244,14 +251,22 @@ fun DashboardScreen(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
+                val dualActive = uiState.activeUserProfile?.dualServerEnabled == true
+                val titleText = if (dualActive && !uiState.secondaryProfileName.isNullOrEmpty()) {
+                    "${uiState.selectedProfileName ?: stringResource(R.string.default_text)} + ${uiState.secondaryProfileName}"
+                } else {
+                    uiState.selectedProfileName ?: stringResource(R.string.default_text)
+                }
                 Text(
-                    text = uiState.selectedProfileName ?: "Default",
+                    text = titleText,
                     style = MaterialTheme.typography.displayLarge,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Spacer(modifier = Modifier.height(24.dp))
-                val locationSubtitle = remember(uiState.exitCity, uiState.exitCountry, uiState.ping, uiState.exitTimezone, uiState.exitIp) {
-                    when {
+                val securingStr = stringResource(R.string.dossier_securing_connection, uiState.ping)
+                val activeProfName = uiState.activeUserProfile?.name ?: "Основной"
+                val locationSubtitle = remember(uiState.exitCity, uiState.exitCountry, uiState.ping, uiState.exitTimezone, uiState.exitIp, securingStr, activeProfName) {
+                    val base = when {
                         uiState.exitCity.isNotEmpty() && uiState.exitCountry.isNotEmpty() ->
                             "${uiState.exitCity}, ${uiState.exitCountry} · ${uiState.ping} · ${uiState.exitTimezone}"
                         uiState.exitCity.isNotEmpty() ->
@@ -259,8 +274,9 @@ fun DashboardScreen(
                         uiState.exitIp.isNotEmpty() && uiState.exitIp != "Acquiring..." ->
                             "${uiState.exitIp} · ${uiState.ping} · ${uiState.exitTimezone}"
                         else ->
-                            "Securing connection · ${uiState.ping}"
+                            securingStr
                     }
+                    "[ $activeProfName ] · $base"
                 }
                 Text(
                     text = locationSubtitle,
@@ -271,9 +287,9 @@ fun DashboardScreen(
                 
                 // Table Header
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    Text("DETAIL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), modifier = Modifier.weight(1f))
-                    Text("REAL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), modifier = Modifier.weight(1f))
-                    Text("SEEN AS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), modifier = Modifier.weight(1.3f))
+                    Text(stringResource(R.string.dossier_table_detail), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.dossier_table_real), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.dossier_table_seen_as), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), modifier = Modifier.weight(1.3f))
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)))
@@ -281,11 +297,11 @@ fun DashboardScreen(
                 // Table Rows
                 val speedText = "↓ ${uiState.downlink}  ↑ ${uiState.uplink}"
                 val rows = listOf(
-                    Triple("EXIT IP", uiState.realIp, uiState.exitIp),
-                    Triple("PING", "Direct", uiState.ping),
-                    Triple("TIME ZONE", uiState.realTimezone, uiState.exitTimezone),
-                    Triple("SPEED", "0 B/s", speedText),
-                    Triple("LOCALE", uiState.realLocale, uiState.exitLocale)
+                    Triple(stringResource(R.string.dossier_row_exit_ip), uiState.realIp, uiState.exitIp),
+                    Triple(stringResource(R.string.dossier_row_ping), stringResource(R.string.dossier_direct), uiState.ping),
+                    Triple(stringResource(R.string.dossier_row_timezone), uiState.realTimezone, uiState.exitTimezone),
+                    Triple(stringResource(R.string.dossier_row_speed), "0 B/s", speedText),
+                    Triple(stringResource(R.string.dossier_row_locale), uiState.realLocale, uiState.exitLocale)
                 )
                 
                 rows.forEach { (detail, real, cover) ->
@@ -316,10 +332,31 @@ fun DashboardScreen(
                     }
                     Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)))
                 }
+
+                if (dualActive && !uiState.secondaryProfileName.isNullOrEmpty()) {
+                    val secNodeTag = uiState.secondaryNodeTag
+                    val secText = if (!secNodeTag.isNullOrEmpty()) "${uiState.secondaryProfileName} ($secNodeTag)" else uiState.secondaryProfileName!!
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("СЕРВЕР 2 (DUAL)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), modifier = Modifier.weight(1f))
+                        Text("—", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), modifier = Modifier.weight(1f))
+                        Text(
+                            text = secText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1.3f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)))
+                }
                 
             } else {
                 // Disconnected State
-                Spacer(modifier = Modifier.height(64.dp))
+                Spacer(modifier = Modifier.height(32.dp))
                 Text(
                     text = stringResource(R.string.dossier_disconnected),
                     style = MaterialTheme.typography.headlineMedium.copy(
@@ -327,35 +364,35 @@ fun DashboardScreen(
                         letterSpacing = 4.sp
                     ),
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(bottom = 32.dp)
+                    modifier = Modifier.padding(bottom = 20.dp)
                 )
                 
-                // Profile Selector
+                // 1. OPERATIONAL PROFILE SELECTOR
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { viewModel.showProfilePickerSheet() }
-                        .padding(vertical = 16.dp)
+                        .clickable { viewModel.showUserProfileSheet() }
+                        .padding(vertical = 10.dp)
                 ) {
                     Column {
                         Text(
-                            text = stringResource(R.string.dossier_select_profile),
+                            text = stringResource(R.string.dossier_operational_profile_label),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = uiState.selectedProfileName ?: "No Profile Selected",
-                                style = MaterialTheme.typography.bodyLarge,
+                                text = uiState.activeUserProfile?.name ?: stringResource(R.string.default_text),
+                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.weight(1f),
                                 maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Icon(
@@ -365,26 +402,67 @@ fun DashboardScreen(
                                 modifier = Modifier.size(24.dp)
                             )
                         }
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)))
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)))
                     }
                 }
 
+                // 2. PRIMARY RELAY (SERVER 1) SELECTOR
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { viewModel.showProfilePickerSheet() }
+                        .padding(vertical = 10.dp)
+                ) {
+                    Column {
+                        Text(
+                            text = stringResource(R.string.dossier_primary_server_label),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = uiState.selectedProfileName ?: stringResource(R.string.dossier_no_profile_selected),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowDown,
+                                contentDescription = "Select Primary Server",
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)))
+                    }
+                }
+
+                // Primary Node Selector (if profile has multiple nodes)
                 val activeNodesInfo = uiState.profileNodesMap[uiState.selectedProfileId]
                 if (activeNodesInfo != null && activeNodesInfo.nodes.isNotEmpty()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { showNodePickerSheet = true }
-                            .padding(vertical = 12.dp)
+                            .padding(vertical = 8.dp)
                     ) {
                         Column {
                             Text(
-                                text = "АКТИВНЫЙ СЕРВЕР (${activeNodesInfo.nodes.size})",
+                                text = stringResource(R.string.dossier_active_server_count, activeNodesInfo.nodes.size),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -392,24 +470,132 @@ fun DashboardScreen(
                             ) {
                                 Text(
                                     text = activeNodesInfo.selectedNodeTag ?: activeNodesInfo.nodes.first().tag,
-                                    style = MaterialTheme.typography.bodyLarge,
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.weight(1f),
                                     maxLines = 1,
-                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Icon(
                                     imageVector = Icons.Default.KeyboardArrowDown,
-                                    contentDescription = "Select Server",
+                                    contentDescription = "Select Server Node",
+                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)))
+                        }
+                    }
+                }
+
+                // 3. DUAL RELAY (SERVER 2 · SPLIT)
+                val dualEnabled = uiState.activeUserProfile?.dualServerEnabled == true
+                if (dualEnabled) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 10.dp)
+                    ) {
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.dossier_dual_server_label),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                )
+                                Text(
+                                    text = "[ ВЫКЛЮЧИТЬ ]",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                                    modifier = Modifier.clickable { viewModel.toggleDualServer(false) }
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { viewModel.showSecondaryServerPickerSheet() }
+                            ) {
+                                Text(
+                                    text = uiState.secondaryProfileName ?: stringResource(R.string.dossier_select_secondary_server),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowDown,
+                                    contentDescription = "Select Secondary Server",
                                     tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)))
+                            // Secondary Node selector if subscription
+                            val secNodesInfo = uiState.profileNodesMap[uiState.secondaryProfileId]
+                            if (secNodesInfo != null && secNodesInfo.nodes.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { viewModel.showSecondaryNodePickerSheet() }
+                                ) {
+                                    val currentSecNode = uiState.secondaryNodeTag ?: secNodesInfo.selectedNodeTag ?: secNodesInfo.nodes.first().tag
+                                    Text(
+                                        text = "Узел: $currentSecNode",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                                        modifier = Modifier.weight(1f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowDown,
+                                        contentDescription = "Select Secondary Node",
+                                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                            val splitRuleCount = (uiState.activeUserProfile?.secondaryApps?.size ?: 0) + (uiState.activeUserProfile?.secondaryDomains?.size ?: 0)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = stringResource(R.string.dossier_dual_rules_summary, splitRuleCount),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)))
                         }
                     }
+                } else {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                            .clickable { viewModel.toggleDualServer(true) }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = stringResource(R.string.dossier_activate_dual_btn),
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
             }
             
@@ -455,13 +641,13 @@ fun DashboardScreen(
                     .padding(horizontal = 24.dp, vertical = 16.dp),
             ) {
                 Text(
-                    text = "ВЫБОР СЕРВЕРА (${activeNodesForSheet.nodes.size})",
+                    text = stringResource(R.string.dossier_select_server_count, activeNodesForSheet.nodes.size),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = uiState.selectedProfileName ?: "ПОДПИСКА",
+                    text = uiState.selectedProfileName ?: stringResource(R.string.dossier_subscription),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
@@ -538,6 +724,231 @@ fun DashboardScreen(
                                 Text(
                                     text = if (node.requiresXray) "${node.type} · XRAY" else node.type,
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                                    color = if (node.requiresXray) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+    }
+
+    if (uiState.showUserProfileSheet) {
+        UserProfilePickerSheet(
+            userProfiles = uiState.userProfiles,
+            activeProfileId = uiState.activeUserProfile?.id ?: 1L,
+            allServers = uiState.profiles,
+            onSelectProfile = { id ->
+                viewModel.selectUserProfile(id)
+                viewModel.hideUserProfileSheet()
+            },
+            onCreateProfile = { name ->
+                viewModel.createUserProfile(name)
+            },
+            onDeleteProfile = { prof ->
+                viewModel.deleteUserProfile(prof)
+            },
+            onDismiss = { viewModel.hideUserProfileSheet() },
+        )
+    }
+
+    if (uiState.showProfilePickerSheet) {
+        ProfilePickerSheet(
+            profiles = uiState.profiles,
+            selectedProfileId = uiState.selectedProfileId,
+            onProfileSelected = { prof ->
+                viewModel.selectProfile(prof.id)
+                viewModel.hideProfilePickerSheet()
+            },
+            onProfileEdit = { prof ->
+                onProfileOpen(prof)
+                viewModel.hideProfilePickerSheet()
+            },
+            onProfileDelete = { prof ->
+                viewModel.deleteProfile(prof)
+            },
+            onProfileMove = { from, to ->
+                viewModel.moveProfile(from, to)
+            },
+            onDismiss = { viewModel.hideProfilePickerSheet() },
+        )
+    }
+
+    if (uiState.showSecondaryServerPickerSheet) {
+        val secSheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        androidx.compose.material3.ModalBottomSheet(
+            onDismissRequest = { viewModel.hideSecondaryServerPickerSheet() },
+            sheetState = secSheetState,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp),
+            containerColor = MaterialTheme.colorScheme.background,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.dossier_dual_server_label),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.dossier_select_secondary_server),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                androidx.compose.foundation.lazy.LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 400.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(uiState.profiles.size) { index ->
+                        val prof = uiState.profiles[index]
+                        val isSelected = prof.id == uiState.secondaryProfileId
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(
+                                    width = if (isSelected) 1.5.dp else 1.dp,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
+                                )
+                                .background(
+                                    if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface,
+                                )
+                                .clickable {
+                                    viewModel.selectSecondaryServer(prof.id)
+                                    viewModel.hideSecondaryServerPickerSheet()
+                                }
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = if (isSelected) "[ X ]" else "[   ]",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = prof.name,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                ),
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+    }
+
+    val secNodesForSheet = uiState.profileNodesMap[uiState.secondaryProfileId]
+    if (uiState.showSecondaryNodePickerSheet && secNodesForSheet != null && secNodesForSheet.nodes.isNotEmpty()) {
+        val secNodeSheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        androidx.compose.material3.ModalBottomSheet(
+            onDismissRequest = { viewModel.hideSecondaryNodePickerSheet() },
+            sheetState = secNodeSheetState,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp),
+            containerColor = MaterialTheme.colorScheme.background,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.dossier_dual_server_label),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = uiState.secondaryProfileName ?: stringResource(R.string.dossier_subscription),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                androidx.compose.foundation.lazy.LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 420.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    items(secNodesForSheet.nodes.size) { index ->
+                        val node = secNodesForSheet.nodes[index]
+                        val isNodeSelected = node.tag == (uiState.secondaryNodeTag ?: secNodesForSheet.selectedNodeTag)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(
+                                    width = if (isNodeSelected) 1.5.dp else 1.dp,
+                                    color = if (isNodeSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
+                                )
+                                .background(
+                                    if (isNodeSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface,
+                                )
+                                .clickable {
+                                    viewModel.selectSecondaryNode(node.tag)
+                                    viewModel.hideSecondaryNodePickerSheet()
+                                }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = if (isNodeSelected) "[ X ]" else "[   ]",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = if (isNodeSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = node.tag,
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = if (isNodeSelected) FontWeight.Bold else FontWeight.Normal,
+                                        ),
+                                        color = if (isNodeSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    if (node.server.isNotEmpty() && node.port > 0) {
+                                        Text(
+                                            text = "${node.server}:${node.port}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        if (node.requiresXray) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                                    )
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                            ) {
+                                Text(
+                                    text = if (node.requiresXray) "${node.type} · XRAY" else node.type,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                     color = if (node.requiresXray) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                 )
                             }

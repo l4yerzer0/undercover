@@ -66,6 +66,7 @@ fun NewProfileScreen(
     importName: String? = null,
     importUrl: String? = null,
     qrsData: ByteArray? = null,
+    assignedProfileId: Long = 0L,
     onNavigateBack: () -> Unit,
     onProfileCreated: (profileId: Long, isManual: Boolean) -> Unit,
     viewModel: NewProfileViewModel = viewModel(),
@@ -73,14 +74,15 @@ fun NewProfileScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isSubscriptionMode = !importUrl.isNullOrBlank() || uiState.profileType == ProfileType.Remote
 
-    LaunchedEffect(importName, importUrl, qrsData) {
+    LaunchedEffect(importName, importUrl, qrsData, assignedProfileId) {
         if (qrsData != null) {
-            viewModel.initializeFromQRSImport(importName, qrsData)
+            viewModel.initializeFromQRSImport(importName, qrsData, assignedProfileId)
         } else if (!importUrl.isNullOrBlank()) {
-            viewModel.initializeFromQRImport(importName, importUrl)
+            viewModel.initializeFromQRImport(importName, importUrl, assignedProfileId)
         } else {
             viewModel.updateProfileType(ProfileType.Local)
             viewModel.updateProfileSource(ProfileSource.CreateNew)
+            viewModel.updateAssignedProfileId(assignedProfileId)
             if (!importName.isNullOrBlank()) {
                 viewModel.updateName(importName)
             }

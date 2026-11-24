@@ -22,6 +22,7 @@ class Profile(
     var name: String = "",
     @ColumnInfo(defaultValue = "NULL") var icon: String? = null,
     var typed: TypedProfile = TypedProfile(),
+    @ColumnInfo(defaultValue = "0") var assignedProfileId: Long = 0L,
 ) : Parcelable {
     @androidx.room.Dao
     interface Dao {
@@ -45,6 +46,9 @@ class Profile(
 
         @Query("select * from profiles order by userOrder asc")
         fun list(): List<Profile>
+
+        @Query("SELECT * FROM profiles WHERE assignedProfileId = 0 OR assignedProfileId = :profileId ORDER BY userOrder ASC")
+        fun listForProfile(profileId: Long): List<Profile>
 
         @Query("DELETE FROM profiles")
         fun clear()

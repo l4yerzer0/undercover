@@ -27,6 +27,8 @@ object SettingsKey {
     const val ROUTING_DIRECT_LIST = "routing_direct_list"
     const val ROUTING_BYEDPI_LIST = "routing_byedpi_list"
     const val ROUTING_DIRECT_RU_SITES = "routing_direct_ru_sites"
+    const val ROUTING_DIRECT_RU_APPS = "routing_direct_ru_apps"
+    const val ROUTING_RULE_SETS_UPDATED_AT = "routing_rule_sets_updated_at"
     const val ROUTING_BYEDPI_YOUTUBE = "routing_byedpi_youtube"
     const val ROUTING_BYEDPI_DISCORD = "routing_byedpi_discord"
     const val ROUTING_CUSTOM_DIRECT_DOMAINS = "routing_custom_direct_domains"

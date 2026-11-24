@@ -59,7 +59,7 @@ fun ToolsScreen(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 )
                 Text(
-                    text = "DIAGNOSTICS",
+                    text = stringResource(R.string.tools_diagnostics),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 )
@@ -80,7 +80,7 @@ fun ToolsScreen(
             // Section: Network
             Spacer(modifier = Modifier.height(24.dp))
             Text(
-                text = "NETWORK UTILITIES",
+                text = stringResource(R.string.tools_network_utilities),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             )
@@ -94,20 +94,26 @@ fun ToolsScreen(
 
             DossierToolRow(
                 title = stringResource(R.string.network_quality),
-                subtitle = "Измерение задержки и скорости сети",
+                subtitle = stringResource(R.string.tools_network_quality_desc),
                 onClick = { navController.navigate("tools/network_quality") },
             )
 
             DossierToolRow(
                 title = stringResource(R.string.stun_test),
-                subtitle = "Диагностика типа NAT и сопоставления портов",
+                subtitle = stringResource(R.string.tools_stun_test_desc),
                 onClick = { navController.navigate("tools/stun_test") },
             )
 
             DossierToolRow(
-                title = "Активные сессии",
-                subtitle = "Мониторинг текущих TCP и UDP соединений в туннеле",
+                title = stringResource(R.string.tools_active_sessions),
+                subtitle = stringResource(R.string.tools_active_sessions_desc),
                 onClick = { navController.navigate("tools/connections") },
+            )
+
+            DossierToolRow(
+                title = stringResource(R.string.byedpi),
+                subtitle = stringResource(R.string.tools_byedpi_desc),
+                onClick = { navController.navigate("tools/byedpi") },
             )
 
             Spacer(modifier = Modifier.height(64.dp))

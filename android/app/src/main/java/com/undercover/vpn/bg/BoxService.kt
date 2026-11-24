@@ -110,13 +110,24 @@ class BoxService(private val service: Service, private val platformInterface: Pl
                 notification.show(lastProfileName, R.string.status_starting)
             }
 
-            val selectedProfileId = Settings.selectedProfile
-            if (selectedProfileId == -1L) {
+            val userProfile = com.undercover.vpn.database.UserProfileManager.getActiveProfile()
+            var primaryServerId = userProfile.primaryServerId
+            if (primaryServerId <= 0L) {
+                primaryServerId = Settings.selectedProfile
+            }
+            if (primaryServerId <= 0L) {
+                primaryServerId = ProfileManager.list().firstOrNull()?.id ?: -1L
+            }
+            if (primaryServerId <= 0L) {
                 stopAndAlert(Alert.EmptyConfiguration)
                 return
             }
+            if (userProfile.primaryServerId != primaryServerId) {
+                userProfile.primaryServerId = primaryServerId
+                com.undercover.vpn.database.UserProfileManager.update(userProfile)
+            }
 
-            val profile = ProfileManager.get(selectedProfileId)
+            val profile = ProfileManager.get(primaryServerId)
             if (profile == null) {
                 stopAndAlert(Alert.EmptyConfiguration)
                 return
@@ -128,7 +139,12 @@ class BoxService(private val service: Service, private val platformInterface: Pl
                 return
             }
 
-            lastProfileName = profile.name
+            lastProfileName = if (userProfile.dualServerEnabled && userProfile.secondaryServerId > 0L) {
+                val secName = ProfileManager.get(userProfile.secondaryServerId)?.name
+                if (!secName.isNullOrEmpty()) "${userProfile.name}: ${profile.name} + $secName" else "${userProfile.name}: ${profile.name}"
+            } else {
+                "${userProfile.name}: ${profile.name}"
+            }
             withContext(Dispatchers.Main) {
                 notification.show(lastProfileName, R.string.status_starting)
             }
@@ -137,7 +153,7 @@ class BoxService(private val service: Service, private val platformInterface: Pl
 
             try {
                 commandServer.startOrReloadService(
-                    applyRouting(profile, content),
+                    applyRouting(profile, content, userProfile),
                     OverrideOptions().apply {
                         autoRedirect = Settings.autoRedirect
                     },
@@ -178,7 +194,11 @@ class BoxService(private val service: Service, private val platformInterface: Pl
      * ByeDPI has to be listening before the core starts, because its outbound
      * carries a port that is only allocated at runtime.
      */
-    private suspend fun applyRouting(profile: Profile, content: String): String {
+    private suspend fun applyRouting(
+        profile: Profile,
+        content: String,
+        userProfile: com.undercover.vpn.database.UserProfile,
+    ): String {
         val migrated = com.undercover.vpn.shared.parser.SingBoxConfigMigrator.migrate(content)
         val byeDpiPort = if (Settings.byeDpiEnabled) {
             ByeDpiManager.port ?: ByeDpiManager.start(Settings.byeDpiStrategy)
@@ -190,7 +210,32 @@ class BoxService(private val service: Service, private val platformInterface: Pl
             Log.e(TAG, "ByeDPI did not start; its apps will fall through to the profile rules")
         }
 
-        val generated = RoutingConfig.apply(migrated, byeDpiPort)
+        var secondaryConfig: String? = null
+        var secondaryUsesXray = false
+        var secondaryProfile: Profile? = null
+        if (userProfile.dualServerEnabled && userProfile.secondaryServerId > 0L) {
+            secondaryProfile = ProfileManager.get(userProfile.secondaryServerId)
+            if (secondaryProfile != null) {
+                val secFile = File(secondaryProfile.typed.path)
+                if (secFile.exists()) {
+                    secondaryConfig = secFile.readText()
+                    val secXray = com.undercover.vpn.shared.parser.SubscriptionNodesHelper.loadXrayConfigForNode(
+                        secondaryProfile.typed.path,
+                        userProfile.secondaryNodeTag ?: "proxy",
+                    )
+                    secondaryUsesXray = secXray != null
+                }
+            }
+        }
+
+        val generated = RoutingConfig.apply(
+            configJson = migrated,
+            byeDpiPort = byeDpiPort,
+            userProfile = userProfile,
+            secondaryConfigJson = secondaryConfig,
+            secondaryNodeTag = userProfile.secondaryNodeTag,
+            secondaryUsesXray = secondaryUsesXray,
+        )
 
         // Persist so the profile on disk always reflects what the UI says. Generation
         // strips its own previous output first, so rewriting on every start converges
@@ -201,7 +246,16 @@ class BoxService(private val service: Service, private val platformInterface: Pl
                 .onFailure { Log.e(TAG, "failed to persist generated routing rules", it) }
         }
 
-        XrayManager.ensureForConfig(service, profile.typed.path)
+        com.undercover.vpn.routing.RuleSetManager.ensureUpdatedInBackground()
+
+        XrayManager.ensureForDualConfig(
+            context = service,
+            primaryConfigPath = profile.typed.path,
+            primaryNodeTag = userProfile.primaryNodeTag,
+            secondaryConfigPath = secondaryProfile?.typed?.path,
+            secondaryNodeTag = userProfile.secondaryNodeTag,
+            dualEnabled = userProfile.dualServerEnabled,
+        )
 
         return generated
     }
@@ -224,13 +278,20 @@ class BoxService(private val service: Service, private val platformInterface: Pl
     }
 
     suspend fun serviceReload0() {
-        val selectedProfileId = Settings.selectedProfile
-        if (selectedProfileId == -1L) {
+        val userProfile = com.undercover.vpn.database.UserProfileManager.getActiveProfile()
+        var primaryServerId = userProfile.primaryServerId
+        if (primaryServerId <= 0L) {
+            primaryServerId = Settings.selectedProfile
+        }
+        if (primaryServerId <= 0L) {
+            primaryServerId = ProfileManager.list().firstOrNull()?.id ?: -1L
+        }
+        if (primaryServerId <= 0L) {
             stopAndAlert(Alert.EmptyConfiguration)
             return
         }
 
-        val profile = ProfileManager.get(selectedProfileId)
+        val profile = ProfileManager.get(primaryServerId)
         if (profile == null) {
             stopAndAlert(Alert.EmptyConfiguration)
             return
@@ -241,10 +302,15 @@ class BoxService(private val service: Service, private val platformInterface: Pl
             stopAndAlert(Alert.EmptyConfiguration)
             return
         }
-        lastProfileName = profile.name
+        lastProfileName = if (userProfile.dualServerEnabled && userProfile.secondaryServerId > 0L) {
+            val secName = ProfileManager.get(userProfile.secondaryServerId)?.name
+            if (!secName.isNullOrEmpty()) "${userProfile.name}: ${profile.name} + $secName" else "${userProfile.name}: ${profile.name}"
+        } else {
+            "${userProfile.name}: ${profile.name}"
+        }
         try {
             commandServer.startOrReloadService(
-                applyRouting(profile, content),
+                applyRouting(profile, content, userProfile),
                 OverrideOptions().apply {
                     autoRedirect = Settings.autoRedirect
                 },

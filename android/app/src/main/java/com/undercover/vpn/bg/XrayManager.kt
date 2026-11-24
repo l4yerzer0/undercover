@@ -44,6 +44,32 @@ object XrayManager {
         startWithJson(context, xrayJson)
     }
 
+    fun ensureForDualConfig(
+        context: Context,
+        primaryConfigPath: String?,
+        primaryNodeTag: String?,
+        secondaryConfigPath: String?,
+        secondaryNodeTag: String?,
+        dualEnabled: Boolean,
+    ) {
+        val primaryXray = if (primaryConfigPath != null) {
+            val map = SubscriptionNodesHelper.loadXrayMap(primaryConfigPath)
+            if (primaryNodeTag != null) map[primaryNodeTag] ?: map["proxy"] else map.values.firstOrNull()
+        } else null
+
+        val secondaryXray = if (dualEnabled && secondaryConfigPath != null) {
+            val map = SubscriptionNodesHelper.loadXrayMap(secondaryConfigPath)
+            if (secondaryNodeTag != null) map[secondaryNodeTag] ?: map["proxy"] else map.values.firstOrNull()
+        } else null
+
+        val combinedXray = XrayConfigGenerator.combineXrayConfigs(primaryXray, secondaryXray)
+        if (combinedXray == null) {
+            stop()
+            return
+        }
+        startWithJson(context, combinedXray)
+    }
+
     fun startWithJson(context: Context, xrayJson: String) {
         synchronized(lock) {
             val current = process
@@ -125,24 +151,37 @@ object XrayManager {
 
     private fun waitForSocksReady(proc: Process) {
         val deadline = System.currentTimeMillis() + 3000L
+        val text = activeConfigText ?: ""
+        val portsToCheck = mutableListOf<Int>()
+        if (text.contains("10808")) portsToCheck.add(XrayConfigGenerator.LOCAL_SOCKS_PORT)
+        if (text.contains("10809")) portsToCheck.add(XrayConfigGenerator.LOCAL_SOCKS_PORT_SECONDARY)
+        if (portsToCheck.isEmpty()) portsToCheck.add(XrayConfigGenerator.LOCAL_SOCKS_PORT)
+
         while (System.currentTimeMillis() < deadline) {
             if (!proc.isAlive) {
                 throw IllegalStateException("xray-core exited prematurely with code ${proc.exitValue()}")
             }
-            try {
-                Socket().use { socket ->
-                    socket.connect(
-                        InetSocketAddress(XrayConfigGenerator.LOCAL_SOCKS_HOST, XrayConfigGenerator.LOCAL_SOCKS_PORT),
-                        100,
-                    )
+            var allReady = true
+            for (port in portsToCheck) {
+                try {
+                    Socket().use { socket ->
+                        socket.connect(
+                            InetSocketAddress(XrayConfigGenerator.LOCAL_SOCKS_HOST, port),
+                            100,
+                        )
+                    }
+                } catch (_: Exception) {
+                    allReady = false
+                    break
                 }
-                Log.i(TAG, "xray-core SOCKS5 bridge ready on ${XrayConfigGenerator.LOCAL_SOCKS_HOST}:${XrayConfigGenerator.LOCAL_SOCKS_PORT}")
-                return
-            } catch (_: Exception) {
-                Thread.sleep(50)
             }
+            if (allReady) {
+                Log.i(TAG, "xray-core SOCKS5 bridge ready on ports $portsToCheck")
+                return
+            }
+            Thread.sleep(50)
         }
-        Log.w(TAG, "Timed out waiting for xray-core SOCKS5 port, proceeding anyway")
+        Log.w(TAG, "Timed out waiting for xray-core SOCKS5 port(s), proceeding anyway")
     }
 
     fun stop() {

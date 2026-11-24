@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -51,11 +52,17 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.undercover.vpn.R
+import com.undercover.vpn.compose.screen.dashboard.UserProfilePickerSheet
 import com.undercover.vpn.compose.topbar.OverrideTopBar
+import com.undercover.vpn.database.Profile
+import com.undercover.vpn.database.ProfileManager
 import com.undercover.vpn.database.Settings
+import com.undercover.vpn.database.UserProfile
+import com.undercover.vpn.database.UserProfileManager
 import com.undercover.vpn.routing.RoutingSection
 import com.undercover.vpn.shared.ui.components.DossierSwitch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -66,32 +73,72 @@ fun RoutingScreen(navController: NavController) {
     }
 
     val currentEntry by navController.currentBackStackEntryAsState()
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
+
+    var userProfiles by remember { mutableStateOf<List<UserProfile>>(emptyList()) }
+    var activeUserProfile by remember { mutableStateOf<UserProfile?>(null) }
+    var allServers by remember { mutableStateOf<List<Profile>>(emptyList()) }
+    var showUserProfilePicker by remember { mutableStateOf(false) }
+    var showSecondaryServerPicker by remember { mutableStateOf(false) }
+
     var directAppsCount by remember { mutableIntStateOf(0) }
     var byeDpiAppsCount by remember { mutableIntStateOf(0) }
+    var secondaryAppsCount by remember { mutableIntStateOf(0) }
     var byeDpiEnabled by remember { mutableStateOf(false) }
 
-    var directRuSites by remember { mutableStateOf(Settings.routingDirectRuSites) }
-    var byeDpiYouTube by remember { mutableStateOf(Settings.routingByeDpiYouTube) }
-    var byeDpiDiscord by remember { mutableStateOf(Settings.routingByeDpiDiscord) }
+    var directRuSites by remember { mutableStateOf(true) }
+    var directRuApps by remember { mutableStateOf(true) }
+    var byeDpiYouTube by remember { mutableStateOf(false) }
+    var byeDpiDiscord by remember { mutableStateOf(false) }
+    var dualServerEnabled by remember { mutableStateOf(false) }
 
-    var customDirectDomains by remember { mutableStateOf(Settings.routingCustomDirectDomains) }
-    var customByeDpiDomains by remember { mutableStateOf(Settings.routingCustomByeDpiDomains) }
+    var customDirectDomains by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var customByeDpiDomains by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var customSecondaryDomains by remember { mutableStateOf<Set<String>>(emptySet()) }
+
+    var ruleSetsCount by remember { mutableIntStateOf(com.undercover.vpn.routing.RuleSetManager.downloadedCount()) }
+    var ruleSetsUpdatedAt by remember { mutableStateOf(Settings.routingRuleSetsUpdatedAt) }
+    var isUpdatingRuleSets by remember { mutableStateOf(false) }
+    var ruleSetStatusMessage by remember { mutableStateOf<String?>(null) }
 
     var domainDialogSection by remember { mutableStateOf<RoutingSection?>(null) }
 
+    fun refreshState(active: UserProfile) {
+        activeUserProfile = active
+        directRuSites = active.routingDirectRuSites
+        directRuApps = active.routingDirectRuApps
+        byeDpiYouTube = active.routingByeDpiYouTube
+        byeDpiDiscord = active.routingByeDpiDiscord
+        dualServerEnabled = active.dualServerEnabled
+        customDirectDomains = active.directDomains.toSet()
+        customByeDpiDomains = active.byeDpiDomains.toSet()
+        customSecondaryDomains = active.secondaryDomains.toSet()
+        directAppsCount = Settings.routingList(RoutingSection.DIRECT).size
+        byeDpiAppsCount = Settings.routingList(RoutingSection.BYEDPI).size
+        secondaryAppsCount = Settings.routingList(RoutingSection.SECONDARY).size
+        byeDpiEnabled = Settings.byeDpiEnabled
+    }
+
     LaunchedEffect(currentEntry) {
         withContext(Dispatchers.IO) {
-            val direct = Settings.routingDirectList.size
-            val byeDpi = Settings.routingByeDpiList.size
-            val enabled = Settings.byeDpiEnabled
-            val customDirect = Settings.routingCustomDirectDomains
-            val customByeDpi = Settings.routingCustomByeDpiDomains
+            val uProfiles = UserProfileManager.list()
+            val active = UserProfileManager.getActiveProfile()
+            val servers = ProfileManager.list()
             withContext(Dispatchers.Main) {
-                directAppsCount = direct
-                byeDpiAppsCount = byeDpi
-                byeDpiEnabled = enabled
-                customDirectDomains = customDirect
-                customByeDpiDomains = customByeDpi
+                userProfiles = uProfiles
+                allServers = servers
+                refreshState(active)
+            }
+        }
+    }
+
+    fun persistProfile(updateBlock: (UserProfile) -> Unit) {
+        val current = activeUserProfile ?: return
+        updateBlock(current)
+        coroutineScope.launch(Dispatchers.IO) {
+            UserProfileManager.update(current)
+            runCatching {
+                io.nekohasekai.libbox.Libbox.newStandaloneCommandClient().serviceReload()
             }
         }
     }
@@ -162,6 +209,43 @@ fun RoutingScreen(navController: NavController) {
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             )
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Operational Profile Switcher
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.06f))
+                    .clickable { showUserProfilePicker = true }
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.dossier_operational_profile_label),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = activeUserProfile?.name ?: stringResource(R.string.default_text),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Text(
+                        text = "[ СМЕНИТЬ ]",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
             // Section 1: Ready-made Site Presets
             DossierSectionTitle(title = "ГОТОВЫЕ НАБОРЫ САЙТОВ")
 
@@ -172,6 +256,7 @@ fun RoutingScreen(navController: NavController) {
                 onCheckedChange = { checked ->
                     directRuSites = checked
                     Settings.routingDirectRuSites = checked
+                    persistProfile { it.routingDirectRuSites = checked }
                 },
             )
 
@@ -182,6 +267,7 @@ fun RoutingScreen(navController: NavController) {
                 onCheckedChange = { checked ->
                     byeDpiYouTube = checked
                     Settings.routingByeDpiYouTube = checked
+                    persistProfile { it.routingByeDpiYouTube = checked }
                 },
             )
 
@@ -192,11 +278,23 @@ fun RoutingScreen(navController: NavController) {
                 onCheckedChange = { checked ->
                     byeDpiDiscord = checked
                     Settings.routingByeDpiDiscord = checked
+                    persistProfile { it.routingByeDpiDiscord = checked }
                 },
             )
 
             // Section 2: Application Routing
             DossierSectionTitle(title = "МАРШРУТИЗАЦИЯ ПРИЛОЖЕНИЙ")
+
+            DossierToggleRow(
+                title = "Российские приложения напрямую (DIRECT)",
+                subtitle = "Сбер, Т-Банк, ВТБ, Госуслуги, Ozon, WB, Яндекс и др. по обновляемой базе ru-app-list",
+                checked = directRuApps,
+                onCheckedChange = { checked ->
+                    directRuApps = checked
+                    Settings.routingDirectRuApps = checked
+                    persistProfile { it.routingDirectRuApps = checked }
+                },
+            )
 
             DossierNavRow(
                 title = "Прямое подключение (DIRECT)",
@@ -233,6 +331,96 @@ fun RoutingScreen(navController: NavController) {
                 onClick = { domainDialogSection = RoutingSection.BYEDPI },
             )
 
+            // Section 4: Dual Active Server (Split Traffic)
+            DossierSectionTitle(title = stringResource(R.string.dossier_dual_server_title).uppercase())
+
+            DossierToggleRow(
+                title = stringResource(R.string.dossier_dual_server_title),
+                subtitle = stringResource(R.string.dossier_dual_server_desc),
+                checked = dualServerEnabled,
+                onCheckedChange = { checked ->
+                    dualServerEnabled = checked
+                    persistProfile { prof ->
+                        prof.dualServerEnabled = checked
+                        if (checked && prof.secondaryServerId <= 0L) {
+                            val other = allServers.find { it.id != prof.primaryServerId } ?: allServers.firstOrNull()
+                            if (other != null) prof.secondaryServerId = other.id
+                        }
+                    }
+                },
+            )
+
+            if (dualServerEnabled) {
+                val secServerName = allServers.find { it.id == activeUserProfile?.secondaryServerId }?.name
+                    ?: stringResource(R.string.dossier_select_secondary_server)
+
+                DossierNavRow(
+                    title = stringResource(R.string.dossier_dual_server_label),
+                    subtitle = secServerName,
+                    onClick = { showSecondaryServerPicker = true },
+                )
+
+                DossierNavRow(
+                    title = stringResource(R.string.dossier_secondary_apps_title),
+                    subtitle = "Выбрано приложений: $secondaryAppsCount",
+                    onClick = {
+                        navController.navigate("settings/routing/apps/${RoutingSection.SECONDARY.name}")
+                    },
+                )
+
+                DossierNavRow(
+                    title = stringResource(R.string.dossier_secondary_domains_title),
+                    subtitle = if (customSecondaryDomains.isEmpty()) "Нажмите, чтобы добавить домены" else "Добавлено доменов: ${customSecondaryDomains.size}",
+                    onClick = { domainDialogSection = RoutingSection.SECONDARY },
+                )
+            }
+
+            // Section 5: Updatable Rule-Sets (.srs)
+            DossierSectionTitle(title = "ОБНОВЛЯЕМЫЕ БАЗЫ (.SRS)")
+
+            val updatedLabel = remember(ruleSetsUpdatedAt, ruleSetsCount) {
+                if (ruleSetsUpdatedAt > 0L && ruleSetsCount > 0) {
+                    val fmt = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", java.util.Locale.getDefault())
+                    "Загружено баз: $ruleSetsCount/${com.undercover.vpn.routing.RuleSetManager.SPECS.size} · ${fmt.format(java.util.Date(ruleSetsUpdatedAt))}"
+                } else {
+                    "Базы не загружены (используются встроенные списки)"
+                }
+            }
+
+            DossierNavRow(
+                title = if (isUpdatingRuleSets) "Обновление баз..." else "Обновить базы маршрутизации",
+                subtitle = ruleSetStatusMessage ?: updatedLabel,
+                onClick = {
+                    if (!isUpdatingRuleSets) {
+                        isUpdatingRuleSets = true
+                        ruleSetStatusMessage = "Загрузка geosite-ru, geoip-ru, ru-app-list..."
+                        coroutineScope.launch {
+                            val result = com.undercover.vpn.routing.RuleSetManager.updateAll(force = true)
+                            ruleSetsCount = com.undercover.vpn.routing.RuleSetManager.downloadedCount()
+                            ruleSetsUpdatedAt = Settings.routingRuleSetsUpdatedAt
+                            isUpdatingRuleSets = false
+                            ruleSetStatusMessage = result.fold(
+                                onSuccess = { count ->
+                                    if (count > 0) {
+                                        runCatching {
+                                            withContext(Dispatchers.IO) {
+                                                io.nekohasekai.libbox.Libbox.newStandaloneCommandClient().serviceReload()
+                                            }
+                                        }
+                                        "Обновлено баз: $count/${com.undercover.vpn.routing.RuleSetManager.SPECS.size}"
+                                    } else {
+                                        "Базы актуальны"
+                                    }
+                                },
+                                onFailure = { err ->
+                                    "Ошибка загрузки: ${err.message ?: "проверьте сеть"}"
+                                },
+                            )
+                        }
+                    }
+                },
+            )
+
             Spacer(modifier = Modifier.height(64.dp))
         }
     }
@@ -240,40 +428,192 @@ fun RoutingScreen(navController: NavController) {
     // Custom Domains Dialog
     if (domainDialogSection != null) {
         val section = domainDialogSection!!
-        val isDirect = section == RoutingSection.DIRECT
-        val domainList = if (isDirect) customDirectDomains else customByeDpiDomains
+        val title = when (section) {
+            RoutingSection.DIRECT -> "СВОИ САЙТЫ // DIRECT"
+            RoutingSection.BYEDPI -> "СВОИ САЙТЫ // BYEDPI"
+            RoutingSection.SECONDARY -> "СВОИ САЙТЫ // СЕРВЕР 2 (DUAL)"
+        }
+        val subtitle = when (section) {
+            RoutingSection.DIRECT -> "Эти сайты пойдут в обход VPN напрямую"
+            RoutingSection.BYEDPI -> "Эти сайты пойдут через ByeDPI"
+            RoutingSection.SECONDARY -> "Эти сайты пойдут через второй активный сервер (Server 2)"
+        }
+        val domainList = when (section) {
+            RoutingSection.DIRECT -> customDirectDomains
+            RoutingSection.BYEDPI -> customByeDpiDomains
+            RoutingSection.SECONDARY -> customSecondaryDomains
+        }
 
         CustomDomainsDialog(
-            title = if (isDirect) "СВОИ САЙТЫ // DIRECT" else "СВОИ САЙТЫ // BYEDPI",
-            subtitle = if (isDirect) "Эти сайты пойдут в обход VPN напрямую" else "Эти сайты пойдут через ByeDPI",
+            title = title,
+            subtitle = subtitle,
             domains = domainList,
             onAddDomain = { newDomain ->
                 val clean = newDomain.trim().lowercase().removePrefix("https://").removePrefix("http://").removePrefix("www.")
                 if (clean.isNotEmpty()) {
-                    if (isDirect) {
-                        val updated = customDirectDomains + clean
-                        customDirectDomains = updated
-                        Settings.routingCustomDirectDomains = updated
-                    } else {
-                        val updated = customByeDpiDomains + clean
-                        customByeDpiDomains = updated
-                        Settings.routingCustomByeDpiDomains = updated
+                    when (section) {
+                        RoutingSection.DIRECT -> {
+                            val updated = customDirectDomains + clean
+                            customDirectDomains = updated
+                            Settings.routingCustomDirectDomains = updated
+                            persistProfile { it.directDomains = updated.toList() }
+                        }
+                        RoutingSection.BYEDPI -> {
+                            val updated = customByeDpiDomains + clean
+                            customByeDpiDomains = updated
+                            Settings.routingCustomByeDpiDomains = updated
+                            persistProfile { it.byeDpiDomains = updated.toList() }
+                        }
+                        RoutingSection.SECONDARY -> {
+                            val updated = customSecondaryDomains + clean
+                            customSecondaryDomains = updated
+                            persistProfile { it.secondaryDomains = updated.toList() }
+                        }
                     }
                 }
             },
             onRemoveDomain = { domain ->
-                if (isDirect) {
-                    val updated = customDirectDomains - domain
-                    customDirectDomains = updated
-                    Settings.routingCustomDirectDomains = updated
-                } else {
-                    val updated = customByeDpiDomains - domain
-                    customByeDpiDomains = updated
-                    Settings.routingCustomByeDpiDomains = updated
+                when (section) {
+                    RoutingSection.DIRECT -> {
+                        val updated = customDirectDomains - domain
+                        customDirectDomains = updated
+                        Settings.routingCustomDirectDomains = updated
+                        persistProfile { it.directDomains = updated.toList() }
+                    }
+                    RoutingSection.BYEDPI -> {
+                        val updated = customByeDpiDomains - domain
+                        customByeDpiDomains = updated
+                        Settings.routingCustomByeDpiDomains = updated
+                        persistProfile { it.byeDpiDomains = updated.toList() }
+                    }
+                    RoutingSection.SECONDARY -> {
+                        val updated = customSecondaryDomains - domain
+                        customSecondaryDomains = updated
+                        persistProfile { it.secondaryDomains = updated.toList() }
+                    }
                 }
             },
             onDismiss = { domainDialogSection = null },
         )
+    }
+
+    if (showUserProfilePicker) {
+        UserProfilePickerSheet(
+            userProfiles = userProfiles,
+            activeProfileId = activeUserProfile?.id ?: 1L,
+            allServers = allServers,
+            onSelectProfile = { id ->
+                coroutineScope.launch(Dispatchers.IO) {
+                    UserProfileManager.setActiveProfile(id)
+                    val active = UserProfileManager.getActiveProfile()
+                    withContext(Dispatchers.Main) {
+                        refreshState(active)
+                    }
+                }
+                showUserProfilePicker = false
+            },
+            onCreateProfile = { name ->
+                coroutineScope.launch(Dispatchers.IO) {
+                    val newProf = UserProfile(name = name)
+                    UserProfileManager.create(newProf, andSelect = true)
+                    val uProfiles = UserProfileManager.list()
+                    val active = UserProfileManager.getActiveProfile()
+                    withContext(Dispatchers.Main) {
+                        userProfiles = uProfiles
+                        refreshState(active)
+                    }
+                }
+            },
+            onDeleteProfile = { prof ->
+                coroutineScope.launch(Dispatchers.IO) {
+                    UserProfileManager.delete(prof)
+                    val uProfiles = UserProfileManager.list()
+                    val active = UserProfileManager.getActiveProfile()
+                    withContext(Dispatchers.Main) {
+                        userProfiles = uProfiles
+                        refreshState(active)
+                    }
+                }
+            },
+            onDismiss = { showUserProfilePicker = false },
+        )
+    }
+
+    if (showSecondaryServerPicker) {
+        val secSheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        androidx.compose.material3.ModalBottomSheet(
+            onDismissRequest = { showSecondaryServerPicker = false },
+            sheetState = secSheetState,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp),
+            containerColor = MaterialTheme.colorScheme.background,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.dossier_dual_server_label),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.dossier_select_secondary_server),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 400.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(allServers) { prof ->
+                        val isSelected = prof.id == activeUserProfile?.secondaryServerId
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(
+                                    width = if (isSelected) 1.5.dp else 1.dp,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
+                                )
+                                .background(
+                                    if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface,
+                                )
+                                .clickable {
+                                    persistProfile {
+                                        it.secondaryServerId = prof.id
+                                        it.secondaryNodeTag = null
+                                    }
+                                    showSecondaryServerPicker = false
+                                }
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = if (isSelected) "[ X ]" else "[   ]",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = prof.name,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                ),
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
     }
 }
 

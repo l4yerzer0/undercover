@@ -10,6 +10,7 @@ object XrayConfigGenerator {
 
     const val LOCAL_SOCKS_HOST = "127.0.0.1"
     const val LOCAL_SOCKS_PORT = 10808
+    const val LOCAL_SOCKS_PORT_SECONDARY = 10809
 
     fun requiresXrayCore(uriString: String): Boolean {
         val effective = resolveEffectiveUri(uriString) ?: return false
@@ -51,7 +52,7 @@ object XrayConfigGenerator {
         root.put("log", JSONObject().put("loglevel", "warning"))
 
         val dns = JSONObject()
-        dns.put("servers", JSONArray().put("1.1.1.1").put("8.8.8.8"))
+        dns.put("servers", JSONArray().put("8.8.8.8").put("77.88.88.88").put("1.1.1.1"))
         root.put("dns", dns)
 
         val socksInbound = JSONObject().apply {
@@ -73,6 +74,87 @@ object XrayConfigGenerator {
         root.put("outbounds", JSONArray().put(outbound).put(directOutbound))
 
         return root.toString(2)
+    }
+
+    fun adjustInboundPort(xrayJson: String, port: Int, tag: String): String {
+        return try {
+            val root = JSONObject(xrayJson)
+            val inbounds = root.optJSONArray("inbounds")
+            if (inbounds != null && inbounds.length() > 0) {
+                val inb = inbounds.getJSONObject(0)
+                inb.put("port", port)
+                inb.put("tag", tag)
+            }
+            root.toString(2)
+        } catch (_: Exception) {
+            xrayJson
+        }
+    }
+
+    fun combineXrayConfigs(
+        primaryXrayJson: String?,
+        secondaryXrayJson: String?,
+    ): String? {
+        if (primaryXrayJson.isNullOrBlank() && secondaryXrayJson.isNullOrBlank()) {
+            return null
+        }
+        if (primaryXrayJson.isNullOrBlank()) {
+            return adjustInboundPort(secondaryXrayJson!!, LOCAL_SOCKS_PORT_SECONDARY, "socks-secondary")
+        }
+        if (secondaryXrayJson.isNullOrBlank()) {
+            return primaryXrayJson
+        }
+
+        return try {
+            val rootPrimary = JSONObject(primaryXrayJson)
+            val rootSecondary = JSONObject(secondaryXrayJson)
+
+            val combined = JSONObject()
+            combined.put("log", JSONObject().put("loglevel", "warning"))
+            val dns = JSONObject().put("servers", JSONArray().put("8.8.8.8").put("77.88.88.88").put("1.1.1.1"))
+            combined.put("dns", dns)
+
+            val inboundPrimary = JSONObject().apply {
+                put("tag", "socks-primary")
+                put("port", LOCAL_SOCKS_PORT)
+                put("listen", LOCAL_SOCKS_HOST)
+                put("protocol", "socks")
+                put("settings", JSONObject().put("auth", "noauth").put("udp", true))
+            }
+            val inboundSecondary = JSONObject().apply {
+                put("tag", "socks-secondary")
+                put("port", LOCAL_SOCKS_PORT_SECONDARY)
+                put("listen", LOCAL_SOCKS_HOST)
+                put("protocol", "socks")
+                put("settings", JSONObject().put("auth", "noauth").put("udp", true))
+            }
+            combined.put("inbounds", JSONArray().put(inboundPrimary).put(inboundSecondary))
+
+            val primaryOutbounds = rootPrimary.optJSONArray("outbounds") ?: JSONArray()
+            val secondaryOutbounds = rootSecondary.optJSONArray("outbounds") ?: JSONArray()
+
+            val primaryProxyOutbound = primaryOutbounds.optJSONObject(0) ?: JSONObject()
+            primaryProxyOutbound.put("tag", "out-primary")
+
+            val secondaryProxyOutbound = secondaryOutbounds.optJSONObject(0) ?: JSONObject()
+            secondaryProxyOutbound.put("tag", "out-secondary")
+
+            val directOutbound = JSONObject().put("tag", "direct").put("protocol", "freedom")
+
+            combined.put("outbounds", JSONArray().put(primaryProxyOutbound).put(secondaryProxyOutbound).put(directOutbound))
+
+            val routing = JSONObject()
+            routing.put("domainStrategy", "AsIs")
+            val rules = JSONArray()
+            rules.put(JSONObject().put("type", "field").put("inboundTag", JSONArray().put("socks-primary")).put("outboundTag", "out-primary"))
+            rules.put(JSONObject().put("type", "field").put("inboundTag", JSONArray().put("socks-secondary")).put("outboundTag", "out-secondary"))
+            routing.put("rules", rules)
+            combined.put("routing", routing)
+
+            combined.toString(2)
+        } catch (_: Exception) {
+            primaryXrayJson
+        }
     }
 
     private fun resolveEffectiveUri(uriString: String): String? {
@@ -137,10 +219,13 @@ object XrayConfigGenerator {
 
     private fun buildVlessOutbound(uriStr: String): JSONObject? {
         val parts = splitUri(uriStr) ?: return null
+        val rawType = parts.query["type"]?.lowercase()?.ifEmpty { "tcp" } ?: "tcp"
         val user = JSONObject().apply {
             put("id", parts.userInfo)
             put("encryption", parts.query["encryption"]?.ifEmpty { "none" } ?: "none")
-            parts.query["flow"]?.takeIf { it.isNotEmpty() }?.let { put("flow", it) }
+            if (rawType == "tcp" || rawType == "raw") {
+                parts.query["flow"]?.takeIf { it.isNotEmpty() }?.let { put("flow", it) }
+            }
         }
         val vnextItem = JSONObject().apply {
             put("address", parts.host)

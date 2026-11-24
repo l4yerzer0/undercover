@@ -152,6 +152,15 @@ object SingBoxConfigMigrator {
                     inbound.put("route_exclude_address", excludes)
                     modified = true
                 }
+
+                // "system" and "mixed" TUN stacks rely on kernel TCP redirect back to our own
+                // UID's listener, which breaks on Android when our package is excluded from TUN
+                // (e.g. for xray-core) or on Samsung kernels. "gvisor" handles TCP in userspace.
+                val currentStack = inbound.optString("stack", "")
+                if (currentStack.isEmpty() || currentStack == "system" || currentStack == "mixed") {
+                    inbound.put("stack", "gvisor")
+                    modified = true
+                }
             }
 
             // 2. Legacy sniffing and strategy fields on inbounds
@@ -636,6 +645,49 @@ object SingBoxConfigMigrator {
                 newDnsRules.put(rule)
             }
             dns.put("rules", newDnsRules)
+        }
+
+        // 7. Auto-fix ConfigParser-generated profiles where cloudflare-doh (1.1.1.1) has no detour
+        // (direct 1.1.1.1:443 is blocked/throttled by TSPU in Russia) and is used as default_domain_resolver.
+        val route = root.optJSONObject("route")
+        val routeFinal = route?.optString("final", "") ?: ""
+        if (route != null && routeFinal.isNotEmpty() && routeFinal != "direct" && routeFinal != "direct-out") {
+            var dohWithoutDetour: JSONObject? = null
+            var hasLocalDns = false
+            var localDnsTag = "local-dns"
+            for (i in 0 until orderedServers.length()) {
+                val s = orderedServers.optJSONObject(i) ?: continue
+                val sTag = s.optString("tag", "")
+                val sType = s.optString("type", "")
+                if (sType == "local") {
+                    hasLocalDns = true
+                    if (sTag.isNotEmpty()) localDnsTag = sTag
+                }
+                if (sTag == "cloudflare-doh" && sType == "https" && !s.has("detour")) {
+                    dohWithoutDetour = s
+                }
+            }
+            if (dohWithoutDetour != null) {
+                dohWithoutDetour.put("detour", routeFinal)
+                if (!hasLocalDns) {
+                    orderedServers.put(
+                        JSONObject().apply {
+                            put("tag", localDnsTag)
+                            put("type", "local")
+                        },
+                    )
+                }
+                val ddr = route.opt("default_domain_resolver")
+                val ddrServer = when (ddr) {
+                    is String -> ddr
+                    is JSONObject -> ddr.optString("server", "")
+                    else -> ""
+                }
+                if (ddrServer == "cloudflare-doh" || ddrServer.isEmpty()) {
+                    route.put("default_domain_resolver", JSONObject().put("server", localDnsTag))
+                }
+                modified = true
+            }
         }
 
         return modified

@@ -18,7 +18,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -71,6 +73,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -950,16 +953,7 @@ class MainActivity :
                 currentServiceStatus == Status.Started || currentServiceStatus == Status.Starting
             }
 
-        val railScreens =
-            buildList {
-                add(Screen.Dashboard)
-                add(Screen.Connections)
-                if (showGroupsInNav) {
-                    add(Screen.Groups)
-                }
-                add(Screen.Tools)
-                add(Screen.Settings)
-            }
+        val railScreens = bottomNavigationScreens
 
         val allowedRoutes =
             buildList {
@@ -1101,46 +1095,91 @@ class MainActivity :
 
         CompositionLocalProvider(LocalTopBarController provides topBarController) {
             if (useNavigationRail) {
-                Row(modifier = Modifier.fillMaxSize()) {
-                    Surface(tonalElevation = 1.dp) {
-                        NavigationRail(
-                            modifier = Modifier.fillMaxHeight(),
-                        ) {
-                            val hasUpdate by UpdateState.hasUpdate
-                            railScreens.forEach { screen ->
-                                val selected = currentRootRoute == screen.route
-
-                                NavigationRailItem(
-                                    icon = {
-                                        if (screen == Screen.Settings && (hasUpdate || settingsDebugUnreadCount > 0)) {
-                                            BadgedBox(
-                                                badge = {
-                                                    if (settingsDebugUnreadCount > 0) {
-                                                        Badge(containerColor = MaterialTheme.colorScheme.primary) { Text("$settingsDebugUnreadCount") }
-                                                    } else {
-                                                        Badge(containerColor = MaterialTheme.colorScheme.primary)
-                                                    }
-                                                },
-                                            ) {
-                                                Icon(screen.icon, contentDescription = null)
-                                            }
-                                        } else {
-                                            Icon(screen.icon, contentDescription = null)
-                                        }
-                                    },
-                                    label = { Text(stringResource(screen.titleRes)) },
-                                    selected = selected,
-                                    onClick = {
-                                        navController.navigate(screen.route) {
-                                            popUpTo(navController.graph.findStartDestination().id) {
-                                                saveState = true
-                                            }
-                                            launchSingleTop = true
-                                            restoreState = true
-                                        }
-                                    },
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background),
+                ) {
+                    if (!isSubScreen) {
+                        val hasUpdate by UpdateState.hasUpdate
+                        Row(modifier = Modifier.fillMaxHeight()) {
+                            Column(
+                                modifier = Modifier
+                                    .width(136.dp)
+                                    .fillMaxHeight()
+                                    .background(MaterialTheme.colorScheme.background)
+                                    .padding(vertical = 24.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    text = "UNDERCOVER",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                                 )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(1.dp)
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                railScreens.forEach { screen ->
+                                    val selected = currentRootRoute == screen.route
+                                    val showBadge = screen == Screen.Settings && (hasUpdate || settingsDebugUnreadCount > 0)
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                navController.navigate(screen.route) {
+                                                    popUpTo(navController.graph.findStartDestination().id) {
+                                                        saveState = true
+                                                    }
+                                                    launchSingleTop = true
+                                                    restoreState = true
+                                                }
+                                            }
+                                            .padding(vertical = 12.dp, horizontal = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .width(3.dp)
+                                                .height(18.dp)
+                                                .background(
+                                                    if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                                ),
+                                        )
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Text(
+                                            text = stringResource(screen.titleRes).uppercase(),
+                                            style = MaterialTheme.typography.labelLarge.copy(
+                                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                            ),
+                                            color = if (selected) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                            },
+                                            maxLines = 1,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        if (showBadge) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(6.dp)
+                                                    .background(MaterialTheme.colorScheme.primary),
+                                            )
+                                        }
+                                    }
+                                }
                             }
+                            Box(
+                                modifier = Modifier
+                                    .width(1.dp)
+                                    .fillMaxHeight()
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                            )
                         }
                     }
 

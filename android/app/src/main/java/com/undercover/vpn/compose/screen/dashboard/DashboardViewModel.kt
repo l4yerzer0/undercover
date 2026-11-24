@@ -73,6 +73,17 @@ data class DashboardUiState(
     val showDeprecatedDialog: Boolean = false,
     val showAddProfileSheet: Boolean = false,
     val showProfilePickerSheet: Boolean = false,
+    val showUserProfileSheet: Boolean = false,
+    val showSecondaryServerPickerSheet: Boolean = false,
+    val showSecondaryNodePickerSheet: Boolean = false,
+    val userProfiles: List<com.undercover.vpn.database.UserProfile> = emptyList(),
+    val activeUserProfile: com.undercover.vpn.database.UserProfile? = null,
+    val secondaryProfileId: Long = -1L,
+    val secondaryProfileName: String? = null,
+    val secondaryNodeTag: String? = null,
+    val secondaryExitIp: String = "",
+    val secondaryExitCountry: String = "",
+    val secondaryPing: String = "—",
     val updatingProfileId: Long? = null,
     val updatedProfileId: Long? = null,
     // Status
@@ -187,6 +198,7 @@ class DashboardViewModel :
     init {
         loadProfiles()
         ProfileManager.registerCallback(::onProfilesChanged)
+        com.undercover.vpn.database.UserProfileManager.registerCallback(::onProfilesChanged)
 
         viewModelScope.launch {
             combine(
@@ -267,6 +279,7 @@ class DashboardViewModel :
     override fun onCleared() {
         super.onCleared()
         ProfileManager.unregisterCallback(::onProfilesChanged)
+        com.undercover.vpn.database.UserProfileManager.unregisterCallback(::onProfilesChanged)
         commandClient.disconnect()
     }
 
@@ -277,9 +290,19 @@ class DashboardViewModel :
     private fun loadProfiles() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val profiles = ProfileManager.list()
-                val selectedId = Settings.selectedProfile
-                val nodesMap = profiles.associate { profile ->
+                val userProfiles = com.undercover.vpn.database.UserProfileManager.list()
+                val activeUserProf = com.undercover.vpn.database.UserProfileManager.getActiveProfile()
+                val allProfiles = ProfileManager.list()
+                val profiles = ProfileManager.listForProfile(activeUserProf.id).ifEmpty { allProfiles }
+
+                var primaryServerId = activeUserProf.primaryServerId
+                if (primaryServerId <= 0L && profiles.isNotEmpty()) {
+                    primaryServerId = profiles.first().id
+                    activeUserProf.primaryServerId = primaryServerId
+                    com.undercover.vpn.database.UserProfileManager.update(activeUserProf)
+                }
+
+                val nodesMap = allProfiles.associate { profile ->
                     val info = try {
                         val file = File(profile.typed.path)
                         if (file.exists()) {
@@ -293,13 +316,23 @@ class DashboardViewModel :
                     profile.id to info
                 }
 
+                val primaryNode = activeUserProf.primaryNodeTag ?: nodesMap[primaryServerId]?.selectedNodeTag
+                val secondaryServerId = activeUserProf.secondaryServerId
+                val secondaryProfile = allProfiles.find { it.id == secondaryServerId }
+                val secondaryNode = activeUserProf.secondaryNodeTag ?: nodesMap[secondaryServerId]?.selectedNodeTag
+
                 withContext(Dispatchers.Main) {
                     updateState {
                         copy(
                             profiles = profiles,
-                            selectedProfileId = selectedId,
-                            selectedProfileName = profiles.find { it.id == selectedId }?.name,
+                            selectedProfileId = primaryServerId,
+                            selectedProfileName = allProfiles.find { it.id == primaryServerId }?.name,
                             profileNodesMap = nodesMap,
+                            userProfiles = userProfiles,
+                            activeUserProfile = activeUserProf,
+                            secondaryProfileId = secondaryServerId,
+                            secondaryProfileName = secondaryProfile?.name,
+                            secondaryNodeTag = secondaryNode,
                         )
                     }
                 }
@@ -382,6 +415,9 @@ class DashboardViewModel :
                 val profile = ProfileManager.get(profileId) ?: return@launch
 
                 Settings.selectedProfile = profileId
+                val activeProf = currentState.activeUserProfile ?: com.undercover.vpn.database.UserProfileManager.getActiveProfile()
+                activeProf.primaryServerId = profileId
+                com.undercover.vpn.database.UserProfileManager.update(activeProf)
 
                 // Check if service is running
                 if (_serviceStatus.value == Status.Started) {
@@ -422,7 +458,7 @@ class DashboardViewModel :
                 if (!file.exists()) return@launch
 
                 val rawJson = file.readText()
-                val currentInfo = SubscriptionNodesHelper.extractNodesInfo(rawJson)
+                val currentInfo = SubscriptionNodesHelper.extractNodesInfo(rawJson, profile.typed.path)
                 val selectorTag = currentInfo.selectorTag ?: return@launch
 
                 val updatedJson = SubscriptionNodesHelper.selectNodeInConfig(rawJson, selectorTag, nodeTag)
@@ -431,9 +467,18 @@ class DashboardViewModel :
                 }
 
                 val updatedInfo = currentInfo.copy(selectedNodeTag = nodeTag)
+                val activeProf = currentState.activeUserProfile ?: com.undercover.vpn.database.UserProfileManager.getActiveProfile()
+                if (activeProf.primaryServerId == profileId) {
+                    activeProf.primaryNodeTag = nodeTag
+                    com.undercover.vpn.database.UserProfileManager.update(activeProf)
+                }
+
                 withContext(Dispatchers.Main) {
                     updateState {
-                        copy(profileNodesMap = profileNodesMap + (profileId to updatedInfo))
+                        copy(
+                            profileNodesMap = profileNodesMap + (profileId to updatedInfo),
+                            activeUserProfile = activeProf,
+                        )
                     }
                 }
 
@@ -441,9 +486,21 @@ class DashboardViewModel :
                 if (wasDifferentProfile) {
                     selectProfile(profileId)
                 } else if (_serviceStatus.value == Status.Started) {
+                    val wasXrayRunning = XrayManager.isRunning
                     XrayManager.ensureForConfig(Application.application, profile.typed.path)
-                    runCatching {
-                        CommandTarget.standaloneClient().selectOutbound(selectorTag, nodeTag)
+                    val isXrayNowRunning = XrayManager.isRunning
+                    if (wasXrayRunning != isXrayNowRunning) {
+                        runCatching {
+                            CommandTarget.standaloneClient().serviceReload()
+                        }
+                    } else {
+                        runCatching {
+                            CommandTarget.standaloneClient().selectOutbound(selectorTag, nodeTag)
+                        }
+                    }
+                    withContext(Dispatchers.Main) {
+                        exitInfoJob?.cancel()
+                        exitInfoJob = viewModelScope.launch { probeExitNodeInfo() }
                     }
                 }
             } catch (e: Exception) {
@@ -584,6 +641,135 @@ class DashboardViewModel :
 
     fun hideProfilePickerSheet() {
         updateState { copy(showProfilePickerSheet = false) }
+    }
+
+    fun showUserProfileSheet() {
+        updateState { copy(showUserProfileSheet = true) }
+    }
+
+    fun hideUserProfileSheet() {
+        updateState { copy(showUserProfileSheet = false) }
+    }
+
+    fun showSecondaryServerPickerSheet() {
+        updateState { copy(showSecondaryServerPickerSheet = true) }
+    }
+
+    fun hideSecondaryServerPickerSheet() {
+        updateState { copy(showSecondaryServerPickerSheet = false) }
+    }
+
+    fun showSecondaryNodePickerSheet() {
+        updateState { copy(showSecondaryNodePickerSheet = true) }
+    }
+
+    fun hideSecondaryNodePickerSheet() {
+        updateState { copy(showSecondaryNodePickerSheet = false) }
+    }
+
+    fun selectUserProfile(userProfileId: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                com.undercover.vpn.database.UserProfileManager.setActiveProfile(userProfileId)
+                if (_serviceStatus.value == Status.Started) {
+                    BoxService.stop()
+                    sendGlobalEvent(UiEvent.RequestReconnectService)
+                    for (i in 0 until 30) {
+                        if (_serviceStatus.value == Status.Stopped) break
+                        delay(100L)
+                    }
+                    sendGlobalEvent(UiEvent.RequestStartService)
+                }
+                loadProfiles()
+            } catch (e: Exception) {
+                sendError(e)
+            }
+        }
+    }
+
+    fun createUserProfile(name: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val newProfile = com.undercover.vpn.database.UserProfile(name = name)
+                com.undercover.vpn.database.UserProfileManager.create(newProfile, andSelect = true)
+                loadProfiles()
+            } catch (e: Exception) {
+                sendError(e)
+            }
+        }
+    }
+
+    fun deleteUserProfile(userProfile: com.undercover.vpn.database.UserProfile) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                com.undercover.vpn.database.UserProfileManager.delete(userProfile)
+                loadProfiles()
+            } catch (e: Exception) {
+                sendError(e)
+            }
+        }
+    }
+
+    fun toggleDualServer(enabled: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val activeProf = currentState.activeUserProfile ?: com.undercover.vpn.database.UserProfileManager.getActiveProfile()
+                activeProf.dualServerEnabled = enabled
+                if (enabled && activeProf.secondaryServerId <= 0L) {
+                    val all = ProfileManager.list()
+                    val other = all.find { it.id != activeProf.primaryServerId } ?: all.firstOrNull()
+                    if (other != null) {
+                        activeProf.secondaryServerId = other.id
+                    }
+                }
+                com.undercover.vpn.database.UserProfileManager.update(activeProf)
+                if (_serviceStatus.value == Status.Started) {
+                    runCatching {
+                        CommandTarget.standaloneClient().serviceReload()
+                    }
+                }
+                loadProfiles()
+            } catch (e: Exception) {
+                sendError(e)
+            }
+        }
+    }
+
+    fun selectSecondaryServer(serverId: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val activeProf = currentState.activeUserProfile ?: com.undercover.vpn.database.UserProfileManager.getActiveProfile()
+                activeProf.secondaryServerId = serverId
+                activeProf.secondaryNodeTag = null
+                com.undercover.vpn.database.UserProfileManager.update(activeProf)
+                if (_serviceStatus.value == Status.Started) {
+                    runCatching {
+                        CommandTarget.standaloneClient().serviceReload()
+                    }
+                }
+                loadProfiles()
+            } catch (e: Exception) {
+                sendError(e)
+            }
+        }
+    }
+
+    fun selectSecondaryNode(nodeTag: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val activeProf = currentState.activeUserProfile ?: com.undercover.vpn.database.UserProfileManager.getActiveProfile()
+                activeProf.secondaryNodeTag = nodeTag
+                com.undercover.vpn.database.UserProfileManager.update(activeProf)
+                if (_serviceStatus.value == Status.Started) {
+                    runCatching {
+                        CommandTarget.standaloneClient().serviceReload()
+                    }
+                }
+                loadProfiles()
+            } catch (e: Exception) {
+                sendError(e)
+            }
+        }
     }
 
     fun updateServiceStatus(status: Status) {

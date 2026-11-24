@@ -154,7 +154,9 @@ class VPNService :
             }
 
             val includePackage = options.includePackage
+            var hasIncludePackage = false
             if (includePackage.hasNext()) {
+                hasIncludePackage = true
                 perAppProxyApplied = true
                 while (includePackage.hasNext()) {
                     try {
@@ -181,9 +183,11 @@ class VPNService :
                 }
             }
 
-            // Always exclude our own app from TUN when not using an allow-list so child cores
-            // like xray-core / byedpi can dial the physical network directly without looping.
-            if (!includePackage.hasNext()) {
+            // Only exclude our own app from TUN when xray-core child process is active so xray
+            // can dial the physical network directly without looping. sing-box and ByeDPI protect
+            // their own sockets via protect(fd), so keeping our app inside TUN lets IpInfoProbe
+            // and LatencyProbe measure the actual VPN exit path.
+            if (!hasIncludePackage && XrayManager.isRunning) {
                 runCatching { builder.addDisallowedApplication(packageName) }
             }
         }
