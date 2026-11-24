@@ -95,7 +95,7 @@ jobs:
       - name: Run Unit Tests
         run: |
           cd android
-          ./gradlew testPlayDebugUnitTest --no-daemon
+          ./gradlew testOtherDebugUnitTest --no-daemon
 
       - name: Assemble Release APKs
         run: |
