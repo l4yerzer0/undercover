@@ -31,6 +31,9 @@ val semverVersion = if (versionName.count { ch: Char -> ch == '.' } == 1) "$vers
 compose.desktop {
     application {
         mainClass = "com.undercover.vpn.desktop.MainKt"
+        buildTypes.release.proguard {
+            isEnabled.set(false)
+        }
         nativeDistributions {
             targetFormats(
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb,
