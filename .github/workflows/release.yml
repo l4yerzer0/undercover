@@ -150,14 +150,15 @@ jobs:
         run: |
           cd android
           ./gradlew :desktop:packageReleaseDeb :desktop:packageReleaseUberJarForCurrentOS --no-daemon
+          mkdir -p ../dist-desktop
+          find ../desktop/build/compose/binaries -type f -name "*.deb" -exec cp {} ../dist-desktop/ \; 2>/dev/null || true
+          cp ../desktop/build/compose/jars/*.jar ../dist-desktop/ 2>/dev/null || true
 
       - name: Upload Desktop Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: desktop-binaries
-          path: |
-            desktop/build/compose/binaries/**/deb/*.deb
-            desktop/build/compose/jars/*.jar
+          path: dist-desktop/*
           retention-days: 1
 
   publish-release:
