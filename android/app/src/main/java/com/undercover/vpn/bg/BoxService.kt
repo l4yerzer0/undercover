@@ -210,31 +210,41 @@ class BoxService(private val service: Service, private val platformInterface: Pl
             Log.e(TAG, "ByeDPI did not start; its apps will fall through to the profile rules")
         }
 
-        var secondaryConfig: String? = null
-        var secondaryUsesXray = false
-        var secondaryProfile: Profile? = null
-        if (userProfile.dualServerEnabled && userProfile.secondaryServerId > 0L) {
-            secondaryProfile = ProfileManager.get(userProfile.secondaryServerId)
-            if (secondaryProfile != null) {
-                val secFile = File(secondaryProfile.typed.path)
-                if (secFile.exists()) {
-                    secondaryConfig = secFile.readText()
-                    val secXray = com.undercover.vpn.shared.parser.SubscriptionNodesHelper.loadXrayConfigForNode(
-                        secondaryProfile.typed.path,
-                        userProfile.secondaryNodeTag ?: "proxy",
-                    )
-                    secondaryUsesXray = secXray != null
+        val resolvedChannels = mutableListOf<RoutingConfig.ResolvedChannel>()
+        val xrayEndpoints = mutableListOf<Pair<Int, Pair<String?, String?>>>()
+        xrayEndpoints.add(0 to (profile.typed.path to userProfile.primaryNodeTag))
+
+        if (Settings.isProMode) {
+            userProfile.channels.forEachIndexed { idx, ch ->
+                val slotIndex = idx + 1
+                val chProfile = ProfileManager.get(ch.serverId) ?: return@forEachIndexed
+                val chFile = File(chProfile.typed.path)
+                if (!chFile.exists()) return@forEachIndexed
+                val chConfig = chFile.readText()
+                val chXray = com.undercover.vpn.shared.parser.SubscriptionNodesHelper.loadXrayConfigForNode(
+                    chProfile.typed.path,
+                    ch.nodeTag ?: "proxy",
+                )
+                val usesXray = chXray != null
+                resolvedChannels.add(
+                    RoutingConfig.ResolvedChannel(
+                        slotIndex = slotIndex,
+                        channel = ch,
+                        configJson = chConfig,
+                        usesXray = usesXray,
+                    ),
+                )
+                if (usesXray) {
+                    xrayEndpoints.add(slotIndex to (chProfile.typed.path to ch.nodeTag))
                 }
             }
         }
 
-        val generated = RoutingConfig.apply(
+        val generated = RoutingConfig.applyMulti(
             configJson = migrated,
             byeDpiPort = byeDpiPort,
             userProfile = userProfile,
-            secondaryConfigJson = secondaryConfig,
-            secondaryNodeTag = userProfile.secondaryNodeTag,
-            secondaryUsesXray = secondaryUsesXray,
+            channels = resolvedChannels,
         )
 
         // Persist so the profile on disk always reflects what the UI says. Generation
@@ -248,13 +258,9 @@ class BoxService(private val service: Service, private val platformInterface: Pl
 
         com.undercover.vpn.routing.RuleSetManager.ensureUpdatedInBackground()
 
-        XrayManager.ensureForDualConfig(
+        XrayManager.ensureForMultiConfig(
             context = service,
-            primaryConfigPath = profile.typed.path,
-            primaryNodeTag = userProfile.primaryNodeTag,
-            secondaryConfigPath = secondaryProfile?.typed?.path,
-            secondaryNodeTag = userProfile.secondaryNodeTag,
-            dualEnabled = userProfile.dualServerEnabled,
+            endpoints = xrayEndpoints,
         )
 
         return generated

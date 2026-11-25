@@ -36,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -74,12 +75,16 @@ fun RoutingScreen(navController: NavController) {
 
     val currentEntry by navController.currentBackStackEntryAsState()
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
+    val isProMode by com.undercover.vpn.database.AppModeState.isProFlow.collectAsState()
 
     var userProfiles by remember { mutableStateOf<List<UserProfile>>(emptyList()) }
     var activeUserProfile by remember { mutableStateOf<UserProfile?>(null) }
     var allServers by remember { mutableStateOf<List<Profile>>(emptyList()) }
+    var profileNodesMap by remember { mutableStateOf<Map<Long, com.undercover.vpn.shared.parser.ProfileNodesInfo>>(emptyMap()) }
     var showUserProfilePicker by remember { mutableStateOf(false) }
     var showSecondaryServerPicker by remember { mutableStateOf(false) }
+    var editingChannel by remember { mutableStateOf<com.undercover.vpn.database.RoutingChannel?>(null) }
+    var showNewChannelSheet by remember { mutableStateOf(false) }
 
     var directAppsCount by remember { mutableIntStateOf(0) }
     var byeDpiAppsCount by remember { mutableIntStateOf(0) }
@@ -124,9 +129,16 @@ fun RoutingScreen(navController: NavController) {
             val uProfiles = UserProfileManager.list()
             val active = UserProfileManager.getActiveProfile()
             val servers = ProfileManager.list()
+            val nodesMap = servers.mapNotNull { p ->
+                val f = java.io.File(p.typed.path)
+                if (!f.exists()) return@mapNotNull null
+                val info = com.undercover.vpn.shared.parser.SubscriptionNodesHelper.extractNodesInfo(f.readText(), p.typed.path)
+                if (info != null) p.id to info else null
+            }.toMap()
             withContext(Dispatchers.Main) {
                 userProfiles = uProfiles
                 allServers = servers
+                profileNodesMap = nodesMap
                 refreshState(active)
             }
         }
@@ -211,38 +223,40 @@ fun RoutingScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Operational Profile Switcher
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.06f))
-                    .clickable { showUserProfilePicker = true }
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            // Operational Profile Switcher (PRO only)
+            if (isProMode) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.06f))
+                        .clickable { showUserProfilePicker = true }
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.dossier_operational_profile_label),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = activeUserProfile?.name ?: stringResource(R.string.default_text),
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                         Text(
-                            text = stringResource(R.string.dossier_operational_profile_label),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = activeUserProfile?.name ?: stringResource(R.string.default_text),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            text = "[ СМЕНИТЬ ]",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
-                    Text(
-                        text = "[ СМЕНИТЬ ]",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary
-                    )
                 }
             }
 
@@ -296,83 +310,74 @@ fun RoutingScreen(navController: NavController) {
                 },
             )
 
-            DossierNavRow(
-                title = "Прямое подключение (DIRECT)",
-                subtitle = "Выбрано приложений: $directAppsCount",
-                onClick = {
-                    navController.navigate("settings/routing/apps/${RoutingSection.DIRECT.name}")
-                },
-            )
-
-            DossierNavRow(
-                title = "Обход блокировок (ByeDPI)",
-                subtitle = if (byeDpiEnabled) {
-                    "Выбрано приложений: $byeDpiAppsCount"
-                } else {
-                    "ByeDPI отключен в настройках"
-                },
-                onClick = {
-                    navController.navigate("settings/routing/apps/${RoutingSection.BYEDPI.name}")
-                },
-            )
-
-            // Section 3: Custom Domains
-            DossierSectionTitle(title = "ПОЛЬЗОВАТЕЛЬСКИЕ САЙТЫ")
-
-            DossierNavRow(
-                title = "Свои сайты напрямую (DIRECT)",
-                subtitle = if (customDirectDomains.isEmpty()) "Нажмите, чтобы добавить свои домены" else "Добавлено доменов: ${customDirectDomains.size}",
-                onClick = { domainDialogSection = RoutingSection.DIRECT },
-            )
-
-            DossierNavRow(
-                title = "Свои сайты через ByeDPI",
-                subtitle = if (customByeDpiDomains.isEmpty()) "Нажмите, чтобы добавить домены для ByeDPI" else "Добавлено доменов: ${customByeDpiDomains.size}",
-                onClick = { domainDialogSection = RoutingSection.BYEDPI },
-            )
-
-            // Section 4: Dual Active Server (Split Traffic)
-            DossierSectionTitle(title = stringResource(R.string.dossier_dual_server_title).uppercase())
-
-            DossierToggleRow(
-                title = stringResource(R.string.dossier_dual_server_title),
-                subtitle = stringResource(R.string.dossier_dual_server_desc),
-                checked = dualServerEnabled,
-                onCheckedChange = { checked ->
-                    dualServerEnabled = checked
-                    persistProfile { prof ->
-                        prof.dualServerEnabled = checked
-                        if (checked && prof.secondaryServerId <= 0L) {
-                            val other = allServers.find { it.id != prof.primaryServerId } ?: allServers.firstOrNull()
-                            if (other != null) prof.secondaryServerId = other.id
-                        }
-                    }
-                },
-            )
-
-            if (dualServerEnabled) {
-                val secServerName = allServers.find { it.id == activeUserProfile?.secondaryServerId }?.name
-                    ?: stringResource(R.string.dossier_select_secondary_server)
-
+            if (isProMode) {
                 DossierNavRow(
-                    title = stringResource(R.string.dossier_dual_server_label),
-                    subtitle = secServerName,
-                    onClick = { showSecondaryServerPicker = true },
-                )
-
-                DossierNavRow(
-                    title = stringResource(R.string.dossier_secondary_apps_title),
-                    subtitle = "Выбрано приложений: $secondaryAppsCount",
+                    title = "Прямое подключение (DIRECT)",
+                    subtitle = "Выбрано приложений: $directAppsCount",
                     onClick = {
-                        navController.navigate("settings/routing/apps/${RoutingSection.SECONDARY.name}")
+                        navController.navigate("settings/routing/apps/${RoutingSection.DIRECT.name}")
                     },
                 )
 
                 DossierNavRow(
-                    title = stringResource(R.string.dossier_secondary_domains_title),
-                    subtitle = if (customSecondaryDomains.isEmpty()) "Нажмите, чтобы добавить домены" else "Добавлено доменов: ${customSecondaryDomains.size}",
-                    onClick = { domainDialogSection = RoutingSection.SECONDARY },
+                    title = "Обход блокировок (ByeDPI)",
+                    subtitle = if (byeDpiEnabled) {
+                        "Выбрано приложений: $byeDpiAppsCount"
+                    } else {
+                        "ByeDPI отключен в настройках"
+                    },
+                    onClick = {
+                        navController.navigate("settings/routing/apps/${RoutingSection.BYEDPI.name}")
+                    },
                 )
+
+                // Section 3: Custom Domains
+                DossierSectionTitle(title = "ПОЛЬЗОВАТЕЛЬСКИЕ САЙТЫ")
+
+                DossierNavRow(
+                    title = "Свои сайты напрямую (DIRECT)",
+                    subtitle = if (customDirectDomains.isEmpty()) "Нажмите, чтобы добавить свои домены" else "Добавлено доменов: ${customDirectDomains.size}",
+                    onClick = { domainDialogSection = RoutingSection.DIRECT },
+                )
+
+                DossierNavRow(
+                    title = "Свои сайты через ByeDPI",
+                    subtitle = if (customByeDpiDomains.isEmpty()) "Нажмите, чтобы добавить домены для ByeDPI" else "Добавлено доменов: ${customByeDpiDomains.size}",
+                    onClick = { domainDialogSection = RoutingSection.BYEDPI },
+                )
+
+                // Section 4: Multi-Server Channels
+                val channels = activeUserProfile?.channels.orEmpty()
+                DossierSectionTitle(title = stringResource(R.string.dossier_active_channels_label, channels.size + 1))
+
+                channels.forEachIndexed { idx, ch ->
+                    val chServerName = allServers.find { it.id == ch.serverId }?.name
+                        ?: stringResource(R.string.dossier_select_secondary_server)
+                    val title = "КАНАЛ ${idx + 2} · $chServerName" +
+                        if (!ch.nodeTag.isNullOrBlank()) " (${ch.nodeTag})" else ""
+                    val subtitle = "${ch.categories.size} катег. · ${ch.apps.size} прил. · ${ch.domains.size} дом."
+                    DossierNavRow(
+                        title = title,
+                        subtitle = subtitle,
+                        onClick = { editingChannel = ch },
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                        .clickable { showNewChannelSheet = true }
+                        .padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = stringResource(R.string.dossier_add_channel_btn),
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
 
             // Section 5: Updatable Rule-Sets (.srs)
@@ -536,6 +541,43 @@ fun RoutingScreen(navController: NavController) {
                 }
             },
             onDismiss = { showUserProfilePicker = false },
+        )
+    }
+
+    if (showNewChannelSheet || editingChannel != null) {
+        com.undercover.vpn.compose.screen.dashboard.ChannelEditorSheet(
+            initialChannel = editingChannel,
+            profiles = allServers,
+            profileNodesMap = profileNodesMap,
+            defaultPrimaryServerId = activeUserProfile?.primaryServerId ?: -1L,
+            onSave = { ch ->
+                persistProfile { prof ->
+                    val list = prof.channels.toMutableList()
+                    val idx = list.indexOfFirst { it.id == ch.id }
+                    if (idx >= 0) list[idx] = ch else list.add(ch)
+                    prof.channels = list
+                }
+                activeUserProfile?.let { refreshState(it) }
+                showNewChannelSheet = false
+                editingChannel = null
+            },
+            onDelete = { chId ->
+                persistProfile { prof ->
+                    prof.channels = prof.channels.filterNot { it.id == chId }
+                }
+                activeUserProfile?.let { refreshState(it) }
+                showNewChannelSheet = false
+                editingChannel = null
+            },
+            onOpenAppsPicker = { ch ->
+                showNewChannelSheet = false
+                editingChannel = null
+                navController.navigate("settings/routing/apps/${RoutingSection.SECONDARY.name}?channelId=${ch.id}")
+            },
+            onDismiss = {
+                showNewChannelSheet = false
+                editingChannel = null
+            },
         )
     }
 

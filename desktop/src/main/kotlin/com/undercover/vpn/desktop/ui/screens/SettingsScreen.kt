@@ -16,13 +16,16 @@ import com.undercover.vpn.desktop.core.SingBoxCoreManager
 import com.undercover.vpn.desktop.model.DesktopSettings
 import com.undercover.vpn.desktop.model.ProxyMode
 import com.undercover.vpn.desktop.ui.DossierMint
+import com.undercover.vpn.desktop.ui.RuStrings
+import com.undercover.vpn.desktop.ui.Strings
 import com.undercover.vpn.shared.ui.components.DossierSwitch
 
 @Composable
 fun SettingsScreen(
     settings: DesktopSettings,
     onSaveSettings: (DesktopSettings) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    strings: Strings = RuStrings
 ) {
     var mode by remember(settings) { mutableStateOf(settings.proxyMode) }
     var socksPortStr by remember(settings) { mutableStateOf(settings.socksPort.toString()) }
@@ -37,7 +40,7 @@ fun SettingsScreen(
     ) {
         // Header
         Text(
-            text = "SETTINGS",
+            text = strings.settingsTitle,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
             letterSpacing = 1.5.sp
@@ -53,10 +56,54 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Language Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = strings.language,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    letterSpacing = 1.sp
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = strings.currentLanguage,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            Text(
+                text = strings.toggle,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                letterSpacing = 1.sp,
+                modifier = Modifier
+                    .clickable {
+                        val nextLang = if (settings.language == "ru") "en" else "ru"
+                        onSaveSettings(settings.copy(language = nextLang))
+                    }
+                    .padding(8.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f))
+        )
+        Spacer(modifier = Modifier.height(20.dp))
+
         // Routing Mode Item
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
-                text = "ROUTING MODE",
+                text = strings.routingMode,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                 letterSpacing = 1.sp
@@ -69,20 +116,20 @@ fun SettingsScreen(
             ) {
                 Column {
                     Text(
-                        text = if (mode == ProxyMode.SYSTEM_PROXY) "System Proxy (SOCKS / HTTP)" else "TUN Virtual Adapter (Full VPN)",
+                        text = if (mode == ProxyMode.SYSTEM_PROXY) strings.modeSystemProxy else strings.modeTun,
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = if (mode == ProxyMode.SYSTEM_PROXY) "Zero sudo/admin rights required. Instant configuration." else "Full system tunnel. Requires root privileges.",
+                        text = if (mode == ProxyMode.SYSTEM_PROXY) strings.modeSystemProxyDesc else strings.modeTunDesc,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                     )
                 }
 
                 Text(
-                    text = "TOGGLE",
+                    text = strings.toggle,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                     letterSpacing = 1.sp,
@@ -114,13 +161,13 @@ fun SettingsScreen(
         ) {
             Column {
                 Text(
-                    text = "MINIMIZE TO SYSTEM TRAY",
+                    text = strings.minimizeToTray,
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Keep running in background when window is closed",
+                    text = strings.minimizeToTrayDesc,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                 )
@@ -151,7 +198,7 @@ fun SettingsScreen(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "LOCAL SOCKS5 PORT",
+                    text = strings.socksPort,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                     letterSpacing = 1.sp
@@ -180,7 +227,7 @@ fun SettingsScreen(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "LOCAL HTTP PROXY PORT",
+                    text = strings.httpPort,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                     letterSpacing = 1.sp
@@ -223,25 +270,56 @@ fun SettingsScreen(
         ) {
             Column {
                 Text(
-                    text = "ENGINE CORE",
+                    text = strings.engineCore,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                     letterSpacing = 1.sp
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Embedded sing-box (v1.14.4)",
+                    text = strings.engineCoreDesc,
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
 
             Text(
-                text = "READY",
+                text = strings.ready,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.secondary,
                 letterSpacing = 1.sp
             )
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f))
+        )
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // App Version
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = strings.appVersion,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    letterSpacing = 1.sp
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = strings.versionValue,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
     }
 }

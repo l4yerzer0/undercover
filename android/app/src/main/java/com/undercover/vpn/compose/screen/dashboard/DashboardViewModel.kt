@@ -772,6 +772,49 @@ class DashboardViewModel :
         }
     }
 
+    fun addOrUpdateChannel(channel: com.undercover.vpn.database.RoutingChannel) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val activeProf = currentState.activeUserProfile ?: com.undercover.vpn.database.UserProfileManager.getActiveProfile()
+                val existing = activeProf.channels.toMutableList()
+                val idx = existing.indexOfFirst { it.id == channel.id }
+                if (idx >= 0) {
+                    existing[idx] = channel
+                } else {
+                    existing.add(channel)
+                }
+                activeProf.channels = existing
+                com.undercover.vpn.database.UserProfileManager.update(activeProf)
+                if (_serviceStatus.value == Status.Started) {
+                    runCatching {
+                        CommandTarget.standaloneClient().serviceReload()
+                    }
+                }
+                loadProfiles()
+            } catch (e: Exception) {
+                sendError(e)
+            }
+        }
+    }
+
+    fun removeChannel(channelId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val activeProf = currentState.activeUserProfile ?: com.undercover.vpn.database.UserProfileManager.getActiveProfile()
+                activeProf.channels = activeProf.channels.filterNot { it.id == channelId }
+                com.undercover.vpn.database.UserProfileManager.update(activeProf)
+                if (_serviceStatus.value == Status.Started) {
+                    runCatching {
+                        CommandTarget.standaloneClient().serviceReload()
+                    }
+                }
+                loadProfiles()
+            } catch (e: Exception) {
+                sendError(e)
+            }
+        }
+    }
+
     fun updateServiceStatus(status: Status) {
         viewModelScope.launch {
             _serviceStatus.emit(status)

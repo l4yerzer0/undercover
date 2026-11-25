@@ -1,7 +1,7 @@
 package com.undercover.vpn.database
 
 import android.os.Parcelable
-import androidx.room.Dao
+import androidx.room.ColumnInfo
 import androidx.room.Delete
 import androidx.room.Entity
 import androidx.room.Insert
@@ -35,6 +35,7 @@ data class UserProfile(
     var byeDpiDomainsJson: String = "[]",
     var secondaryAppsJson: String = "[]",
     var secondaryDomainsJson: String = "[]",
+    @ColumnInfo(defaultValue = "[]") var channelsJson: String = "[]",
 ) : Parcelable {
 
     var directApps: Set<String>
@@ -60,6 +61,34 @@ data class UserProfile(
     var secondaryDomains: List<String>
         get() = jsonToStringList(secondaryDomainsJson)
         set(value) { secondaryDomainsJson = stringListToJson(value) }
+
+    var channels: List<RoutingChannel>
+        get() {
+            val parsed = RoutingChannel.fromJsonArray(channelsJson)
+            if (parsed.isNotEmpty()) return parsed
+            // Seamless fallback migration from legacy dual server fields
+            if (dualServerEnabled && secondaryServerId > 0L) {
+                return listOf(
+                    RoutingChannel(
+                        id = "chan_legacy",
+                        serverId = secondaryServerId,
+                        nodeTag = secondaryNodeTag,
+                        apps = secondaryApps,
+                        domains = secondaryDomains,
+                    ),
+                )
+            }
+            return emptyList()
+        }
+        set(value) {
+            channelsJson = RoutingChannel.toJsonArray(value)
+            val first = value.firstOrNull()
+            dualServerEnabled = first != null
+            secondaryServerId = first?.serverId ?: -1L
+            secondaryNodeTag = first?.nodeTag
+            secondaryApps = first?.apps ?: emptySet()
+            secondaryDomains = first?.domains ?: emptyList()
+        }
 
     companion object {
         fun jsonToStringList(json: String?): List<String> {

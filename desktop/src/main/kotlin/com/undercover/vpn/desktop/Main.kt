@@ -67,7 +67,7 @@ fun main() = application {
                     }
                 }
             },
-            title = "Undercover VPN",
+            title = "Undercover VPN (v0.7)",
             state = windowState
         ) {
             DesktopApp()

@@ -28,7 +28,12 @@ object ProfileManager {
                 ProfileDatabase::class.java,
                 Path.PROFILES_DATABASE_PATH,
             )
-            .addMigrations(ProfileDatabase.MIGRATION_1_2, ProfileDatabase.MIGRATION_2_3, ProfileDatabase.MIGRATION_3_4)
+            .addMigrations(
+                ProfileDatabase.MIGRATION_1_2,
+                ProfileDatabase.MIGRATION_2_3,
+                ProfileDatabase.MIGRATION_3_4,
+                ProfileDatabase.MIGRATION_4_5,
+            )
             .fallbackToDestructiveMigrationOnDowngrade()
             .enableMultiInstanceInvalidation()
             .setQueryExecutor { GlobalScope.launch { it.run() } }

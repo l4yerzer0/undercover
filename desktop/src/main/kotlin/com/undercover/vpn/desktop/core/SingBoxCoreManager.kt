@@ -396,6 +396,20 @@ object SingBoxCoreManager {
         }
         root.put("inbounds", inbounds)
 
+        // Apply selected node to selectors if present
+        val selectedTag = profile.selectedOutboundTag
+        if (!selectedTag.isNullOrBlank()) {
+            val outbounds = root.optJSONArray("outbounds")
+            if (outbounds != null) {
+                for (i in 0 until outbounds.length()) {
+                    val ob = outbounds.optJSONObject(i) ?: continue
+                    if (ob.optString("type") == "selector") {
+                        ob.put("default", selectedTag)
+                    }
+                }
+            }
+        }
+
         // Ensure log level is info for visibility
         val logObj = root.optJSONObject("log") ?: JSONObject()
         logObj.put("level", "info")

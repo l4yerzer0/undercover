@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.graphics.ColorFilter
@@ -45,9 +46,10 @@ import kotlinx.coroutines.withContext
 fun OnboardingScreen(onFinish: () -> Unit) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val pagerState = rememberPagerState(pageCount = { 4 })
+    val pagerState = rememberPagerState(pageCount = { 5 })
     val importHandler = remember { ProfileImportHandler(context) }
     var showQRScanSheet by remember { mutableStateOf(false) }
+    val isProMode by com.undercover.vpn.database.AppModeState.isProFlow.collectAsState()
 
     fun importClipboard() {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
@@ -141,6 +143,53 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                     }
                 }
                 3 -> {
+                    // Mode Selection Screen (Simple vs PRO)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = stringResource(R.string.onboarding_mode_title),
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = MaterialTheme.colorScheme.onBackground,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(R.string.onboarding_mode_desc),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(28.dp))
+
+                        // Simple Mode Card
+                        OnboardingModeCard(
+                            selected = !isProMode,
+                            title = stringResource(R.string.mode_simple_title),
+                            subtitle = stringResource(R.string.mode_simple_subtitle),
+                            description = stringResource(R.string.mode_simple_desc),
+                            onClick = { com.undercover.vpn.database.AppModeState.setProMode(false) },
+                        )
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // PRO Mode Card
+                        OnboardingModeCard(
+                            selected = isProMode,
+                            title = stringResource(R.string.mode_pro_title),
+                            subtitle = stringResource(R.string.mode_pro_subtitle),
+                            description = stringResource(R.string.mode_pro_desc),
+                            onClick = { com.undercover.vpn.database.AppModeState.setProMode(true) },
+                        )
+                    }
+                }
+                4 -> {
                     // Empty Connection Screen (Add First Connection)
                     Column(
                         modifier = Modifier
@@ -181,7 +230,7 @@ fun OnboardingScreen(onFinish: () -> Unit) {
         }
 
         // Bottom Controls
-        if (pagerState.currentPage < 3) {
+        if (pagerState.currentPage < 4) {
             // Page Indicator
             Row(
                 modifier = Modifier
@@ -189,7 +238,7 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                     .padding(vertical = 24.dp),
                 horizontalArrangement = Arrangement.Center
             ) {
-                repeat(4) { iteration ->
+                repeat(5) { iteration ->
                     val color = if (pagerState.currentPage == iteration)
                         MaterialTheme.colorScheme.primary
                     else
@@ -270,6 +319,62 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                     }
                 }
             }
+        )
+    }
+}
+
+@Composable
+private fun OnboardingModeCard(
+    selected: Boolean,
+    title: String,
+    subtitle: String,
+    description: String,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = if (selected) 2.dp else 1.dp,
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+            )
+            .background(
+                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                else MaterialTheme.colorScheme.surface,
+            )
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.sp,
+                ),
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = if (selected) "[ X ]" else "[   ]",
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+            )
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = "«$subtitle»",
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
         )
     }
 }

@@ -176,6 +176,16 @@ fun SettingsScreen(navController: NavController) {
             // Section 1: Configuration
             DossierSectionHeader(title = stringResource(R.string.settings_configuration))
 
+            val isProMode by com.undercover.vpn.database.AppModeState.isProFlow.collectAsState()
+            DossierSettingRow(
+                title = stringResource(R.string.settings_app_mode_title),
+                subtitle = stringResource(
+                    if (isProMode) R.string.settings_app_mode_pro else R.string.settings_app_mode_simple,
+                ),
+                badgeText = if (isProMode) "PRO" else "SIMPLE",
+                onClick = { com.undercover.vpn.database.AppModeState.setProMode(!isProMode) },
+            )
+
             DossierSettingRow(
                 title = stringResource(R.string.title_app_settings),
                 subtitle = stringResource(R.string.settings_app_desc),

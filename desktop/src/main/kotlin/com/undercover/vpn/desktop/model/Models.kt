@@ -49,7 +49,8 @@ data class DesktopSettings(
     val autoConnect: Boolean = false,
     val minimizeToTray: Boolean = true,
     val selectedProfileId: String? = null,
-    val customSingBoxPath: String? = null
+    val customSingBoxPath: String? = null,
+    val language: String = "ru"
 )
 
 sealed class VpnState {

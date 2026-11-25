@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     kotlin("jvm")
     id("org.jetbrains.compose")
@@ -17,6 +19,15 @@ dependencies {
     implementation("org.json:json:20240303")
 }
 
+val versionProps = Properties().apply {
+    val propFile = rootProject.file("version.properties")
+    if (propFile.exists()) {
+        load(propFile.inputStream())
+    }
+}
+val versionName: String = versionProps.getProperty("VERSION_NAME", "0.7")
+val semverVersion = if (versionName.count { ch: Char -> ch == '.' } == 1) "$versionName.0" else versionName
+
 compose.desktop {
     application {
         mainClass = "com.undercover.vpn.desktop.MainKt"
@@ -29,7 +40,11 @@ compose.desktop {
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe
             )
             packageName = "undercover"
-            packageVersion = "1.0.0"
+            packageVersion = semverVersion
+            macOS {
+                packageVersion = "1.0.0"
+                dmgPackageVersion = "1.0.0"
+            }
             description = "Undercover VPN Client"
             copyright = "© 2026 Undercover VPN"
             vendor = "Undercover"

@@ -17,8 +17,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.undercover.vpn.desktop.core.ProfileImporter
 import com.undercover.vpn.desktop.model.DesktopProfile
-import com.undercover.vpn.desktop.ui.DossierMint
 import com.undercover.vpn.desktop.ui.DossierRed
+import com.undercover.vpn.desktop.ui.RuStrings
+import com.undercover.vpn.desktop.ui.Strings
 import com.undercover.vpn.shared.ui.components.DossierButton
 import kotlinx.coroutines.launch
 import java.awt.Toolkit
@@ -27,7 +28,8 @@ import java.awt.datatransfer.DataFlavor
 @Composable
 fun ImportDialog(
     onDismiss: () -> Unit,
-    onProfileImported: (DesktopProfile) -> Unit
+    onProfileImported: (DesktopProfile) -> Unit,
+    strings: Strings = RuStrings
 ) {
     var textInput by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
@@ -44,14 +46,14 @@ fun ImportDialog(
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "IMPORT PROFILE",
+                    text = strings.importTitle,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                     letterSpacing = 2.sp
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Enter subscription link, Happ key, vless://, hysteria2://, or raw JSON:",
+                    text = strings.importHint,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
@@ -99,7 +101,7 @@ fun ImportDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "PASTE FROM CLIPBOARD",
+                        text = strings.pasteClipboard,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                         letterSpacing = 1.sp,
@@ -118,7 +120,7 @@ fun ImportDialog(
                     )
 
                     Text(
-                        text = "CANCEL",
+                        text = strings.cancel,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                         letterSpacing = 1.sp,
@@ -136,7 +138,7 @@ fun ImportDialog(
                     }
                 } else {
                     DossierButton(
-                        text = "IMPORT PROFILE",
+                        text = strings.importBtn,
                         isOutlined = false,
                         onClick = {
                             scope.launch {

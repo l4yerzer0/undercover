@@ -59,12 +59,16 @@ fun DesktopApp() {
             }
         }
 
-        val navItems = listOf(
-            DossierNavItem("DASHBOARD"),
-            DossierNavItem("PROFILES"),
-            DossierNavItem("LOGS"),
-            DossierNavItem("SETTINGS")
-        )
+        val strings = remember(settings.language) { DesktopStrings.get(settings.language) }
+
+        val navItems = remember(strings) {
+            listOf(
+                DossierNavItem(strings.tabDashboard),
+                DossierNavItem(strings.tabProfiles),
+                DossierNavItem(strings.tabLogs),
+                DossierNavItem(strings.tabSettings)
+            )
+        }
 
         Box(
             modifier = Modifier
@@ -89,7 +93,8 @@ fun DesktopApp() {
                                 StorageManager.saveSettings(settings)
                             },
                             onToggleConnection = toggleConnection,
-                            onOpenImport = { showImportDialog = true }
+                            onOpenImport = { showImportDialog = true },
+                            strings = strings
                         )
 
                         1 -> ProfilesScreen(
@@ -142,17 +147,21 @@ fun DesktopApp() {
                                     StorageManager.saveSettings(settings)
                                 }
                             },
-                            onOpenImport = { showImportDialog = true }
+                            onOpenImport = { showImportDialog = true },
+                            strings = strings
                         )
 
-                        2 -> LogsScreen()
+                        2 -> LogsScreen(
+                            strings = strings
+                        )
 
                         3 -> SettingsScreen(
                             settings = settings,
                             onSaveSettings = { updated ->
                                 settings = updated
                                 StorageManager.saveSettings(updated)
-                            }
+                            },
+                            strings = strings
                         )
                     }
                 }
@@ -177,7 +186,8 @@ fun DesktopApp() {
                         StorageManager.saveSettings(settings)
                         showImportDialog = false
                         currentTabIndex = 0
-                    }
+                    },
+                    strings = strings
                 )
             }
         }

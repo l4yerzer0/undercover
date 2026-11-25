@@ -219,6 +219,18 @@ class MainActivity :
 
         connection.reconnect()
         RemoteControlManager.restore()
+        com.undercover.vpn.routing.RuleSetManager.ensureUpdatedInBackground()
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            if (Settings.hasSeenOnboarding && !Settings.isProMode) {
+                runCatching {
+                    val userProfiles = com.undercover.vpn.database.UserProfileManager.list()
+                    if (userProfiles.size > 1 || userProfiles.any { it.dualServerEnabled || it.channels.isNotEmpty() }) {
+                        com.undercover.vpn.database.AppModeState.setProMode(true)
+                    }
+                }
+            }
+        }
 
         UpdateState.loadFromCache()
         if (Settings.checkUpdateEnabled) {

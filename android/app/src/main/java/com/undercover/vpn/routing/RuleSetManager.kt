@@ -27,6 +27,12 @@ object RuleSetManager {
     const val TAG_GEOSITE_RU = "undercover-geosite-ru"
     const val TAG_GEOIP_RU = "undercover-geoip-ru"
     const val TAG_RU_APPS = "undercover-ru-apps"
+    const val TAG_GEOSITE_AI = "undercover-geosite-ai"
+    const val TAG_GEOSITE_YOUTUBE = "undercover-geosite-youtube"
+    const val TAG_GEOSITE_DISCORD = "undercover-geosite-discord"
+    const val TAG_GEOSITE_GAMES = "undercover-geosite-games"
+    const val TAG_GEOSITE_STREAMING = "undercover-geosite-streaming"
+    const val TAG_GEOSITE_SOCIAL = "undercover-geosite-social"
 
     data class RuleSetSpec(
         val tag: String,
@@ -49,6 +55,36 @@ object RuleSetManager {
             tag = TAG_RU_APPS,
             fileName = "ru-app-list.srs",
             url = "https://raw.githubusercontent.com/legiz-ru/sb-rule-sets/main/ru-app-list.srs",
+        ),
+        RuleSetSpec(
+            tag = TAG_GEOSITE_AI,
+            fileName = "geosite-category-ai-!cn.srs",
+            url = "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ai-!cn.srs",
+        ),
+        RuleSetSpec(
+            tag = TAG_GEOSITE_YOUTUBE,
+            fileName = "geosite-youtube.srs",
+            url = "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-youtube.srs",
+        ),
+        RuleSetSpec(
+            tag = TAG_GEOSITE_DISCORD,
+            fileName = "geosite-discord.srs",
+            url = "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-discord.srs",
+        ),
+        RuleSetSpec(
+            tag = TAG_GEOSITE_GAMES,
+            fileName = "geosite-category-games.srs",
+            url = "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-games.srs",
+        ),
+        RuleSetSpec(
+            tag = TAG_GEOSITE_STREAMING,
+            fileName = "geosite-category-entertainment.srs",
+            url = "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-entertainment.srs",
+        ),
+        RuleSetSpec(
+            tag = TAG_GEOSITE_SOCIAL,
+            fileName = "geosite-category-social-media-!cn.srs",
+            url = "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-social-media-!cn.srs",
         ),
     )
 

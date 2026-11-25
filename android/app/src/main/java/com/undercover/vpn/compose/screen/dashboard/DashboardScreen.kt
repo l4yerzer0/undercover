@@ -89,13 +89,17 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = viewModel(),
     onToggleConnection: () -> Unit = {},
     onProfileOpen: (com.undercover.vpn.database.Profile) -> Unit = {},
+    onOpenChannelApps: (String) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val isProMode by com.undercover.vpn.database.AppModeState.isProFlow.collectAsState()
     val remoteServer by RemoteControlManager.remoteServer.collectAsState()
     val remoteConnected by RemoteControlManager.isConnected.collectAsState()
     val isRemote = remoteServer != null
     val remoteServers by rememberRemoteServers()
     var showOthersMenu by remember { mutableStateOf(false) }
+    var editingChannel by remember { mutableStateOf<com.undercover.vpn.database.RoutingChannel?>(null) }
+    var showNewChannelSheet by remember { mutableStateOf(false) }
 
     OverrideTopBar {
         // Empty to hide the standard top bar
@@ -251,11 +255,12 @@ fun DashboardScreen(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
-                val dualActive = uiState.activeUserProfile?.dualServerEnabled == true
-                val titleText = if (dualActive && !uiState.secondaryProfileName.isNullOrEmpty()) {
-                    "${uiState.selectedProfileName ?: stringResource(R.string.default_text)} + ${uiState.secondaryProfileName}"
+                val activeChannels = if (isProMode) uiState.activeUserProfile?.channels.orEmpty() else emptyList()
+                val baseTitle = uiState.selectedProfileName ?: stringResource(R.string.default_text)
+                val titleText = if (activeChannels.isNotEmpty()) {
+                    "$baseTitle (+${activeChannels.size})"
                 } else {
-                    uiState.selectedProfileName ?: stringResource(R.string.default_text)
+                    baseTitle
                 }
                 Text(
                     text = titleText,
@@ -265,7 +270,7 @@ fun DashboardScreen(
                 Spacer(modifier = Modifier.height(24.dp))
                 val securingStr = stringResource(R.string.dossier_securing_connection, uiState.ping)
                 val activeProfName = uiState.activeUserProfile?.name ?: "Основной"
-                val locationSubtitle = remember(uiState.exitCity, uiState.exitCountry, uiState.ping, uiState.exitTimezone, uiState.exitIp, securingStr, activeProfName) {
+                val locationSubtitle = remember(uiState.exitCity, uiState.exitCountry, uiState.ping, uiState.exitTimezone, uiState.exitIp, securingStr, activeProfName, isProMode) {
                     val base = when {
                         uiState.exitCity.isNotEmpty() && uiState.exitCountry.isNotEmpty() ->
                             "${uiState.exitCity}, ${uiState.exitCountry} · ${uiState.ping} · ${uiState.exitTimezone}"
@@ -276,7 +281,7 @@ fun DashboardScreen(
                         else ->
                             securingStr
                     }
-                    "[ $activeProfName ] · $base"
+                    if (isProMode) "[ $activeProfName ] · $base" else base
                 }
                 Text(
                     text = locationSubtitle,
@@ -333,17 +338,30 @@ fun DashboardScreen(
                     Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)))
                 }
 
-                if (dualActive && !uiState.secondaryProfileName.isNullOrEmpty()) {
-                    val secNodeTag = uiState.secondaryNodeTag
-                    val secText = if (!secNodeTag.isNullOrEmpty()) "${uiState.secondaryProfileName} ($secNodeTag)" else uiState.secondaryProfileName!!
+                activeChannels.forEachIndexed { idx, ch ->
+                    val chProf = uiState.profiles.find { it.id == ch.serverId }
+                    val chTitle = buildString {
+                        append(chProf?.name ?: "#${ch.serverId}")
+                        if (!ch.nodeTag.isNullOrBlank()) append(" (${ch.nodeTag})")
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("СЕРВЕР 2 (DUAL)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), modifier = Modifier.weight(1f))
-                        Text("—", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), modifier = Modifier.weight(1f))
                         Text(
-                            text = secText,
+                            text = "КАНАЛ ${idx + 2}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = "${ch.ruleCount} прав.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = chTitle,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.weight(1.3f),
@@ -367,47 +385,49 @@ fun DashboardScreen(
                     modifier = Modifier.padding(bottom = 20.dp)
                 )
                 
-                // 1. OPERATIONAL PROFILE SELECTOR
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { viewModel.showUserProfileSheet() }
-                        .padding(vertical = 10.dp)
-                ) {
-                    Column {
-                        Text(
-                            text = stringResource(R.string.dossier_operational_profile_label),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
+                // 1. OPERATIONAL PROFILE SELECTOR (PRO ONLY)
+                if (isProMode) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.showUserProfileSheet() }
+                            .padding(vertical = 10.dp)
+                    ) {
+                        Column {
                             Text(
-                                text = uiState.activeUserProfile?.name ?: stringResource(R.string.default_text),
-                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.weight(1f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                text = stringResource(R.string.dossier_operational_profile_label),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowDown,
-                                contentDescription = "Select Profile",
-                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                                modifier = Modifier.size(24.dp)
-                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = uiState.activeUserProfile?.name ?: stringResource(R.string.default_text),
+                                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowDown,
+                                    contentDescription = "Select Profile",
+                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)))
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)))
                     }
                 }
 
-                // 2. PRIMARY RELAY (SERVER 1) SELECTOR
+                // 2. PRIMARY RELAY (DEFAULT GATEWAY) SELECTOR
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -415,11 +435,24 @@ fun DashboardScreen(
                         .padding(vertical = 10.dp)
                 ) {
                     Column {
-                        Text(
-                            text = stringResource(R.string.dossier_primary_server_label),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = stringResource(R.string.dossier_primary_server_label),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            )
+                            if (isProMode) {
+                                Text(
+                                    text = stringResource(R.string.dossier_default_channel_badge),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                                )
+                            }
+                        }
                         Spacer(modifier = Modifier.height(6.dp))
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -490,109 +523,96 @@ fun DashboardScreen(
                     }
                 }
 
-                // 3. DUAL RELAY (SERVER 2 · SPLIT)
-                val dualEnabled = uiState.activeUserProfile?.dualServerEnabled == true
-                if (dualEnabled) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 10.dp)
-                    ) {
-                        Column {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.dossier_dual_server_label),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                                )
-                                Text(
-                                    text = "[ ВЫКЛЮЧИТЬ ]",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
-                                    modifier = Modifier.clickable { viewModel.toggleDualServer(false) }
-                                )
+                // 3. MULTI-SERVER CHANNELS BLOCK (PRO ONLY)
+                if (isProMode) {
+                    val channels = uiState.activeUserProfile?.channels.orEmpty()
+                    if (channels.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(R.string.dossier_active_channels_label, channels.size + 1),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        channels.forEachIndexed { idx, ch ->
+                            val chProfile = uiState.profiles.find { it.id == ch.serverId }
+                            val chTitle = buildString {
+                                append(chProfile?.name ?: stringResource(R.string.dossier_select_secondary_server))
+                                if (!ch.nodeTag.isNullOrBlank()) append(" · ${ch.nodeTag}")
                             }
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { viewModel.showSecondaryServerPickerSheet() }
+                                    .padding(vertical = 4.dp)
+                                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.4f))
+                                    .clickable { editingChannel = ch }
+                                    .padding(12.dp),
                             ) {
-                                Text(
-                                    text = uiState.secondaryProfileName ?: stringResource(R.string.dossier_select_secondary_server),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.weight(1f),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Icon(
-                                    imageVector = Icons.Default.KeyboardArrowDown,
-                                    contentDescription = "Select Secondary Server",
-                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                            // Secondary Node selector if subscription
-                            val secNodesInfo = uiState.profileNodesMap[uiState.secondaryProfileId]
-                            if (secNodesInfo != null && secNodesInfo.nodes.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(6.dp))
                                 Row(
-                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { viewModel.showSecondaryNodePickerSheet() }
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    val currentSecNode = uiState.secondaryNodeTag ?: secNodesInfo.selectedNodeTag ?: secNodesInfo.nodes.first().tag
                                     Text(
-                                        text = "Узел: $currentSecNode",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
-                                        modifier = Modifier.weight(1f),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                                        text = stringResource(R.string.dossier_channel_badge, idx + 2),
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.primary,
                                     )
-                                    Icon(
-                                        imageVector = Icons.Default.KeyboardArrowDown,
-                                        contentDescription = "Select Secondary Node",
-                                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                                        modifier = Modifier.size(18.dp)
+                                    Text(
+                                        text = "[ ✕ ]",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                                        modifier = Modifier.clickable { viewModel.removeChannel(ch.id) },
                                     )
                                 }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = chTitle,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                val summaryText = if (ch.ruleCount > 0) {
+                                    val catNames = ch.categories.mapNotNull { catName ->
+                                        com.undercover.vpn.routing.RoutingCategory.fromName(catName)?.let {
+                                            context.getString(it.titleRes)
+                                        }
+                                    }
+                                    val parts = mutableListOf<String>()
+                                    if (catNames.isNotEmpty()) parts.add(catNames.joinToString(", "))
+                                    if (ch.apps.isNotEmpty()) parts.add("${ch.apps.size} прил.")
+                                    if (ch.domains.isNotEmpty()) parts.add("${ch.domains.size} дом.")
+                                    "↳ " + parts.joinToString(" · ")
+                                } else {
+                                    stringResource(R.string.dossier_channel_rules_empty)
+                                }
+                                Text(
+                                    text = summaryText,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
                             }
-                            val splitRuleCount = (uiState.activeUserProfile?.secondaryApps?.size ?: 0) + (uiState.activeUserProfile?.secondaryDomains?.size ?: 0)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = stringResource(R.string.dossier_dual_rules_summary, splitRuleCount),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)))
                         }
                     }
-                } else {
-                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Spacer(modifier = Modifier.height(10.dp))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
-                            .clickable { viewModel.toggleDualServer(true) }
+                            .clickable { showNewChannelSheet = true }
                             .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = stringResource(R.string.dossier_activate_dual_btn),
+                            text = stringResource(R.string.dossier_add_channel_btn),
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.primary,
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
@@ -773,6 +793,34 @@ fun DashboardScreen(
                 viewModel.moveProfile(from, to)
             },
             onDismiss = { viewModel.hideProfilePickerSheet() },
+        )
+    }
+
+    if (showNewChannelSheet || editingChannel != null) {
+        ChannelEditorSheet(
+            initialChannel = editingChannel,
+            profiles = uiState.profiles,
+            profileNodesMap = uiState.profileNodesMap,
+            defaultPrimaryServerId = uiState.selectedProfileId,
+            onSave = { ch ->
+                viewModel.addOrUpdateChannel(ch)
+                showNewChannelSheet = false
+                editingChannel = null
+            },
+            onDelete = { chId ->
+                viewModel.removeChannel(chId)
+                showNewChannelSheet = false
+                editingChannel = null
+            },
+            onOpenAppsPicker = { ch ->
+                showNewChannelSheet = false
+                editingChannel = null
+                onOpenChannelApps(ch.id)
+            },
+            onDismiss = {
+                showNewChannelSheet = false
+                editingChannel = null
+            },
         )
     }
 

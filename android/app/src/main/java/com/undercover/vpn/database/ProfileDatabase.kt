@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Profile::class, RemoteServer::class, UserProfile::class],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class ProfileDatabase : RoomDatabase() {
@@ -65,6 +65,13 @@ abstract class ProfileDatabase : RoomDatabase() {
                             "`secondaryAppsJson` TEXT NOT NULL, " +
                             "`secondaryDomainsJson` TEXT NOT NULL)",
                     )
+                }
+            }
+
+        val MIGRATION_4_5 =
+            object : Migration(4, 5) {
+                override fun migrate(database: SupportSQLiteDatabase) {
+                    database.execSQL("ALTER TABLE user_profiles ADD COLUMN channelsJson TEXT NOT NULL DEFAULT '[]'")
                 }
             }
     }

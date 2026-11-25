@@ -17,11 +17,16 @@ import com.undercover.vpn.desktop.core.SingBoxCoreManager
 import com.undercover.vpn.desktop.ui.DossierMint
 import com.undercover.vpn.desktop.ui.DossierRed
 import kotlinx.coroutines.flow.collectLatest
+import com.undercover.vpn.desktop.ui.RuStrings
+import com.undercover.vpn.desktop.ui.Strings
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
 
 @Composable
-fun LogsScreen(modifier: Modifier = Modifier) {
+fun LogsScreen(
+    modifier: Modifier = Modifier,
+    strings: Strings = RuStrings
+) {
     val logsList = remember { mutableStateListOf<String>() }
     val listState = rememberLazyListState()
 
@@ -47,7 +52,7 @@ fun LogsScreen(modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "LOGS (${logsList.size})",
+                text = "${strings.logsTitle} (${logsList.size})",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 letterSpacing = 1.5.sp
@@ -55,7 +60,7 @@ fun LogsScreen(modifier: Modifier = Modifier) {
 
             Row {
                 Text(
-                    text = "COPY",
+                    text = strings.copy,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                     letterSpacing = 1.sp,
@@ -68,7 +73,7 @@ fun LogsScreen(modifier: Modifier = Modifier) {
                 )
                 Spacer(modifier = Modifier.width(16.dp))
                 Text(
-                    text = "CLEAR",
+                    text = strings.clear,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error,
                     letterSpacing = 1.sp,

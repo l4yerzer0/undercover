@@ -114,6 +114,7 @@ fun PerAppProxyScreen(
     onBack: () -> Unit,
     serviceStatus: Status = Status.Stopped,
     section: RoutingSection = RoutingSection.DIRECT,
+    channelId: String? = null,
 ) {
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
@@ -181,7 +182,12 @@ fun PerAppProxyScreen(
     fun saveSelectedApplications(newUids: Set<Int>) {
         coroutineScope.launch {
             withContext(Dispatchers.IO) {
-                Settings.setRoutingList(section, buildPackageList(newUids))
+                val pkgList = buildPackageList(newUids)
+                if (channelId != null) {
+                    Settings.setRoutingChannelList(channelId, pkgList)
+                } else {
+                    Settings.setRoutingList(section, pkgList)
+                }
             }
             notifyApplyChange(UiEvent.ApplyServiceChange.Mode.Reload)
         }
@@ -274,7 +280,10 @@ fun PerAppProxyScreen(
                             val appInfo = packageInfo.applicationInfo ?: return@mapNotNull null
                             PackageCache(packageInfo, appInfo, packageManager)
                         }
-                    val selectedPackageNames = Settings.routingList(section).toMutableSet()
+                    val selectedPackageNames = (
+                        if (channelId != null) Settings.routingChannelList(channelId)
+                        else Settings.routingList(section)
+                    ).toMutableSet()
                     val selectedUidSet =
                         packageCaches.mapNotNull { packageCache ->
                             if (selectedPackageNames.contains(packageCache.packageName)) {

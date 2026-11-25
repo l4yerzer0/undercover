@@ -1,6 +1,7 @@
 package com.undercover.vpn.routing
 
 import android.util.Log
+import com.undercover.vpn.database.RoutingChannel
 import com.undercover.vpn.database.Settings
 import com.undercover.vpn.database.UserProfile
 import com.undercover.vpn.database.UserProfileManager
@@ -120,14 +121,20 @@ object RoutingConfig {
         "ru.oneme.app",
     )
 
-    private val GENERATED_RULE_SET_TAGS = setOf(
-        RuleSetManager.TAG_GEOSITE_RU,
-        RuleSetManager.TAG_GEOIP_RU,
-        RuleSetManager.TAG_RU_APPS,
-    )
+    private val GENERATED_RULE_SET_TAGS = RuleSetManager.SPECS.map { it.tag }.toSet()
+
+    data class ResolvedChannel(
+        val slotIndex: Int,
+        val channel: RoutingChannel,
+        val configJson: String?,
+        val usesXray: Boolean,
+    ) {
+        val outboundTag: String = "proxy-channel-$slotIndex"
+        val dnsTag: String = "cloudflare-doh-channel-$slotIndex"
+    }
 
     /**
-     * Returns [configJson] with generated outbounds and route rules.
+     * Legacy dual-server entry point delegating to [applyMulti].
      */
     fun apply(
         configJson: String,
@@ -138,27 +145,63 @@ object RoutingConfig {
         secondaryUsesXray: Boolean = false,
     ): String {
         val activeProfile = userProfile ?: runBlocking { UserProfileManager.getActiveProfile() }
-
-        val directApps = activeProfile.directApps
-        val byeDpiApps = if (byeDpiPort != null) {
-            activeProfile.byeDpiApps
+        val resolvedChannels = if (Settings.isProMode && activeProfile.dualServerEnabled &&
+            (secondaryUsesXray || !secondaryConfigJson.isNullOrBlank())
+        ) {
+            listOf(
+                ResolvedChannel(
+                    slotIndex = 1,
+                    channel = com.undercover.vpn.database.RoutingChannel(
+                        id = "chan_1",
+                        serverId = activeProfile.secondaryServerId,
+                        nodeTag = secondaryNodeTag,
+                        apps = activeProfile.secondaryApps,
+                        domains = activeProfile.secondaryDomains,
+                    ),
+                    configJson = secondaryConfigJson,
+                    usesXray = secondaryUsesXray,
+                ),
+            )
         } else {
-            emptySet()
+            emptyList()
         }
+        return applyMulti(configJson, byeDpiPort, activeProfile, resolvedChannels)
+    }
+
+    /**
+     * Returns [configJson] with generated outbounds, category rule-sets, and route rules for N channels.
+     */
+    fun applyMulti(
+        configJson: String,
+        byeDpiPort: Int?,
+        userProfile: UserProfile? = null,
+        channels: List<ResolvedChannel> = emptyList(),
+    ): String {
+        val activeProfile = userProfile ?: runBlocking { UserProfileManager.getActiveProfile() }
+        val isPro = Settings.isProMode
+
+        val directApps = if (isPro) activeProfile.directApps else emptySet()
+        val byeDpiApps = if (isPro && byeDpiPort != null) activeProfile.byeDpiApps else emptySet()
 
         val directDomains = mutableListOf<String>()
         if (activeProfile.routingDirectRuSites) {
             directDomains.addAll(RU_DOMAINS_PRESET)
         }
-        directDomains.addAll(activeProfile.directDomains)
+        if (isPro) {
+            directDomains.addAll(activeProfile.directDomains)
+        }
 
-        val directRuleSetFiles = mutableListOf<RuleSetManager.RuleSetSpec>()
+        val allRuleSetSpecs = LinkedHashMap<String, RuleSetManager.RuleSetSpec>()
+        val directRuleSetTags = mutableListOf<String>()
+
         if (activeProfile.routingDirectRuSites) {
-            RuleSetManager.specForTag(RuleSetManager.TAG_GEOSITE_RU)?.let {
-                if (RuleSetManager.isAvailable(it.tag)) directRuleSetFiles.add(it)
-            }
-            RuleSetManager.specForTag(RuleSetManager.TAG_GEOIP_RU)?.let {
-                if (RuleSetManager.isAvailable(it.tag)) directRuleSetFiles.add(it)
+            listOf(RuleSetManager.TAG_GEOSITE_RU, RuleSetManager.TAG_GEOIP_RU).forEach { tag ->
+                RuleSetManager.specForTag(tag)?.let { spec ->
+                    if (RuleSetManager.isAvailable(spec.tag)) {
+                        allRuleSetSpecs[spec.tag] = spec
+                        directRuleSetTags.add(spec.tag)
+                    }
+                }
             }
         }
 
@@ -166,7 +209,8 @@ object RoutingConfig {
         if (activeProfile.routingDirectRuApps) {
             val ruAppsSpec = RuleSetManager.specForTag(RuleSetManager.TAG_RU_APPS)
             if (ruAppsSpec != null && RuleSetManager.isAvailable(ruAppsSpec.tag)) {
-                directRuleSetFiles.add(ruAppsSpec)
+                allRuleSetSpecs[ruAppsSpec.tag] = ruAppsSpec
+                directRuleSetTags.add(ruAppsSpec.tag)
             } else {
                 fallbackRuApps = FALLBACK_RU_APPS
             }
@@ -180,48 +224,173 @@ object RoutingConfig {
             if (activeProfile.routingByeDpiDiscord) {
                 byeDpiDomains.addAll(DISCORD_DOMAINS_PRESET)
             }
-            byeDpiDomains.addAll(activeProfile.byeDpiDomains)
+            if (isPro) {
+                byeDpiDomains.addAll(activeProfile.byeDpiDomains)
+            }
         }
 
         val effectiveDirectApps = (directApps + fallbackRuApps).distinct()
-
-        val dualActive = activeProfile.dualServerEnabled &&
-            (secondaryUsesXray || (!secondaryConfigJson.isNullOrBlank()))
-
-        val secondaryApps = if (dualActive) activeProfile.secondaryApps else emptySet()
-        val secondaryDomains = if (dualActive) activeProfile.secondaryDomains else emptyList()
+        val activeChannels = if (isPro) {
+            channels.filter { it.usesXray || !it.configJson.isNullOrBlank() }
+        } else {
+            emptyList()
+        }
 
         return try {
             val config = JSONObject(configJson)
             stripGenerated(config)
-            if (effectiveDirectApps.isNotEmpty() || directDomains.isNotEmpty() || directRuleSetFiles.isNotEmpty()) {
+
+            if (effectiveDirectApps.isNotEmpty() || directDomains.isNotEmpty() || directRuleSetTags.isNotEmpty()) {
                 ensureDirectOutbound(config)
             }
             if ((byeDpiApps.isNotEmpty() || byeDpiDomains.isNotEmpty()) && byeDpiPort != null) {
                 ensureByeDpiOutbound(config, byeDpiPort)
             }
-            if (dualActive) {
-                ensureSecondaryOutbound(config, secondaryConfigJson, secondaryNodeTag, secondaryUsesXray)
-                if (secondaryDomains.isNotEmpty()) {
-                    ensureSecondaryDns(config)
+
+            data class PreparedChannel(
+                val resolved: ResolvedChannel,
+                val apps: List<String>,
+                val domains: List<String>,
+                val ruleSetTags: List<String>,
+            )
+
+            val preparedChannels = activeChannels.map { rc ->
+                val chDomains = rc.channel.domains.toMutableList()
+                val chRuleSets = mutableListOf<String>()
+                for (catName in rc.channel.categories) {
+                    val cat = RoutingCategory.fromName(catName) ?: continue
+                    var anySpecAvailable = false
+                    for (tag in cat.ruleSetTags) {
+                        val spec = RuleSetManager.specForTag(tag)
+                        if (spec != null && RuleSetManager.isAvailable(spec.tag)) {
+                            allRuleSetSpecs[spec.tag] = spec
+                            chRuleSets.add(spec.tag)
+                            anySpecAvailable = true
+                        }
+                    }
+                    if (!anySpecAvailable && cat.fallbackDomains.isNotEmpty()) {
+                        chDomains.addAll(cat.fallbackDomains)
+                    }
+                }
+                ensureChannelOutbound(config, rc)
+                if (chDomains.isNotEmpty() || chRuleSets.isNotEmpty()) {
+                    ensureChannelDns(config, rc)
+                }
+                PreparedChannel(
+                    resolved = rc,
+                    apps = rc.channel.apps.toList(),
+                    domains = chDomains.distinct(),
+                    ruleSetTags = chRuleSets.distinct(),
+                )
+            }
+
+            val route = config.optJSONObject("route") ?: JSONObject().also { config.put("route", it) }
+            val rules = route.optJSONArray("rules") ?: JSONArray().also { route.put("rules", it) }
+
+            if (allRuleSetSpecs.isNotEmpty()) {
+                val ruleSets = route.optJSONArray("rule_set") ?: JSONArray().also { route.put("rule_set", it) }
+                for (spec in allRuleSetSpecs.values) {
+                    val path = RuleSetManager.filePath(spec.tag) ?: continue
+                    ruleSets.put(
+                        JSONObject()
+                            .put("tag", spec.tag)
+                            .put("type", "local")
+                            .put("format", "binary")
+                            .put("path", path),
+                    )
                 }
             }
-            insertRules(
-                config = config,
-                directApps = effectiveDirectApps,
-                byeDpiApps = byeDpiApps,
-                directDomains = directDomains.distinct(),
-                byeDpiDomains = byeDpiDomains.distinct(),
-                directRuleSets = directRuleSetFiles,
-                secondaryApps = secondaryApps,
-                secondaryDomains = secondaryDomains.distinct(),
-            )
+
+            val generated = mutableListOf<JSONObject>()
+            val dnsRules = config.optJSONObject("dns")?.optJSONArray("rules")
+
+            // 1. Channel explicit rules (apps, domains, categories) — highest user priority
+            for (pc in preparedChannels) {
+                val tag = pc.resolved.outboundTag
+                if (pc.apps.isNotEmpty()) {
+                    generated += JSONObject()
+                        .put("package_name", JSONArray(pc.apps))
+                        .put("action", "route")
+                        .put("outbound", tag)
+                }
+                if (pc.domains.isNotEmpty()) {
+                    generated += JSONObject()
+                        .put("domain_suffix", JSONArray(pc.domains))
+                        .put("action", "route")
+                        .put("outbound", tag)
+                    dnsRules?.put(
+                        JSONObject()
+                            .put("domain_suffix", JSONArray(pc.domains))
+                            .put("server", pc.resolved.dnsTag),
+                    )
+                }
+                if (pc.ruleSetTags.isNotEmpty()) {
+                    generated += JSONObject()
+                        .put("rule_set", JSONArray(pc.ruleSetTags))
+                        .put("action", "route")
+                        .put("outbound", tag)
+                    dnsRules?.put(
+                        JSONObject()
+                            .put("rule_set", JSONArray(pc.ruleSetTags))
+                            .put("server", pc.resolved.dnsTag),
+                    )
+                }
+            }
+
+            // 2. ByeDPI rules
+            if (byeDpiDomains.isNotEmpty()) {
+                val distinctByeDomains = byeDpiDomains.distinct()
+                generated += JSONObject()
+                    .put("domain_suffix", JSONArray(distinctByeDomains))
+                    .put("network", "udp")
+                    .put("port", 443)
+                    .put("action", "reject")
+                generated += JSONObject()
+                    .put("domain_suffix", JSONArray(distinctByeDomains))
+                    .put("action", "route")
+                    .put("outbound", RoutingSection.BYEDPI.outboundTag)
+            }
+            if (byeDpiApps.isNotEmpty()) {
+                generated += JSONObject()
+                    .put("package_name", JSONArray(byeDpiApps.toList()))
+                    .put("network", "udp")
+                    .put("port", 443)
+                    .put("action", "reject")
+                generated += JSONObject()
+                    .put("package_name", JSONArray(byeDpiApps.toList()))
+                    .put("action", "route")
+                    .put("outbound", RoutingSection.BYEDPI.outboundTag)
+            }
+
+            // 3. Direct rules
+            if (directRuleSetTags.isNotEmpty()) {
+                generated += JSONObject()
+                    .put("rule_set", JSONArray(directRuleSetTags.distinct()))
+                    .put("action", "route")
+                    .put("outbound", RoutingSection.DIRECT.outboundTag)
+            }
+            if (directDomains.isNotEmpty()) {
+                generated += JSONObject()
+                    .put("domain_suffix", JSONArray(directDomains.distinct()))
+                    .put("action", "route")
+                    .put("outbound", RoutingSection.DIRECT.outboundTag)
+            }
+            if (effectiveDirectApps.isNotEmpty()) {
+                generated += JSONObject()
+                    .put("package_name", JSONArray(effectiveDirectApps))
+                    .put("action", "route")
+                    .put("outbound", RoutingSection.DIRECT.outboundTag)
+            }
+
+            val insertAt = leadingPreambleLength(rules)
+            generated.forEachIndexed { offset, rule ->
+                insertAt(rules, insertAt + offset, rule)
+            }
+
             Log.i(
                 TAG,
-                "routing applied: directApps=${effectiveDirectApps.size} directDomains=${directDomains.size} " +
-                    "directRuleSets=${directRuleSetFiles.map { it.tag }} " +
-                    "byedpiApps=${byeDpiApps.size} byedpiDomains=${byeDpiDomains.size} " +
-                    "dualActive=$dualActive secondaryApps=${secondaryApps.size} secondaryDomains=${secondaryDomains.size}",
+                "routing applied (isPro=$isPro): directApps=${effectiveDirectApps.size} " +
+                    "byedpiApps=${byeDpiApps.size} channels=${preparedChannels.size}",
             )
             config.toString()
         } catch (e: Exception) {
@@ -230,19 +399,27 @@ object RoutingConfig {
         }
     }
 
+    private fun isGeneratedOutbound(tag: String): Boolean {
+        return tag in RoutingSection.entries.map { it.outboundTag } ||
+            tag == TAG_SECONDARY_OUT ||
+            tag.startsWith("proxy-channel-")
+    }
+
+    private fun isGeneratedDns(tag: String): Boolean {
+        return tag == TAG_SECONDARY_DNS || tag.startsWith("cloudflare-doh-channel-")
+    }
+
     /**
      * Removes rules, rule_sets, and outbounds generated on an earlier run.
      */
     private fun stripGenerated(config: JSONObject) {
-        val tags = (RoutingSection.entries.map { it.outboundTag } + TAG_SECONDARY_OUT).toSet()
-
         config.optJSONObject("route")?.let { route ->
             route.optJSONArray("rules")?.let { rules ->
                 removeMatching(rules) { rule ->
                     val outbound = rule.optString("outbound")
                     val hasTarget = rule.has("package_name") || rule.has("domain_suffix") || rule.has("rule_set")
                     if (!hasTarget) return@removeMatching false
-                    val isOurRoute = outbound in tags
+                    val isOurRoute = isGeneratedOutbound(outbound)
                     val isOurReject = rule.optString("action") == "reject" &&
                         rule.optString("network") == "udp" &&
                         rule.optInt("port") == 443
@@ -256,15 +433,15 @@ object RoutingConfig {
 
         config.optJSONObject("dns")?.let { dns ->
             dns.optJSONArray("servers")?.let { servers ->
-                removeMatching(servers) { it.optString("tag") == TAG_SECONDARY_DNS }
+                removeMatching(servers) { isGeneratedDns(it.optString("tag")) }
             }
             dns.optJSONArray("rules")?.let { rules ->
-                removeMatching(rules) { it.optString("server") == TAG_SECONDARY_DNS }
+                removeMatching(rules) { isGeneratedDns(it.optString("server")) }
             }
         }
 
         config.optJSONArray("outbounds")?.let { outbounds ->
-            removeMatching(outbounds) { it.optString("tag") in tags }
+            removeMatching(outbounds) { isGeneratedOutbound(it.optString("tag")) }
         }
     }
 
@@ -296,35 +473,31 @@ object RoutingConfig {
         outbound.put("version", "5")
     }
 
-    private fun ensureSecondaryOutbound(
-        config: JSONObject,
-        secondaryConfigJson: String?,
-        secondaryNodeTag: String?,
-        secondaryUsesXray: Boolean,
-    ) {
+    private fun ensureChannelOutbound(config: JSONObject, resolved: ResolvedChannel) {
         val outbounds = outbounds(config)
-        if (findByTag(outbounds, TAG_SECONDARY_OUT) != null) return
+        if (findByTag(outbounds, resolved.outboundTag) != null) return
 
-        if (secondaryUsesXray) {
+        if (resolved.usesXray) {
             val outbound = JSONObject()
             outbound.put("type", "socks")
-            outbound.put("tag", TAG_SECONDARY_OUT)
+            outbound.put("tag", resolved.outboundTag)
             outbound.put("server", BYEDPI_ADDRESS)
-            outbound.put("server_port", XrayConfigGenerator.LOCAL_SOCKS_PORT_SECONDARY)
+            outbound.put("server_port", XrayConfigGenerator.LOCAL_SOCKS_PORT + resolved.slotIndex)
             outbound.put("version", "5")
             outbounds.put(outbound)
-        } else if (!secondaryConfigJson.isNullOrBlank()) {
+        } else if (!resolved.configJson.isNullOrBlank()) {
             try {
-                val secRoot = JSONObject(secondaryConfigJson)
+                val secRoot = JSONObject(resolved.configJson)
                 val secOutbounds = secRoot.optJSONArray("outbounds")
                 var nodeOutbound: JSONObject? = null
+                val targetTag = resolved.channel.nodeTag
                 if (secOutbounds != null) {
                     for (i in 0 until secOutbounds.length()) {
                         val ob = secOutbounds.optJSONObject(i) ?: continue
                         val tag = ob.optString("tag")
                         val type = ob.optString("type").lowercase()
                         if (type in setOf("direct", "block", "dns", "selector", "urltest")) continue
-                        if (secondaryNodeTag != null && tag == secondaryNodeTag) {
+                        if (targetTag != null && tag == targetTag) {
                             nodeOutbound = ob
                             break
                         }
@@ -335,21 +508,21 @@ object RoutingConfig {
                 }
                 if (nodeOutbound != null) {
                     val cloned = JSONObject(nodeOutbound.toString())
-                    cloned.put("tag", TAG_SECONDARY_OUT)
+                    cloned.put("tag", resolved.outboundTag)
                     outbounds.put(cloned)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to copy secondary outbound", e)
+                Log.e(TAG, "Failed to copy channel outbound ${resolved.outboundTag}", e)
             }
         }
     }
 
-    private fun ensureSecondaryDns(config: JSONObject) {
+    private fun ensureChannelDns(config: JSONObject, resolved: ResolvedChannel) {
         val dns = config.optJSONObject("dns") ?: return
         val servers = dns.optJSONArray("servers") ?: return
         var found = false
         for (i in 0 until servers.length()) {
-            if (servers.optJSONObject(i)?.optString("tag") == TAG_SECONDARY_DNS) {
+            if (servers.optJSONObject(i)?.optString("tag") == resolved.dnsTag) {
                 found = true
                 break
             }
@@ -357,119 +530,11 @@ object RoutingConfig {
         if (!found) {
             servers.put(
                 JSONObject()
-                    .put("tag", TAG_SECONDARY_DNS)
+                    .put("tag", resolved.dnsTag)
                     .put("type", "https")
                     .put("server", "1.1.1.1")
                     .put("server_port", 443)
-                    .put("detour", TAG_SECONDARY_OUT),
-            )
-        }
-    }
-
-    private fun insertRules(
-        config: JSONObject,
-        directApps: List<String>,
-        byeDpiApps: Set<String>,
-        directDomains: List<String>,
-        byeDpiDomains: List<String>,
-        directRuleSets: List<RuleSetManager.RuleSetSpec>,
-        secondaryApps: Set<String>,
-        secondaryDomains: List<String>,
-    ) {
-        val route = config.optJSONObject("route") ?: JSONObject().also { config.put("route", it) }
-        val rules = route.optJSONArray("rules") ?: JSONArray().also { route.put("rules", it) }
-
-        if (directRuleSets.isNotEmpty()) {
-            val ruleSets = route.optJSONArray("rule_set") ?: JSONArray().also { route.put("rule_set", it) }
-            for (spec in directRuleSets) {
-                val path = RuleSetManager.filePath(spec.tag) ?: continue
-                ruleSets.put(
-                    JSONObject()
-                        .put("tag", spec.tag)
-                        .put("type", "local")
-                        .put("format", "binary")
-                        .put("path", path),
-                )
-            }
-        }
-
-        val generated = mutableListOf<JSONObject>()
-
-        // 1. ByeDPI rules (domains & apps)
-        if (byeDpiDomains.isNotEmpty()) {
-            generated += JSONObject()
-                .put("domain_suffix", JSONArray(byeDpiDomains))
-                .put("network", "udp")
-                .put("port", 443)
-                .put("action", "reject")
-            generated += JSONObject()
-                .put("domain_suffix", JSONArray(byeDpiDomains))
-                .put("action", "route")
-                .put("outbound", RoutingSection.BYEDPI.outboundTag)
-        }
-
-        if (byeDpiApps.isNotEmpty()) {
-            generated += JSONObject()
-                .put("package_name", JSONArray(byeDpiApps.toList()))
-                .put("network", "udp")
-                .put("port", 443)
-                .put("action", "reject")
-            generated += JSONObject()
-                .put("package_name", JSONArray(byeDpiApps.toList()))
-                .put("action", "route")
-                .put("outbound", RoutingSection.BYEDPI.outboundTag)
-        }
-
-        // 2. Direct rules (rule-sets, domains & apps)
-        if (directRuleSets.isNotEmpty()) {
-            generated += JSONObject()
-                .put("rule_set", JSONArray(directRuleSets.map { it.tag }))
-                .put("action", "route")
-                .put("outbound", RoutingSection.DIRECT.outboundTag)
-        }
-
-        if (directDomains.isNotEmpty()) {
-            generated += JSONObject()
-                .put("domain_suffix", JSONArray(directDomains))
-                .put("action", "route")
-                .put("outbound", RoutingSection.DIRECT.outboundTag)
-        }
-
-        if (directApps.isNotEmpty()) {
-            generated += JSONObject()
-                .put("package_name", JSONArray(directApps))
-                .put("action", "route")
-                .put("outbound", RoutingSection.DIRECT.outboundTag)
-        }
-
-        // 3. Secondary server rules (domains & apps)
-        if (secondaryDomains.isNotEmpty()) {
-            generated += JSONObject()
-                .put("domain_suffix", JSONArray(secondaryDomains))
-                .put("action", "route")
-                .put("outbound", TAG_SECONDARY_OUT)
-        }
-
-        if (secondaryApps.isNotEmpty()) {
-            generated += JSONObject()
-                .put("package_name", JSONArray(secondaryApps.toList()))
-                .put("action", "route")
-                .put("outbound", TAG_SECONDARY_OUT)
-        }
-
-        val insertAt = leadingPreambleLength(rules)
-        generated.forEachIndexed { offset, rule ->
-            insertAt(rules, insertAt + offset, rule)
-        }
-
-        // 4. DNS rules for secondary domains
-        val dns = config.optJSONObject("dns")
-        val dnsRules = dns?.optJSONArray("rules")
-        if (dnsRules != null && secondaryDomains.isNotEmpty()) {
-            dnsRules.put(
-                JSONObject()
-                    .put("domain_suffix", JSONArray(secondaryDomains))
-                    .put("server", TAG_SECONDARY_DNS),
+                    .put("detour", resolved.outboundTag),
             )
         }
     }

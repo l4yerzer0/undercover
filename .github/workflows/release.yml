@@ -8,6 +8,7 @@ on:
     paths:
       - 'android/**'
       - 'cli/**'
+      - 'desktop/**'
       - '.github/workflows/**'
       - '!**.md'
       - '!**/docs/**'
@@ -109,9 +110,42 @@ jobs:
           path: android/app/build/outputs/apk/other/release/*.apk
           retention-days: 1
 
+  build-desktop:
+    name: Build Desktop
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android/gradlew
+
+      - name: Package Desktop
+        run: |
+          cd android
+          ./gradlew :desktop:packageReleaseDeb :desktop:packageUberJarForCurrentOS --no-daemon
+
+      - name: Upload Desktop Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-binaries
+          path: |
+            desktop/build/compose/binaries/main/deb/*.deb
+            desktop/build/compose/jars/*.jar
+          retention-days: 1
+
   publish-release:
     name: Publish Release
-    needs: [build-cli, build-android]
+    needs: [build-cli, build-android, build-desktop]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -128,6 +162,12 @@ jobs:
         with:
           name: android-apks
           path: release_artifacts/android
+
+      - name: Download Desktop Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-binaries
+          path: release_artifacts/desktop
 
       - name: Prepare Release Metadata
         id: meta
@@ -178,4 +218,5 @@ jobs:
           files: |
             release_artifacts/android/*.apk
             release_artifacts/cli/*
+            release_artifacts/desktop/*
             release_artifacts/version-metadata.json

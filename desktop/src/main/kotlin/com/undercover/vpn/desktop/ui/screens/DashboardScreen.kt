@@ -18,6 +18,8 @@ import androidx.compose.ui.unit.sp
 import com.undercover.vpn.desktop.model.DesktopProfile
 import com.undercover.vpn.desktop.model.VpnState
 import com.undercover.vpn.desktop.ui.DossierMint
+import com.undercover.vpn.desktop.ui.RuStrings
+import com.undercover.vpn.desktop.ui.Strings
 import com.undercover.vpn.shared.ui.components.DossierButton
 import com.undercover.vpn.shared.ui.components.RedactedText
 
@@ -29,7 +31,8 @@ fun DashboardScreen(
     onSelectProfile: (DesktopProfile) -> Unit,
     onToggleConnection: () -> Unit,
     onOpenImport: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    strings: Strings = RuStrings
 ) {
     val isConnected = vpnState is VpnState.Connected
     val isConnecting = vpnState is VpnState.Connecting
@@ -55,7 +58,7 @@ fun DashboardScreen(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = if (isConnected) "CONNECTED" else if (isConnecting) "CONNECTING..." else "UNDERCOVER",
+                text = if (isConnected) strings.statusConnected else if (isConnecting) strings.statusConnecting else strings.statusUndercover,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 letterSpacing = 1.5.sp
@@ -67,7 +70,7 @@ fun DashboardScreen(
         if (vpnState is VpnState.Connected) {
             // Connected State
             Text(
-                text = "COVER ESTABLISHED",
+                text = strings.coverEstablished,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 letterSpacing = 1.5.sp
@@ -90,21 +93,21 @@ fun DashboardScreen(
             // Dossier Detail Table
             Row(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "DETAIL",
+                    text = strings.detail,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     modifier = Modifier.weight(1f),
                     letterSpacing = 1.sp
                 )
                 Text(
-                    text = "REAL",
+                    text = strings.real,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     modifier = Modifier.weight(1.2f),
                     letterSpacing = 1.sp
                 )
                 Text(
-                    text = "SEEN AS",
+                    text = strings.seenAs,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     modifier = Modifier.weight(1.5f),
@@ -121,11 +124,11 @@ fun DashboardScreen(
             )
 
             val tableRows = listOf(
-                Triple("EXIT IP", "192.168.1.1", selectedProfile?.outbounds?.firstOrNull()?.server?.ifEmpty { "185.220.101.4" } ?: "Encrypted"),
-                Triple("PING", "Direct", if (selectedProfile?.latencyMs != null) "${selectedProfile.latencyMs} ms" else "Active"),
-                Triple("TIME ZONE", "Local Time", "UTC / Europe"),
-                Triple("TUNNEL", "Direct ISP", "sing-box (TLS Reality/Hysteria2)"),
-                Triple("PROTECTION", "Unprotected", "ENCRYPTED & OBFUSCATED")
+                Triple(strings.exitIp, "192.168.1.1", selectedProfile?.outbounds?.firstOrNull()?.server?.ifEmpty { "185.220.101.4" } ?: "Encrypted"),
+                Triple(strings.ping, "Direct", if (selectedProfile?.latencyMs != null) "${selectedProfile.latencyMs} ms" else "Active"),
+                Triple(strings.timeZone, "Local Time", "UTC / Europe"),
+                Triple(strings.tunnel, "Direct ISP", "sing-box (TLS Reality/Hysteria2)"),
+                Triple(strings.protection, "Unprotected", strings.protectionValue)
             )
 
             tableRows.forEach { (detail, real, cover) ->
@@ -177,7 +180,7 @@ fun DashboardScreen(
             // Disconnected State
             Spacer(modifier = Modifier.height(32.dp))
             Text(
-                text = "DISCONNECTED",
+                text = strings.disconnected,
                 style = MaterialTheme.typography.headlineLarge.copy(
                     fontWeight = FontWeight.Black,
                     letterSpacing = 4.sp
@@ -195,7 +198,7 @@ fun DashboardScreen(
             ) {
                 Column {
                     Text(
-                        text = "SELECT PROFILE",
+                        text = strings.selectProfile,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                         letterSpacing = 1.5.sp
@@ -207,7 +210,7 @@ fun DashboardScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = selectedProfile?.name ?: "No Profile Selected",
+                            text = selectedProfile?.name ?: strings.noProfileSelected,
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -264,13 +267,13 @@ fun DashboardScreen(
         // Main Bottom Action Button
         if (isConnected) {
             DossierButton(
-                text = "DROP COVER",
+                text = strings.dropCover,
                 isOutlined = false,
                 onClick = onToggleConnection
             )
         } else {
             DossierButton(
-                text = if (isConnecting) "ESTABLISHING COVER..." else "GO UNDERCOVER",
+                text = if (isConnecting) strings.establishingCover else strings.goUndercover,
                 isOutlined = false,
                 onClick = {
                     if (selectedProfile == null && profiles.isNotEmpty()) {

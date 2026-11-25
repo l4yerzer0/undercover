@@ -65,6 +65,7 @@ object SettingsKey {
     const val TAILSCALE_SSH_DARK_THEME = "tailscale_ssh_dark_theme"
     const val APP_THEME = "app_theme"
     const val HAS_SEEN_ONBOARDING = "has_seen_onboarding"
+    const val IS_PRO_MODE = "is_pro_mode"
     const val TAILSCALE_SSH_FONT_FAMILY = "tailscale_ssh_font_family"
     const val TAILSCALE_SSH_FONT_SIZE = "tailscale_ssh_font_size"
     const val TAILSCALE_SSH_CUSTOM_FONT_PATH = "tailscale_ssh_custom_font_path"

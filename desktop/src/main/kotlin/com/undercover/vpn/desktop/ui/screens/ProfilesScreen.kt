@@ -1,13 +1,14 @@
 package com.undercover.vpn.desktop.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -17,6 +18,8 @@ import com.undercover.vpn.desktop.model.DesktopProfile
 import com.undercover.vpn.desktop.model.ProfileType
 import com.undercover.vpn.desktop.ui.DossierMint
 import com.undercover.vpn.desktop.ui.DossierRed
+import com.undercover.vpn.desktop.ui.RuStrings
+import com.undercover.vpn.desktop.ui.Strings
 import com.undercover.vpn.shared.ui.components.DossierButton
 
 @Composable
@@ -29,8 +32,11 @@ fun ProfilesScreen(
     onSyncProfile: (DesktopProfile) -> Unit,
     onDeleteProfile: (DesktopProfile) -> Unit,
     onOpenImport: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    strings: Strings = RuStrings
 ) {
+    var expandedProfileId by remember { mutableStateOf<String?>(null) }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -43,7 +49,7 @@ fun ProfilesScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "CONFIGURED PROFILES (${profiles.size})",
+                text = "${strings.configuredProfiles} (${profiles.size})",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 letterSpacing = 1.5.sp
@@ -65,13 +71,13 @@ fun ProfilesScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "NO PROFILES FOUND",
+                        text = strings.noProfilesFound,
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Import a subscription URL or Happ / VLESS link",
+                        text = strings.noProfilesHint,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
                     )
@@ -83,6 +89,7 @@ fun ProfilesScreen(
             ) {
                 items(profiles, key = { it.id }) { prof ->
                     val isSelected = prof.id == selectedProfileId
+                    val isExpanded = prof.id == expandedProfileId
 
                     Column(
                         modifier = Modifier
@@ -105,9 +112,9 @@ fun ProfilesScreen(
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 val subtitle = when (prof.type) {
-                                    ProfileType.REMOTE_SUBSCRIPTION -> "SUBSCRIPTION · ${prof.outbounds.size} NODES"
-                                    ProfileType.SINGLE_LINK -> "DIRECT NODE · ${prof.outbounds.firstOrNull()?.type ?: "PROXY"}"
-                                    ProfileType.CUSTOM_CONFIG -> "CUSTOM CONFIG"
+                                    ProfileType.REMOTE_SUBSCRIPTION -> "${strings.subscription} · ${prof.outbounds.size} ${strings.nodesCount}"
+                                    ProfileType.SINGLE_LINK -> "${strings.directNode} · ${prof.outbounds.firstOrNull()?.type ?: "PROXY"}"
+                                    ProfileType.CUSTOM_CONFIG -> strings.customConfig
                                 }
                                 Text(
                                     text = subtitle,
@@ -129,7 +136,7 @@ fun ProfilesScreen(
                                 }
 
                                 Text(
-                                    text = "PING",
+                                    text = strings.pingBtn,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.primary,
                                     letterSpacing = 1.sp,
@@ -141,7 +148,7 @@ fun ProfilesScreen(
                                 if (prof.type == ProfileType.REMOTE_SUBSCRIPTION) {
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "SYNC",
+                                        text = strings.syncBtn,
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.primary,
                                         letterSpacing = 1.sp,
@@ -153,7 +160,7 @@ fun ProfilesScreen(
 
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "DEL",
+                                    text = strings.delBtn,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.error,
                                     letterSpacing = 1.sp,
@@ -164,15 +171,66 @@ fun ProfilesScreen(
                             }
                         }
 
-                        // Active node tag if subscription
-                        if (prof.selectedOutboundTag != null && prof.outbounds.size > 1) {
+                        // Active node tag toggle & list
+                        if (prof.outbounds.size > 1) {
                             Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "ACTIVE NODE: ${prof.selectedOutboundTag}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                                letterSpacing = 0.5.sp
-                            )
+                            Row(
+                                modifier = Modifier
+                                    .clickable {
+                                        expandedProfileId = if (isExpanded) null else prof.id
+                                    }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "${strings.activeNode}: ${prof.selectedOutboundTag ?: prof.outbounds.firstOrNull()?.tag}  ${if (isExpanded) "▲" else "▼"}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+
+                            if (isExpanded) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                                        .padding(8.dp)
+                                ) {
+                                    prof.outbounds.forEach { node ->
+                                        val isCurrentNode = node.tag == (prof.selectedOutboundTag ?: prof.outbounds.firstOrNull()?.tag)
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    onSelectNode(prof, node.tag)
+                                                }
+                                                .padding(vertical = 6.dp, horizontal = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = if (isCurrentNode) "[ X ] " else "[   ] ",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = if (isCurrentNode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                                                )
+                                                Text(
+                                                    text = node.tag,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = if (isCurrentNode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                                )
+                                            }
+                                            Text(
+                                                text = node.type,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -189,7 +247,7 @@ fun ProfilesScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         DossierButton(
-            text = "+ IMPORT PROFILE",
+            text = strings.importProfileBtn,
             isOutlined = true,
             onClick = onOpenImport
         )

@@ -145,6 +145,20 @@ object Settings {
         }
     }
 
+    fun routingChannelList(channelId: String): Set<String> {
+        val userProfile = runCatching { kotlinx.coroutines.runBlocking { UserProfileManager.getActiveProfile() } }.getOrNull()
+        return userProfile?.channels?.firstOrNull { it.id == channelId }?.apps ?: emptySet()
+    }
+
+    fun setRoutingChannelList(channelId: String, packages: Set<String>) {
+        val userProfile = runCatching { kotlinx.coroutines.runBlocking { UserProfileManager.getActiveProfile() } }.getOrNull() ?: return
+        val updated = userProfile.channels.map { ch ->
+            if (ch.id == channelId) ch.copy(apps = packages) else ch
+        }
+        userProfile.channels = updated
+        runCatching { kotlinx.coroutines.runBlocking { UserProfileManager.update(userProfile) } }
+    }
+
     var byeDpiEnabled by dataStore.boolean(SettingsKey.BYEDPI_ENABLED) { false }
 
     /** ByeDPI command line, without -i/-p which [ByeDpiManager] supplies itself. */
@@ -178,6 +192,7 @@ object Settings {
     
     var appTheme by dataStore.int(SettingsKey.APP_THEME) { 0 }
     var hasSeenOnboarding by dataStore.boolean(SettingsKey.HAS_SEEN_ONBOARDING) { false }
+    var isProMode by dataStore.boolean(SettingsKey.IS_PRO_MODE) { false }
 
     var tailscaleSSHFontFamily by dataStore.string(SettingsKey.TAILSCALE_SSH_FONT_FAMILY)
     var tailscaleSSHFontSize by dataStore.int(SettingsKey.TAILSCALE_SSH_FONT_SIZE) { 14 }
@@ -225,4 +240,13 @@ object Settings {
 
 object ThemeState {
     val themeFlow = kotlinx.coroutines.flow.MutableStateFlow(Settings.appTheme)
+}
+
+object AppModeState {
+    val isProFlow = kotlinx.coroutines.flow.MutableStateFlow(Settings.isProMode)
+
+    fun setProMode(enabled: Boolean) {
+        Settings.isProMode = enabled
+        isProFlow.value = enabled
+    }
 }

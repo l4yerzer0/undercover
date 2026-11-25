@@ -52,17 +52,29 @@ object XrayManager {
         secondaryNodeTag: String?,
         dualEnabled: Boolean,
     ) {
-        val primaryXray = if (primaryConfigPath != null) {
-            val map = SubscriptionNodesHelper.loadXrayMap(primaryConfigPath)
-            if (primaryNodeTag != null) map[primaryNodeTag] ?: map["proxy"] else map.values.firstOrNull()
-        } else null
+        val list = mutableListOf<Pair<Int, Pair<String?, String?>>>()
+        list.add(0 to (primaryConfigPath to primaryNodeTag))
+        if (dualEnabled) {
+            list.add(1 to (secondaryConfigPath to secondaryNodeTag))
+        }
+        ensureForMultiConfig(context, list)
+    }
 
-        val secondaryXray = if (dualEnabled && secondaryConfigPath != null) {
-            val map = SubscriptionNodesHelper.loadXrayMap(secondaryConfigPath)
-            if (secondaryNodeTag != null) map[secondaryNodeTag] ?: map["proxy"] else map.values.firstOrNull()
-        } else null
-
-        val combinedXray = XrayConfigGenerator.combineXrayConfigs(primaryXray, secondaryXray)
+    fun ensureForMultiConfig(
+        context: Context,
+        endpoints: List<Pair<Int, Pair<String?, String?>>>,
+    ) {
+        val indexedXray = mutableListOf<Pair<Int, String>>()
+        for ((slotIndex, pathAndTag) in endpoints) {
+            val (configPath, nodeTag) = pathAndTag
+            if (configPath == null) continue
+            val map = SubscriptionNodesHelper.loadXrayMap(configPath)
+            val xray = if (nodeTag != null) map[nodeTag] ?: map["proxy"] else map.values.firstOrNull()
+            if (!xray.isNullOrBlank()) {
+                indexedXray.add(slotIndex to xray)
+            }
+        }
+        val combinedXray = XrayConfigGenerator.combineMultiXrayConfigs(indexedXray)
         if (combinedXray == null) {
             stop()
             return
@@ -153,8 +165,16 @@ object XrayManager {
         val deadline = System.currentTimeMillis() + 3000L
         val text = activeConfigText ?: ""
         val portsToCheck = mutableListOf<Int>()
-        if (text.contains("10808")) portsToCheck.add(XrayConfigGenerator.LOCAL_SOCKS_PORT)
-        if (text.contains("10809")) portsToCheck.add(XrayConfigGenerator.LOCAL_SOCKS_PORT_SECONDARY)
+        try {
+            val inbounds = org.json.JSONObject(text).optJSONArray("inbounds")
+            if (inbounds != null) {
+                for (i in 0 until inbounds.length()) {
+                    val p = inbounds.optJSONObject(i)?.optInt("port", 0) ?: 0
+                    if (p > 0) portsToCheck.add(p)
+                }
+            }
+        } catch (_: Exception) {
+        }
         if (portsToCheck.isEmpty()) portsToCheck.add(XrayConfigGenerator.LOCAL_SOCKS_PORT)
 
         while (System.currentTimeMillis() < deadline) {

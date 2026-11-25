@@ -115,7 +115,10 @@ fun SFANavHost(
                     onOpenNewProfile = onOpenNewProfile,
                     viewModel = dashboardViewModel,
                     onToggleConnection = onToggleConnection,
-                    onProfileOpen = { profile -> navController.navigate(ProfileRoutes.editProfile(profile.id)) }
+                    onProfileOpen = { profile -> navController.navigate(ProfileRoutes.editProfile(profile.id)) },
+                    onOpenChannelApps = { chId ->
+                        navController.navigate("settings/routing/apps/${com.undercover.vpn.routing.RoutingSection.SECONDARY.name}?channelId=$chId")
+                    },
                 )
             } else {
                 DashboardScreen(
@@ -124,7 +127,10 @@ fun SFANavHost(
                     showStatusBar = showStatusBar,
                     onOpenNewProfile = onOpenNewProfile,
                     onToggleConnection = onToggleConnection,
-                    onProfileOpen = { profile -> navController.navigate(ProfileRoutes.editProfile(profile.id)) }
+                    onProfileOpen = { profile -> navController.navigate(ProfileRoutes.editProfile(profile.id)) },
+                    onOpenChannelApps = { chId ->
+                        navController.navigate("settings/routing/apps/${com.undercover.vpn.routing.RoutingSection.SECONDARY.name}?channelId=$chId")
+                    },
                 )
             }
         }
@@ -443,7 +449,14 @@ fun SFANavHost(
         }
 
         composable(
-            route = "settings/routing/apps/{section}",
+            route = "settings/routing/apps/{section}?channelId={channelId}",
+            arguments = listOf(
+                androidx.navigation.navArgument("channelId") {
+                    type = androidx.navigation.NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+            ),
             enterTransition = slideInFromRight,
             exitTransition = slideOutToLeft,
             popEnterTransition = slideInFromLeft,
@@ -453,6 +466,7 @@ fun SFANavHost(
                 onBack = { navController.navigateUp() },
                 serviceStatus = serviceStatus,
                 section = RoutingSection.fromName(backStackEntry.arguments?.getString("section")),
+                channelId = backStackEntry.arguments?.getString("channelId"),
             )
         }
 
