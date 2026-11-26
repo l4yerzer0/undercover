@@ -143,8 +143,8 @@
     <string name="no_profiles">No profiles configured</string>
     <string name="add_profile">Add Profile</string>
     <string name="update_profile">Update profile</string>
-    <string name="import_remote_profile">Import remote profile</string>
-    <string name="import_remote_profile_message">Are you sure to import remote profile %1$s? You will connect to %2$s to download the configuration.</string>
+    <string name="import_remote_profile">Import Subscription</string>
+    <string name="import_remote_profile_message">Are you sure you want to import subscription %1$s? You will connect to %2$s to download the configuration.</string>
     <string name="import_from_file_description">Import configuration from a local file</string>
     <string name="scan_qr_code_description">Scan a configuration QR code</string>
     <string name="create_new_profile_description">Create a new profile from scratch</string>
@@ -162,8 +162,8 @@
     <string name="profile_auto_update_interval">Auto Update Interval (Minutes)</string>
     <string name="profile_auto_update_interval_minimum_hint">Minimum value is 15</string>
     <string name="profile_type_local">Local</string>
-    <string name="profile_type_remote">Remote</string>
-    <string name="profile_type_remote_updated">Remote • %s</string>
+    <string name="profile_type_remote">Subscription</string>
+    <string name="profile_type_remote_updated">Subscription • %s</string>
     <string name="profile_source_create_new">Create New</string>
     <string name="profile_source_import">Import</string>
     <string name="profile_add_import_file">Import from file</string>
@@ -171,7 +171,7 @@
     <string name="profile_add_create_manually">Create Manually</string>
     <string name="profile_override">Profile Override</string>
     <string name="basic_information">Basic Information</string>
-    <string name="remote_configuration">Remote Configuration</string>
+    <string name="remote_configuration">Subscription</string>
     <string name="last_updated_format">Last updated: %s</string>
     <string name="content">Content</string>
     <string name="json_viewer">JSON Viewer</string>

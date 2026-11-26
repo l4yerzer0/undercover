@@ -240,6 +240,21 @@ object Settings {
 
 object ThemeState {
     val themeFlow = kotlinx.coroutines.flow.MutableStateFlow(Settings.appTheme)
+
+    fun setTheme(theme: Int) {
+        Settings.appTheme = theme
+        themeFlow.value = theme
+    }
+
+    fun toggleTheme(isSystemInDarkTheme: Boolean) {
+        val currentIsDark = when (themeFlow.value) {
+            1 -> false
+            2 -> true
+            else -> isSystemInDarkTheme
+        }
+        val next = if (currentIsDark) 1 else 2
+        setTheme(next)
+    }
 }
 
 object AppModeState {

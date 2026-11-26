@@ -23,12 +23,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SystemUpdate
+import com.undercover.vpn.database.ThemeState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -186,63 +190,25 @@ fun DashboardScreen(
                     )
                 }
 
-                // Update Icon Button
+                // Theme Switcher Button
+                val themeValue by ThemeState.themeFlow.collectAsState()
+                val systemDark = isSystemInDarkTheme()
+                val isDark = when (themeValue) {
+                    1 -> false
+                    2 -> true
+                    else -> systemDark
+                }
+
                 IconButton(
                     onClick = {
-                        if (hasUpdate && updateInfo != null) {
-                            showUpdateAvailableDialog = true
-                        } else if (!isChecking) {
-                            scope.launch {
-                                UpdateState.isChecking.value = true
-                                try {
-                                    val result = withContext(Dispatchers.IO) { Vendor.checkUpdateAsync() }
-                                    UpdateState.setUpdate(result)
-                                    if (result == null) {
-                                        Toast.makeText(context, context.getString(R.string.no_updates_available), Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        showUpdateAvailableDialog = true
-                                    }
-                                } catch (_: UpdateCheckException.TrackNotSupported) {
-                                    UpdateState.setUpdate(null)
-                                    Toast.makeText(context, context.getString(R.string.update_track_not_supported), Toast.LENGTH_SHORT).show()
-                                } catch (e: Exception) {
-                                    UpdateState.setUpdate(null)
-                                    Toast.makeText(context, e.message ?: "Update check failed", Toast.LENGTH_SHORT).show()
-                                } finally {
-                                    UpdateState.isChecking.value = false
-                                }
-                            }
-                        }
+                        ThemeState.toggleTheme(systemDark)
                     }
                 ) {
-                    if (isChecking) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    } else if (hasUpdate) {
-                        BadgedBox(
-                            badge = {
-                                Badge(
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(8.dp)
-                                )
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.SystemUpdate,
-                                contentDescription = stringResource(R.string.update),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.SystemUpdate,
-                            contentDescription = stringResource(R.string.check_update),
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
-                        )
-                    }
+                    Icon(
+                        imageVector = if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
+                        contentDescription = stringResource(R.string.app_theme),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
                 }
             }
             

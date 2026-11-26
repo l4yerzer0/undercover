@@ -136,6 +136,12 @@ fun DeveloperSettingsScreen(navController: NavController) {
                 onClick = { navController.navigate("tools/oom_report") },
             )
 
+            DossierDevRow(
+                title = "Конфигурации JSON",
+                subtitle = "Просмотр и редактирование raw JSON профилей и подписок",
+                onClick = { navController.navigate("settings/developer/profiles_json") },
+            )
+
             Spacer(modifier = Modifier.height(64.dp))
         }
     }

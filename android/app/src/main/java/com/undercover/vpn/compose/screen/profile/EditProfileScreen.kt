@@ -6,6 +6,9 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +26,8 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
@@ -167,9 +172,19 @@ fun EditProfileScreen(
         showUnsavedChangesDialog = true
     }
 
+    val isSubscription = uiState.profileType == TypedProfile.Type.Remote
+
     OverrideTopBar {
         TopAppBar(
-            title = { Text(stringResource(R.string.title_edit_profile)) },
+            title = {
+                Text(
+                    text = if (isSubscription) "ПОДПИСКА" else stringResource(R.string.title_edit_profile),
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                    ),
+                )
+            },
             navigationIcon = {
                 IconButton(onClick = handleBack) {
                     Icon(
@@ -178,9 +193,10 @@ fun EditProfileScreen(
                     )
                 }
             },
-            colors =
-            TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.surface,
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.background,
+                titleContentColor = MaterialTheme.colorScheme.onSurface,
+                navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
             ),
         )
     }
@@ -197,7 +213,9 @@ fun EditProfileScreen(
         }
 
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
     ) {
         // Progress indicator at top (only for initial loading)
         if (uiState.isLoading) {
@@ -208,8 +226,7 @@ fun EditProfileScreen(
 
         if (!uiState.isLoading) {
             Column(
-                modifier =
-                Modifier
+                modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp)
@@ -219,9 +236,10 @@ fun EditProfileScreen(
                 // Basic Information Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors =
-                    CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    shape = RoundedCornerShape(0.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
                     ),
                 ) {
                     Column(
@@ -229,22 +247,26 @@ fun EditProfileScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Text(
-                            text = stringResource(R.string.basic_information),
-                            style = MaterialTheme.typography.titleSmall,
+                            text = if (isSubscription) "[ НАИМЕНОВАНИЕ // ИКОНКА ]" else "[ БАЗОВАЯ ИНФОРМАЦИЯ ]",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp,
+                            ),
                             color = MaterialTheme.colorScheme.primary,
                         )
 
                         OutlinedTextField(
                             value = uiState.name,
                             onValueChange = viewModel::updateName,
-                            label = { Text(stringResource(R.string.profile_name)) },
+                            label = { Text(if (isSubscription) "Название подписки" else stringResource(R.string.profile_name)) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
+                            shape = RoundedCornerShape(0.dp),
                         )
 
                         HorizontalDivider(
                             modifier = Modifier.padding(vertical = 4.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
                         )
 
                         // Icon selection with Material You style
@@ -256,17 +278,16 @@ fun EditProfileScreen(
                         )
 
                         Surface(
-                            modifier =
-                            Modifier
+                            modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(0.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f), RoundedCornerShape(0.dp))
                                 .clickable { viewModel.showIconDialog() },
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            color = MaterialTheme.colorScheme.surface,
                             shape = RoundedCornerShape(0.dp),
                         ) {
                             Row(
-                                modifier =
-                                Modifier
+                                modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(16.dp),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -306,18 +327,19 @@ fun EditProfileScreen(
                     }
                 }
 
-                // Remote Profile Options
-                if (uiState.profileType == TypedProfile.Type.Remote) {
+                // Subscription Options (Remote Profile)
+                if (isSubscription) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors =
-                        CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f),
+                        shape = RoundedCornerShape(0.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
                         ),
                     ) {
                         Column(
                             modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp),
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -331,21 +353,23 @@ fun EditProfileScreen(
                                     Icon(
                                         Icons.Default.CloudDownload,
                                         contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.tertiary,
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp),
                                     )
                                     Column(
                                         verticalArrangement = Arrangement.spacedBy(2.dp),
                                     ) {
                                         Text(
-                                            text = stringResource(R.string.remote_configuration),
-                                            style = MaterialTheme.typography.titleSmall,
-                                            color = MaterialTheme.colorScheme.tertiary,
+                                            text = "[ ПАРАМЕТРЫ ПОДПИСКИ ]",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                letterSpacing = 1.sp,
+                                            ),
+                                            color = MaterialTheme.colorScheme.primary,
                                         )
                                         uiState.lastUpdated?.let { lastUpdated ->
                                             Text(
-                                                text =
-                                                stringResource(
+                                                text = stringResource(
                                                     R.string.last_updated_format,
                                                     RelativeTimeFormatter.format(
                                                         context,
@@ -353,7 +377,7 @@ fun EditProfileScreen(
                                                     ),
                                                 ),
                                                 style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                                             )
                                         }
                                     }
@@ -366,8 +390,9 @@ fun EditProfileScreen(
                                     when {
                                         uiState.isUpdating -> {
                                             CircularProgressIndicator(
-                                                modifier = Modifier.size(24.dp),
+                                                modifier = Modifier.size(22.dp),
                                                 strokeWidth = 2.dp,
+                                                color = MaterialTheme.colorScheme.primary,
                                             )
                                         }
                                         uiState.showUpdateSuccess -> {
@@ -381,7 +406,7 @@ fun EditProfileScreen(
                                             Icon(
                                                 Icons.Default.Update,
                                                 contentDescription = stringResource(R.string.profile_update),
-                                                tint = MaterialTheme.colorScheme.tertiary,
+                                                tint = MaterialTheme.colorScheme.primary,
                                             )
                                         }
                                     }
@@ -391,12 +416,16 @@ fun EditProfileScreen(
                             OutlinedTextField(
                                 value = uiState.remoteUrl,
                                 onValueChange = viewModel::updateRemoteUrl,
-                                label = { Text(stringResource(R.string.profile_url)) },
+                                label = { Text("URL подписки") },
                                 modifier = Modifier.fillMaxWidth(),
                                 singleLine = true,
+                                shape = RoundedCornerShape(0.dp),
                             )
 
-                            HorizontalDivider()
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                                thickness = 1.dp,
+                            )
 
                             // Auto Update Toggle
                             Row(
@@ -404,11 +433,18 @@ fun EditProfileScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
-                                Text(
-                                    text = stringResource(R.string.profile_auto_update),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                )
-                                com.undercover.vpn.shared.ui.components.DossierSwitch(
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.profile_auto_update),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                    )
+                                    Text(
+                                        text = "Периодически загружать обновленные серверы",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                    )
+                                }
+                                DossierSwitch(
                                     checked = uiState.autoUpdate,
                                     onCheckedChange = viewModel::updateAutoUpdate,
                                 )
@@ -429,6 +465,7 @@ fun EditProfileScreen(
                                     },
                                     modifier = Modifier.fillMaxWidth(),
                                     singleLine = true,
+                                    shape = RoundedCornerShape(0.dp),
                                     isError = uiState.autoUpdateIntervalError != null,
                                 )
                             }
@@ -436,80 +473,67 @@ fun EditProfileScreen(
                     }
                 }
 
-                // Content Card (for both Local and Remote profiles) - placed at the end
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors =
-                    CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
-                    ),
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                // Content Card (only for Local profiles - removed from Subscription view)
+                if (!isSubscription) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(0.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                        ),
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.InsertDriveFile,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.size(20.dp),
-                            )
                             Text(
-                                text = stringResource(R.string.content),
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.secondary,
+                                text = "[ КОНФИГУРАЦИЯ JSON ]",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.sp,
+                                ),
+                                color = MaterialTheme.colorScheme.primary,
                             )
-                        }
 
-                        // JSON Editor/Viewer option
-                        Surface(
-                            modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(0.dp))
-                                .clickable {
-                                    onNavigateToEditContent(
-                                        uiState.profileType == TypedProfile.Type.Remote,
-                                    )
-                                },
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            shape = RoundedCornerShape(0.dp),
-                        ) {
-                            Row(
-                                modifier =
-                                Modifier
+                            // JSON Editor option
+                            Surface(
+                                modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Code,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(24.dp),
-                                    tint = MaterialTheme.colorScheme.primary,
-                                )
-                                Text(
-                                    text =
-                                    if (uiState.profileType == TypedProfile.Type.Remote) {
-                                        stringResource(R.string.json_viewer)
-                                    } else {
-                                        stringResource(R.string.json_editor)
+                                    .clip(RoundedCornerShape(0.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f), RoundedCornerShape(0.dp))
+                                    .clickable {
+                                        onNavigateToEditContent(false)
                                     },
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                                color = MaterialTheme.colorScheme.surface,
+                                shape = RoundedCornerShape(0.dp),
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Code,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(24.dp),
+                                        tint = MaterialTheme.colorScheme.primary,
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.json_editor),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                             }
                         }
                     }

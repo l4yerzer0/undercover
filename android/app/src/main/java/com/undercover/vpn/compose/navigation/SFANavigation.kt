@@ -29,6 +29,7 @@ import com.undercover.vpn.compose.screen.log.HookLogScreen
 import com.undercover.vpn.compose.screen.log.LogScreen
 import com.undercover.vpn.compose.screen.log.LogViewModel
 import com.undercover.vpn.compose.screen.privilegesettings.PrivilegeSettingsManageScreen
+import com.undercover.vpn.compose.screen.profile.EditProfileContentScreen
 import com.undercover.vpn.compose.screen.profile.EditProfileRoute
 import com.undercover.vpn.compose.screen.profileoverride.PerAppProxyScreen
 import com.undercover.vpn.compose.screen.settings.ByeDpiScreen
@@ -36,6 +37,7 @@ import com.undercover.vpn.compose.screen.settings.RoutingScreen
 import com.undercover.vpn.routing.RoutingSection
 import com.undercover.vpn.compose.screen.settings.AppSettingsScreen
 import com.undercover.vpn.compose.screen.settings.CoreSettingsScreen
+import com.undercover.vpn.compose.screen.settings.DeveloperProfilesJsonScreen
 import com.undercover.vpn.compose.screen.settings.DeveloperSettingsScreen
 import com.undercover.vpn.compose.screen.settings.EditRemoteServerScreen
 import com.undercover.vpn.compose.screen.settings.FDroidMirrorScreen
@@ -498,6 +500,42 @@ fun SFANavHost(
             popExitTransition = slideOutToRight,
         ) {
             DeveloperSettingsScreen(navController = navController)
+        }
+
+        composable(
+            route = "settings/developer/profiles_json",
+            enterTransition = slideInFromRight,
+            exitTransition = slideOutToLeft,
+            popEnterTransition = slideInFromLeft,
+            popExitTransition = slideOutToRight,
+        ) {
+            DeveloperProfilesJsonScreen(
+                navController = navController,
+                onProfileSelect = { profileId, isReadOnly ->
+                    navController.navigate("settings/developer/profile_content/$profileId/$isReadOnly")
+                },
+            )
+        }
+
+        composable(
+            route = "settings/developer/profile_content/{profileId}/{isReadOnly}",
+            arguments = listOf(
+                navArgument("profileId") { type = NavType.LongType },
+                navArgument("isReadOnly") { type = NavType.BoolType },
+            ),
+            enterTransition = slideInFromRight,
+            exitTransition = slideOutToLeft,
+            popEnterTransition = slideInFromLeft,
+            popExitTransition = slideOutToRight,
+        ) { backStackEntry ->
+            val profileId = backStackEntry.arguments?.getLong("profileId") ?: -1L
+            val isReadOnly = backStackEntry.arguments?.getBoolean("isReadOnly") ?: false
+
+            EditProfileContentScreen(
+                profileId = profileId,
+                onNavigateBack = { navController.navigateUp() },
+                isReadOnly = isReadOnly,
+            )
         }
 
         composable(

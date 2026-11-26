@@ -316,53 +316,8 @@ fun QRScanSheet(
                     )
                 }
 
-                // Right Actions: Gallery, Torch & Camera flip
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    IconButton(
-                        onClick = { galleryLauncher.launch("image/*") },
-                        modifier = Modifier
-                            .size(44.dp)
-                            .background(Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(0.dp))
-                            .border(1.dp, primaryColor.copy(alpha = 0.4f), RoundedCornerShape(0.dp)),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PhotoLibrary,
-                            contentDescription = stringResource(R.string.import_from_gallery),
-                            tint = primaryColor,
-                        )
-                    }
-
-                    IconButton(
-                        onClick = { viewModel.toggleTorch() },
-                        modifier = Modifier
-                            .size(44.dp)
-                            .background(
-                                if (uiState.torchEnabled) primaryColor else Color.Black.copy(alpha = 0.6f),
-                                shape = RoundedCornerShape(0.dp),
-                            )
-                            .border(1.dp, primaryColor.copy(alpha = 0.4f), RoundedCornerShape(0.dp)),
-                    ) {
-                        Icon(
-                            imageVector = if (uiState.torchEnabled) Icons.Default.FlashlightOn else Icons.Default.FlashlightOff,
-                            contentDescription = stringResource(R.string.profile_add_scan_enable_torch),
-                            tint = if (uiState.torchEnabled) MaterialTheme.colorScheme.onPrimary else primaryColor,
-                        )
-                    }
-
-                    IconButton(
-                        onClick = { viewModel.toggleFrontCamera(lifecycleOwner) },
-                        modifier = Modifier
-                            .size(44.dp)
-                            .background(Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(0.dp))
-                            .border(1.dp, primaryColor.copy(alpha = 0.4f), RoundedCornerShape(0.dp)),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Cameraswitch,
-                            contentDescription = stringResource(R.string.profile_add_scan_use_front_camera),
-                            tint = primaryColor,
-                        )
-                    }
-                }
+                // Balance spacer on right so title remains centered
+                Spacer(modifier = Modifier.size(44.dp))
             }
 
             // Decoding image overlay
@@ -428,7 +383,7 @@ fun QRScanSheet(
                 }
             }
 
-            // Bottom Area: Viewfinder Instruction & Cancel Button
+            // Bottom Area: Controls dock, Viewfinder Instruction & Cancel Button
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -437,6 +392,103 @@ fun QRScanSheet(
                     .padding(horizontal = 24.dp, vertical = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                // Tactical Action Controls Dock: Gallery, Flashlight, Camera Switch
+                Row(
+                    modifier = Modifier.padding(bottom = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(28.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // Gallery Button
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        IconButton(
+                            onClick = { galleryLauncher.launch("image/*") },
+                            modifier = Modifier
+                                .size(52.dp)
+                                .background(Color.Black.copy(alpha = 0.65f), shape = RoundedCornerShape(0.dp))
+                                .border(1.dp, primaryColor.copy(alpha = 0.5f), RoundedCornerShape(0.dp)),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PhotoLibrary,
+                                contentDescription = stringResource(R.string.import_from_gallery),
+                                tint = primaryColor,
+                                modifier = Modifier.size(24.dp),
+                            )
+                        }
+                        Text(
+                            text = "ГАЛЕРЕЯ",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp,
+                            ),
+                            color = primaryColor.copy(alpha = 0.8f),
+                        )
+                    }
+
+                    // Flashlight (Torch) Button
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        IconButton(
+                            onClick = { viewModel.toggleTorch() },
+                            modifier = Modifier
+                                .size(52.dp)
+                                .background(
+                                    if (uiState.torchEnabled) primaryColor else Color.Black.copy(alpha = 0.65f),
+                                    shape = RoundedCornerShape(0.dp),
+                                )
+                                .border(1.dp, primaryColor.copy(alpha = 0.5f), RoundedCornerShape(0.dp)),
+                        ) {
+                            Icon(
+                                imageVector = if (uiState.torchEnabled) Icons.Default.FlashlightOn else Icons.Default.FlashlightOff,
+                                contentDescription = stringResource(R.string.profile_add_scan_enable_torch),
+                                tint = if (uiState.torchEnabled) MaterialTheme.colorScheme.onPrimary else primaryColor,
+                                modifier = Modifier.size(24.dp),
+                            )
+                        }
+                        Text(
+                            text = if (uiState.torchEnabled) "ВКЛ" else "ФОНАРИК",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp,
+                            ),
+                            color = if (uiState.torchEnabled) primaryColor else primaryColor.copy(alpha = 0.8f),
+                        )
+                    }
+
+                    // Camera Switch (Flip) Button
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        IconButton(
+                            onClick = { viewModel.toggleFrontCamera(lifecycleOwner) },
+                            modifier = Modifier
+                                .size(52.dp)
+                                .background(Color.Black.copy(alpha = 0.65f), shape = RoundedCornerShape(0.dp))
+                                .border(1.dp, primaryColor.copy(alpha = 0.5f), RoundedCornerShape(0.dp)),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Cameraswitch,
+                                contentDescription = stringResource(R.string.profile_add_scan_use_front_camera),
+                                tint = primaryColor,
+                                modifier = Modifier.size(24.dp),
+                            )
+                        }
+                        Text(
+                            text = "КАМЕРА",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp,
+                            ),
+                            color = primaryColor.copy(alpha = 0.8f),
+                        )
+                    }
+                }
+
                 Text(
                     text = "ПОМЕСТИТЕ QR-КОД В РАМКУ СКАНЕРА",
                     style = MaterialTheme.typography.labelMedium.copy(
@@ -444,7 +496,7 @@ fun QRScanSheet(
                         fontWeight = FontWeight.SemiBold,
                     ),
                     color = primaryColor.copy(alpha = 0.9f),
-                    modifier = Modifier.padding(bottom = 20.dp),
+                    modifier = Modifier.padding(bottom = 16.dp),
                 )
 
                 DossierButton(

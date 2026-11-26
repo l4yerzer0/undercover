@@ -233,14 +233,11 @@ class MainActivity :
         }
 
         UpdateState.loadFromCache()
-        if (Settings.checkUpdateEnabled) {
-            lifecycleScope.launch(Dispatchers.IO) {
-                try {
-                    val updateInfo = Vendor.checkUpdateAsync()
-                    UpdateState.setUpdate(updateInfo)
-                } catch (_: Exception) {
-                    UpdateState.setUpdate(null)
-                }
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val updateInfo = Vendor.checkUpdateAsync()
+                UpdateState.setUpdate(updateInfo)
+            } catch (_: Exception) {
             }
         }
 
@@ -1117,7 +1114,7 @@ class MainActivity :
                         Row(modifier = Modifier.fillMaxHeight()) {
                             Column(
                                 modifier = Modifier
-                                    .width(136.dp)
+                                    .width(160.dp)
                                     .fillMaxHeight()
                                     .background(MaterialTheme.colorScheme.background)
                                     .padding(vertical = 24.dp),
@@ -1134,7 +1131,7 @@ class MainActivity :
                                         .fillMaxWidth()
                                         .height(1.dp)
                                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
-                                )
+                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 railScreens.forEach { screen ->
                                     val selected = currentRootRoute == screen.route
@@ -1162,27 +1159,39 @@ class MainActivity :
                                                     if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
                                                 ),
                                         )
-                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        BadgedBox(
+                                            badge = {
+                                                if (showBadge) {
+                                                    Badge(
+                                                        containerColor = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.size(6.dp)
+                                                    )
+                                                }
+                                            }
+                                        ) {
+                                            Icon(
+                                                imageVector = screen.icon,
+                                                contentDescription = stringResource(screen.titleRes),
+                                                tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                                modifier = Modifier.size(20.dp),
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
                                         Text(
                                             text = stringResource(screen.titleRes).uppercase(),
-                                            style = MaterialTheme.typography.labelLarge.copy(
+                                            style = MaterialTheme.typography.labelMedium.copy(
                                                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                                letterSpacing = 1.sp,
                                             ),
                                             color = if (selected) {
                                                 MaterialTheme.colorScheme.primary
                                             } else {
-                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                             },
                                             maxLines = 1,
                                             modifier = Modifier.weight(1f),
                                         )
-                                        if (showBadge) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(6.dp)
-                                                    .background(MaterialTheme.colorScheme.primary),
-                                            )
-                                        }
                                     }
                                 }
                             }

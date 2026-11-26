@@ -146,8 +146,8 @@
     <string name="no_profiles">Профили не настроены</string>
     <string name="add_profile">Добавить профиль</string>
     <string name="update_profile">Обновить профиль</string>
-    <string name="import_remote_profile">Импортировать удалённый профиль</string>
-    <string name="import_remote_profile_message">Импортировать удалённый профиль %1$s? Для загрузки конфигурации будет установлено соединение с %2$s.</string>
+    <string name="import_remote_profile">Импорт подписки</string>
+    <string name="import_remote_profile_message">Импортировать подписку %1$s? Для загрузки конфигурации будет установлено соединение с %2$s.</string>
     <string name="import_from_file_description">Импорт конфигурации из локального файла</string>
     <string name="scan_qr_code_description">Сканирование QR-кода с конфигурацией</string>
     <string name="create_new_profile_description">Создать новый профиль с нуля</string>
@@ -165,8 +165,8 @@
     <string name="profile_auto_update_interval">Интервал автообновления (минуты)</string>
     <string name="profile_auto_update_interval_minimum_hint">Минимальное значение - 15</string>
     <string name="profile_type_local">Локальный</string>
-    <string name="profile_type_remote">Удалённый</string>
-    <string name="profile_type_remote_updated">Удалённый • %s</string>
+    <string name="profile_type_remote">Подписка</string>
+    <string name="profile_type_remote_updated">Подписка • %s</string>
     <string name="profile_source_create_new">Создать новый</string>
     <string name="profile_source_import">Импорт</string>
     <string name="profile_add_import_file">Импорт из файла</string>
@@ -174,7 +174,7 @@
     <string name="profile_add_create_manually">Создать вручную</string>
     <string name="profile_override">Перезапись профиля</string>
     <string name="basic_information">Основная информация</string>
-    <string name="remote_configuration">Удалённая конфигурация</string>
+    <string name="remote_configuration">Подписка</string>
     <string name="last_updated_format">Последнее обновление: %s</string>
     <string name="content">Содержимое</string>
     <string name="json_viewer">Просмотр JSON</string>
