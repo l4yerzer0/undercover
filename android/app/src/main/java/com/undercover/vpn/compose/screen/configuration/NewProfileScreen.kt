@@ -68,7 +68,7 @@ fun NewProfileScreen(
     qrsData: ByteArray? = null,
     assignedProfileId: Long = 0L,
     onNavigateBack: () -> Unit,
-    onProfileCreated: (profileId: Long, isManual: Boolean) -> Unit,
+    onProfileCreated: (profileId: Long, isManual: Boolean, needsRoutingSetup: Boolean) -> Unit,
     viewModel: NewProfileViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -93,10 +93,10 @@ fun NewProfileScreen(
     var showErrorDialog by remember { mutableStateOf(false) }
 
     // Handle success
-    LaunchedEffect(uiState.isSuccess, uiState.createdProfile) {
+    LaunchedEffect(uiState.isSuccess, uiState.createdProfile, uiState.needsRoutingSetup) {
         if (uiState.isSuccess) {
             uiState.createdProfile?.let { profile ->
-                onProfileCreated(profile.id, !isSubscriptionMode)
+                onProfileCreated(profile.id, !isSubscriptionMode, uiState.needsRoutingSetup)
             }
         }
     }

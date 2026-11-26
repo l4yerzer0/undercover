@@ -47,6 +47,7 @@ data class NewProfileUiState(
     val errorMessage: String? = null,
     val isSuccess: Boolean = false,
     val createdProfile: Profile? = null,
+    val needsRoutingSetup: Boolean = false,
     // Field errors
     val nameError: String? = null,
     val remoteUrlError: String? = null,
@@ -249,11 +250,14 @@ class NewProfileViewModel(application: Application) : AndroidViewModel(applicati
                         }
                     }
 
+                val needsRoutingSetup = com.undercover.vpn.utils.FirstProfileRoutingHelper.applyRussianRoutingIfFirstProfile(getApplication())
+
                 _uiState.update {
                     it.copy(
                         isSaving = false,
                         isSuccess = true,
                         createdProfile = profile,
+                        needsRoutingSetup = needsRoutingSetup,
                     )
                 }
             } catch (e: Exception) {

@@ -93,6 +93,7 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = viewModel(),
     onToggleConnection: () -> Unit = {},
     onProfileOpen: (com.undercover.vpn.database.Profile) -> Unit = {},
+    onOpenSetupRouting: () -> Unit = {},
     onOpenChannelApps: (String) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()

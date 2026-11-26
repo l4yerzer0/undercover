@@ -55,7 +55,11 @@ object ByeDpiProbe {
      *
      * @param quickCheck If true, runs only the ClientHello round (for fast filtering).
      */
-    suspend fun probe(proxyPort: Int, quickCheck: Boolean = false): ProbeResult = withContext(Dispatchers.IO) {
+    suspend fun probe(
+        proxyPort: Int,
+        auth: ByeDpiManager.ByeDpiAuth? = ByeDpiManager.currentAuth,
+        quickCheck: Boolean = false,
+    ): ProbeResult = withContext(Dispatchers.IO) {
         val start = System.currentTimeMillis()
 
         // 1. YouTube ClientHello probe (Realistic TLS 1.3 ~1.8 KB with ML-KEM)
@@ -63,6 +67,7 @@ object ByeDpiProbe {
             proxyPort = proxyPort,
             targetHost = YOUTUBE_HOST,
             timeoutMs = 2500,
+            auth = auth,
         )
 
         // If even ClientHello fails for YouTube, TSPU is dropping the strategy outright.
@@ -80,6 +85,7 @@ object ByeDpiProbe {
             proxyPort = proxyPort,
             targetHost = DISCORD_GATEWAY_HOST,
             timeoutMs = 2000,
+            auth = auth,
         )
 
         if (quickCheck) {
@@ -99,6 +105,7 @@ object ByeDpiProbe {
                 urlStr = YOUTUBE_PROBE_IMAGE,
                 minBytes = 20_000,
                 timeoutMs = 4000,
+                auth = auth,
             )
         } else {
             false
@@ -124,6 +131,7 @@ object ByeDpiProbe {
         targetHost: String,
         targetPort: Int = 443,
         timeoutMs: Int = 2500,
+        auth: ByeDpiManager.ByeDpiAuth? = ByeDpiManager.currentAuth,
     ): Boolean {
         var socket: Socket? = null
         return try {
@@ -134,15 +142,45 @@ object ByeDpiProbe {
             val input = socket.getInputStream()
             val output = socket.getOutputStream()
 
-            // 1. SOCKS5 greeting: NO AUTH (0x05, 0x01, 0x00)
-            output.write(byteArrayOf(0x05, 0x01, 0x00))
-            output.flush()
+            // 1. SOCKS5 greeting
+            if (auth != null) {
+                output.write(byteArrayOf(0x05, 0x01, 0x02))
+                output.flush()
 
-            val greetingResp = ByteArray(2)
-            readExact(input, greetingResp)
-            if (greetingResp[0] != 0x05.toByte() || greetingResp[1] != 0x00.toByte()) {
-                Log.w(TAG, "SOCKS5 handshake failed on port $proxyPort")
-                return false
+                val greetingResp = ByteArray(2)
+                readExact(input, greetingResp)
+                if (greetingResp[0] != 0x05.toByte() || greetingResp[1] != 0x02.toByte()) {
+                    Log.w(TAG, "SOCKS5 auth greeting failed on port $proxyPort: method ${greetingResp[1]}")
+                    return false
+                }
+
+                val uBytes = auth.username.toByteArray(Charsets.US_ASCII)
+                val pBytes = auth.password.toByteArray(Charsets.US_ASCII)
+                val authReq = ByteArrayOutputStream()
+                authReq.write(0x01)
+                authReq.write(uBytes.size)
+                authReq.write(uBytes)
+                authReq.write(pBytes.size)
+                authReq.write(pBytes)
+                output.write(authReq.toByteArray())
+                output.flush()
+
+                val authResp = ByteArray(2)
+                readExact(input, authResp)
+                if (authResp[0] != 0x01.toByte() || authResp[1] != 0x00.toByte()) {
+                    Log.w(TAG, "SOCKS5 auth failed on port $proxyPort: status ${authResp[1]}")
+                    return false
+                }
+            } else {
+                output.write(byteArrayOf(0x05, 0x01, 0x00))
+                output.flush()
+
+                val greetingResp = ByteArray(2)
+                readExact(input, greetingResp)
+                if (greetingResp[0] != 0x05.toByte() || greetingResp[1] != 0x00.toByte()) {
+                    Log.w(TAG, "SOCKS5 handshake failed on port $proxyPort")
+                    return false
+                }
             }
 
             // 2. SOCKS5 connect command: DOMAIN
@@ -207,9 +245,13 @@ object ByeDpiProbe {
         urlStr: String,
         minBytes: Long = 20_000,
         timeoutMs: Int = 4000,
+        auth: ByeDpiManager.ByeDpiAuth? = ByeDpiManager.currentAuth,
     ): Boolean {
         var connection: HttpURLConnection? = null
         return try {
+            if (auth != null) {
+                ByeDpiManager.ensureAuthenticator()
+            }
             val url = URL(urlStr)
             val proxy = Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", proxyPort))
             connection = (url.openConnection(proxy) as HttpURLConnection).apply {

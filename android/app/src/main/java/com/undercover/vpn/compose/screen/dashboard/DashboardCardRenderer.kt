@@ -36,6 +36,7 @@ fun DashboardCardRenderer(
     onHideProfilePickerSheet: () -> Unit = {},
     onOpenNewProfile: (NewProfileArgs) -> Unit = {},
     onProfileOpen: (Profile) -> Unit = {},
+    onOpenSetupRouting: () -> Unit = {},
     commandClient: CommandClient? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -126,6 +127,7 @@ fun DashboardCardRenderer(
                 onHideProfilePickerSheet = onHideProfilePickerSheet,
                 onOpenNewProfile = onOpenNewProfile,
                 onProfileOpen = onProfileOpen,
+                onOpenSetupRouting = onOpenSetupRouting,
             )
         }
     }

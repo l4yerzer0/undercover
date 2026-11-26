@@ -218,4 +218,60 @@ class VpnSecurityProtectionTest {
         // Since include_package is present, exclude_package must NOT be set (OS limitation: cannot mix)
         assertFalse(tun.has("exclude_package"))
     }
+
+    @Test
+    fun testApplyMultiInjectsByeDpiAuthIntoOutbound() {
+        val baseConfig = JSONObject().apply {
+            put("inbounds", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("type", "tun")
+                    put("tag", "tun-in")
+                })
+            })
+            put("outbounds", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("type", "direct")
+                    put("tag", "direct")
+                })
+            })
+            put("route", JSONObject().apply {
+                put("rules", JSONArray())
+            })
+        }
+
+        val auth = com.undercover.vpn.byedpi.ByeDpiManager.ByeDpiAuth(
+            username = "byedpi_user",
+            password = "byedpi_password_xyz"
+        )
+
+        val profile = UserProfile(name = "TestProfile").apply {
+            byeDpiApps = setOf("com.google.android.youtube")
+            routingByeDpiYouTube = true
+            routingDirectRuSites = false
+            routingDirectRuApps = false
+        }
+
+        val modifiedJson = RoutingConfig.applyMulti(
+            configJson = baseConfig.toString(),
+            byeDpiPort = 40459,
+            userProfile = profile,
+            byeDpiAuth = auth,
+            isProMode = false
+        )
+
+        val result = JSONObject(modifiedJson)
+        val outbounds = result.getJSONArray("outbounds")
+        var foundByeDpi = false
+        for (i in 0 until outbounds.length()) {
+            val ob = outbounds.getJSONObject(i)
+            if (ob.optString("tag") == RoutingSection.BYEDPI.outboundTag) {
+                foundByeDpi = true
+                assertEquals("socks", ob.getString("type"))
+                assertEquals(40459, ob.getInt("server_port"))
+                assertEquals("byedpi_user", ob.getString("username"))
+                assertEquals("byedpi_password_xyz", ob.getString("password"))
+            }
+        }
+        assertTrue("byedpi outbound must be present", foundByeDpi)
+    }
 }

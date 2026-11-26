@@ -192,6 +192,7 @@ const struct option options[] = {
     {"protect-path",  1, 0, 'P'}, //
     #endif
     {"ipset",         1, 0, 'j'},
+    {"auth",          1, 0, 'J'},
     {"connect-to",    1, 0, 'C'}, //
     {"rst",           0, 0, '0'}, //
     {"comment",       1, 0, '#'}, //
@@ -726,6 +727,9 @@ void clear_params(char *line, char **argv)
         free(t);
     }
     params.dp = 0;
+    params.auth_required = false;
+    params.auth_user[0] = 0;
+    params.auth_pass[0] = 0;
 }
 
 
@@ -822,6 +826,24 @@ int parse_args(int argc, char **argv)
                 invalid = 1;
             else
                 params.laddr.in.sin_port = htons(val);
+            break;
+
+        case 'J':;
+            char *colon = strchr(optarg, ':');
+            if (colon) {
+                size_t ulen = colon - optarg;
+                size_t plen = strlen(colon + 1);
+                if (ulen > 0 && ulen < sizeof(params.auth_user) && plen < sizeof(params.auth_pass)) {
+                    memcpy(params.auth_user, optarg, ulen);
+                    params.auth_user[ulen] = 0;
+                    strcpy(params.auth_pass, colon + 1);
+                    params.auth_required = true;
+                } else {
+                    invalid = 1;
+                }
+            } else {
+                invalid = 1;
+            }
             break;
             
         case 'I':

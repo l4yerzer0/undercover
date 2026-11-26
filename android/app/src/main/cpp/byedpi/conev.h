@@ -53,6 +53,7 @@ typedef int (*evcb_t)(struct poolhd *, struct eval *, int);
 #define FLAG_S5 2
 #define FLAG_CONN 4
 #define FLAG_HTTP 8
+#define FLAG_S5_AUTH 16
 
 #define TV_DELAY 1
 #define TV_TIMEOUT 2

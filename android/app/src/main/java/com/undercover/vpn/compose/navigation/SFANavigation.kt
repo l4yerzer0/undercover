@@ -136,6 +136,7 @@ fun SFANavHost(
                     viewModel = dashboardViewModel,
                     onToggleConnection = onToggleConnection,
                     onProfileOpen = { profile -> navController.navigate(ProfileRoutes.editProfile(profile.id)) },
+                    onOpenSetupRouting = { navController.navigate("setup_routing") },
                     onOpenChannelApps = { chId ->
                         navController.navigate("settings/routing/apps/${com.undercover.vpn.routing.RoutingSection.SECONDARY.name}?channelId=$chId")
                     },
@@ -148,6 +149,7 @@ fun SFANavHost(
                     onOpenNewProfile = onOpenNewProfile,
                     onToggleConnection = onToggleConnection,
                     onProfileOpen = { profile -> navController.navigate(ProfileRoutes.editProfile(profile.id)) },
+                    onOpenSetupRouting = { navController.navigate("setup_routing") },
                     onOpenChannelApps = { chId ->
                         navController.navigate("settings/routing/apps/${com.undercover.vpn.routing.RoutingSection.SECONDARY.name}?channelId=$chId")
                     },
@@ -243,9 +245,15 @@ fun SFANavHost(
                     onClearNewProfileArgs()
                     navController.navigateUp()
                 },
-                onProfileCreated = { profileId, isManual ->
+                onProfileCreated = { profileId, isManual, needsRoutingSetup ->
                     onClearNewProfileArgs()
-                    if (isManual) {
+                    if (needsRoutingSetup) {
+                        navController.navigate("setup_routing") {
+                            popUpTo(ProfileRoutes.NewProfile) {
+                                inclusive = true
+                            }
+                        }
+                    } else if (isManual) {
                         navController.navigate(ProfileRoutes.editProfile(profileId)) {
                             popUpTo(ProfileRoutes.NewProfile) {
                                 inclusive = true

@@ -114,6 +114,7 @@ fun ProfilesCard(
     onHideProfilePickerSheet: () -> Unit,
     onOpenNewProfile: (NewProfileArgs) -> Unit,
     onProfileOpen: (Profile) -> Unit = {},
+    onOpenSetupRouting: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -527,6 +528,9 @@ fun ProfilesCard(
                                             is ProfileImportHandler.ImportResult.Success -> {
                                                 withContext(Dispatchers.Main) {
                                                     Toast.makeText(context, R.string.onboarding_profile_imported, Toast.LENGTH_SHORT).show()
+                                                    if (result.needsRoutingSetup) {
+                                                        onOpenSetupRouting()
+                                                    }
                                                 }
                                             }
                                             is ProfileImportHandler.ImportResult.Error -> {
@@ -628,7 +632,11 @@ fun ProfilesCard(
                                 when (val result = importHandler.importFromQRSData(qrsData)) {
                                     is ProfileImportHandler.ImportResult.Success -> {
                                         withContext(Dispatchers.Main) {
-                                            onProfileEdit(result.profile)
+                                            if (result.needsRoutingSetup) {
+                                                onOpenSetupRouting()
+                                            } else {
+                                                onProfileEdit(result.profile)
+                                            }
                                         }
                                     }
                                     is ProfileImportHandler.ImportResult.Error -> {
@@ -641,7 +649,11 @@ fun ProfilesCard(
                                 when (val result = importHandler.importFromUri(importUri)) {
                                     is ProfileImportHandler.ImportResult.Success -> {
                                         withContext(Dispatchers.Main) {
-                                            onProfileEdit(result.profile)
+                                            if (result.needsRoutingSetup) {
+                                                onOpenSetupRouting()
+                                            } else {
+                                                onProfileEdit(result.profile)
+                                            }
                                         }
                                     }
                                     is ProfileImportHandler.ImportResult.Error -> {
@@ -713,7 +725,11 @@ fun ProfilesCard(
                                     when (val importResult = importHandler.importFromQRCode(result.uri.toString())) {
                                         is ProfileImportHandler.ImportResult.Success -> {
                                             withContext(Dispatchers.Main) {
-                                                onProfileEdit(importResult.profile)
+                                                if (importResult.needsRoutingSetup) {
+                                                    onOpenSetupRouting()
+                                                } else {
+                                                    onProfileEdit(importResult.profile)
+                                                }
                                             }
                                         }
                                         is ProfileImportHandler.ImportResult.Error -> {

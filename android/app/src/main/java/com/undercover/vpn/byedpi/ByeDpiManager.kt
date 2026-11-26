@@ -13,6 +13,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.security.SecureRandom
 
 /**
  * Owns the lifetime of the embedded ByeDPI SOCKS5 proxy.
@@ -28,6 +29,11 @@ object ByeDpiManager {
     private const val STARTUP_TIMEOUT_MS = 3_000L
     private const val SHUTDOWN_TIMEOUT_MS = 2_000L
 
+    data class ByeDpiAuth(
+        val username: String,
+        val password: String,
+    )
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
 
@@ -39,6 +45,10 @@ object ByeDpiManager {
     var port: Int? = null
         private set
 
+    @Volatile
+    var currentAuth: ByeDpiAuth? = null
+        private set
+
     val isRunning: Boolean get() = port != null
 
     /**
@@ -47,14 +57,15 @@ object ByeDpiManager {
      * accepts connections, so the caller can hand the port to sing-box right
      * away. Returns null if ByeDPI did not come up in time.
      */
-    suspend fun start(strategy: String): Int? = mutex.withLock {
+    suspend fun start(strategy: String, auth: ByeDpiAuth? = null): Int? = mutex.withLock {
         if (port != null) {
             Log.w(TAG, "already running on port $port")
             return@withLock port
         }
 
+        val effectiveAuth = auth ?: allocateAuth()
         val listenPort = allocatePort()
-        val args = buildArgs(listenPort, strategy)
+        val args = buildArgs(listenPort, strategy, effectiveAuth)
         Log.i(TAG, "starting: ${args.joinToString(" ")}")
 
         val instance = ByeDpiProxy()
@@ -67,6 +78,7 @@ object ByeDpiManager {
                 }
             Log.i(TAG, "byedpi exited with code $code")
             port = null
+            currentAuth = null
         }
 
         val up = withTimeoutOrNull(STARTUP_TIMEOUT_MS) {
@@ -83,7 +95,9 @@ object ByeDpiManager {
         }
 
         port = listenPort
-        Log.i(TAG, "byedpi is up on $LISTEN_ADDRESS:$listenPort")
+        currentAuth = effectiveAuth
+        ensureAuthenticator()
+        Log.i(TAG, "byedpi is up on $LISTEN_ADDRESS:$listenPort with auth user=${effectiveAuth.username}")
         listenPort
     }
 
@@ -107,6 +121,31 @@ object ByeDpiManager {
         proxy = null
         job = null
         port = null
+        currentAuth = null
+    }
+
+    fun ensureAuthenticator() {
+        val bdAuth = currentAuth ?: return
+        val bdPort = port ?: return
+        java.net.Authenticator.setDefault(object : java.net.Authenticator() {
+            override fun getPasswordAuthentication(): java.net.PasswordAuthentication? {
+                if (requestingPort == bdPort) {
+                    return java.net.PasswordAuthentication(bdAuth.username, bdAuth.password.toCharArray())
+                }
+                val xrAuth = com.undercover.vpn.bg.XrayManager.currentAuth
+                if (xrAuth != null && requestingPort >= xrAuth.basePort && requestingPort < xrAuth.basePort + 16) {
+                    return java.net.PasswordAuthentication(xrAuth.username, xrAuth.password.toCharArray())
+                }
+                return null
+            }
+        })
+    }
+
+    private fun allocateAuth(): ByeDpiAuth {
+        val rand = SecureRandom()
+        val userSuffix = ByteArray(4).also { rand.nextBytes(it) }.joinToString("") { "%02x".format(it) }
+        val pass = ByteArray(16).also { rand.nextBytes(it) }.joinToString("") { "%02x".format(it) }
+        return ByeDpiAuth(username = "bdpi_$userSuffix", password = pass)
     }
 
     /**
@@ -117,8 +156,12 @@ object ByeDpiManager {
      */
     private fun allocatePort(): Int = ServerSocket(0).use { it.localPort }
 
-    private fun buildArgs(listenPort: Int, strategy: String): Array<String> {
-        val head = listOf("ciadpi", "-i", LISTEN_ADDRESS, "-p", listenPort.toString())
+    private fun buildArgs(listenPort: Int, strategy: String, auth: ByeDpiAuth?): Array<String> {
+        val head = mutableListOf("ciadpi", "-i", LISTEN_ADDRESS, "-p", listenPort.toString())
+        if (auth != null) {
+            head.add("-J")
+            head.add("${auth.username}:${auth.password}")
+        }
         val tail = strategy.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
         return (head + tail).toTypedArray()
     }

@@ -517,35 +517,6 @@ class ProfileImportHandler(private val context: Context) {
     }
 
     private suspend fun applyRussianRoutingIfFirstProfile(): Boolean {
-        try {
-            val allProfiles = ProfileManager.list()
-            // Only auto-apply if this is the first server/subscription in the app
-            if (allProfiles.size <= 1) {
-                if (!com.undercover.vpn.database.Settings.isProMode) {
-                    val isRussia = com.undercover.vpn.utils.LocationDetector.detectIsRussia(context)
-                    if (isRussia) {
-                        android.util.Log.i("ProfileImportHandler", "First profile imported: user in Russia (simple mode), applying RU routing defaults")
-                        com.undercover.vpn.database.Settings.byeDpiEnabled = true
-                        com.undercover.vpn.database.Settings.routingDirectRuSites = true
-                        com.undercover.vpn.database.Settings.routingDirectRuApps = true
-                        com.undercover.vpn.database.Settings.routingByeDpiYouTube = true
-                        com.undercover.vpn.database.Settings.routingByeDpiDiscord = true
-
-                        val activeProf = com.undercover.vpn.database.UserProfileManager.getActiveProfile()
-                        activeProf.routingDirectRuSites = true
-                        activeProf.routingDirectRuApps = true
-                        activeProf.routingByeDpiYouTube = true
-                        activeProf.routingByeDpiDiscord = true
-                        com.undercover.vpn.database.UserProfileManager.update(activeProf)
-
-                        com.undercover.vpn.routing.RuleSetManager.ensureUpdatedInBackground()
-                        return true
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            android.util.Log.w("ProfileImportHandler", "Failed to check or apply RU routing: ${e.message}")
-        }
-        return false
+        return com.undercover.vpn.utils.FirstProfileRoutingHelper.applyRussianRoutingIfFirstProfile(context)
     }
 }

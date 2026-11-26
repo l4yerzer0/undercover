@@ -179,6 +179,7 @@ object RoutingConfig {
         keepSubscriptionRouting: Boolean = false,
         xrayAuth: XrayConfigGenerator.XrayBridgeAuth? = null,
         isProMode: Boolean? = null,
+        byeDpiAuth: com.undercover.vpn.byedpi.ByeDpiManager.ByeDpiAuth? = null,
     ): String {
         val activeProfile = userProfile ?: runBlocking { UserProfileManager.getActiveProfile() }
         val isPro = isProMode ?: try { Settings.isProMode } catch (_: Throwable) { false }
@@ -299,7 +300,7 @@ object RoutingConfig {
                 ensureDirectOutbound(config)
             }
             if ((byeDpiApps.isNotEmpty() || byeDpiDomains.isNotEmpty()) && byeDpiPort != null) {
-                ensureByeDpiOutbound(config, byeDpiPort)
+                ensureByeDpiOutbound(config, byeDpiPort, byeDpiAuth)
             }
 
             data class PreparedChannel(
@@ -605,7 +606,11 @@ object RoutingConfig {
         )
     }
 
-    private fun ensureByeDpiOutbound(config: JSONObject, port: Int) {
+    private fun ensureByeDpiOutbound(
+        config: JSONObject,
+        port: Int,
+        auth: com.undercover.vpn.byedpi.ByeDpiManager.ByeDpiAuth? = null,
+    ) {
         val outbounds = outbounds(config)
         val outbound = findByTag(outbounds, RoutingSection.BYEDPI.outboundTag)
             ?: JSONObject().also { outbounds.put(it) }
@@ -614,6 +619,10 @@ object RoutingConfig {
         outbound.put("server", BYEDPI_ADDRESS)
         outbound.put("server_port", port)
         outbound.put("version", "5")
+        if (auth != null) {
+            outbound.put("username", auth.username)
+            outbound.put("password", auth.password)
+        }
     }
 
     private fun ensureChannelOutbound(

@@ -190,18 +190,35 @@ static int auth_socks5(int fd, const char *buffer, ssize_t n)
     if (n <= 2 || (uint8_t)buffer[1] != (n - 2)) {
         return -1;
     }
-    uint8_t c = S_AUTH_BAD;
-    for (long i = 2; i < n; i++)
-        if (buffer[i] == S_AUTH_NONE) {
-            c = S_AUTH_NONE;
-            break;
+    if (params.auth_required) {
+        uint8_t c = S_AUTH_BAD;
+        for (long i = 2; i < n; i++) {
+            if ((uint8_t)buffer[i] == S_AUTH_USERPASS) {
+                c = S_AUTH_USERPASS;
+                break;
+            }
         }
-    uint8_t a[2] = { S_VER5, c };
-    if (send(fd, (char *)a, sizeof(a), 0) < 0) {
-        uniperror("send");
-        return -1;
+        uint8_t a[2] = { S_VER5, c };
+        if (send(fd, (char *)a, sizeof(a), 0) < 0) {
+            uniperror("send");
+            return -1;
+        }
+        return c != S_AUTH_BAD ? 0 : -1;
+    } else {
+        uint8_t c = S_AUTH_BAD;
+        for (long i = 2; i < n; i++) {
+            if ((uint8_t)buffer[i] == S_AUTH_NONE) {
+                c = S_AUTH_NONE;
+                break;
+            }
+        }
+        uint8_t a[2] = { S_VER5, c };
+        if (send(fd, (char *)a, sizeof(a), 0) < 0) {
+            uniperror("send");
+            return -1;
+        }
+        return c != S_AUTH_BAD ? 0 : -1;
     }
-    return c != S_AUTH_BAD ? 0 : -1;
 }
 
 
@@ -930,11 +947,56 @@ static int handle_s5(struct poolhd *pool, struct eval *val,
             struct buffer *buff, ssize_t n, union sockaddr_u *dst)
 {
     if (val->flag != FLAG_S5) {
-        if (auth_socks5(val->fd, buff->data, n)) {
-            return -1;
+        if (params.auth_required) {
+            if (val->flag == FLAG_S5_AUTH) {
+                // RFC 1929 subnegotiation: version(1) ulen(1) uname(ulen) plen(1) passwd(plen)
+                if (n < 3 || (uint8_t)buff->data[0] != 0x01) {
+                    uint8_t rep[2] = { 0x01, 0x01 };
+                    send(val->fd, (char *)rep, sizeof(rep), 0);
+                    return -1;
+                }
+                uint8_t ulen = (uint8_t)buff->data[1];
+                if (n < 2 + ulen + 1) {
+                    uint8_t rep[2] = { 0x01, 0x01 };
+                    send(val->fd, (char *)rep, sizeof(rep), 0);
+                    return -1;
+                }
+                uint8_t plen = (uint8_t)buff->data[2 + ulen];
+                if (n < 2 + ulen + 1 + plen) {
+                    uint8_t rep[2] = { 0x01, 0x01 };
+                    send(val->fd, (char *)rep, sizeof(rep), 0);
+                    return -1;
+                }
+                size_t exp_ulen = strlen(params.auth_user);
+                size_t exp_plen = strlen(params.auth_pass);
+                if (ulen == exp_ulen && plen == exp_plen &&
+                    memcmp(buff->data + 2, params.auth_user, ulen) == 0 &&
+                    memcmp(buff->data + 3 + ulen, params.auth_pass, plen) == 0) {
+                    uint8_t rep[2] = { 0x01, 0x00 };
+                    if (send(val->fd, (char *)rep, sizeof(rep), 0) < 0) {
+                        return -1;
+                    }
+                    val->flag = FLAG_S5;
+                    return 0;
+                } else {
+                    uint8_t rep[2] = { 0x01, 0x01 };
+                    send(val->fd, (char *)rep, sizeof(rep), 0);
+                    return -1;
+                }
+            } else {
+                if (auth_socks5(val->fd, buff->data, n)) {
+                    return -1;
+                }
+                val->flag = FLAG_S5_AUTH;
+                return 0;
+            }
+        } else {
+            if (auth_socks5(val->fd, buff->data, n)) {
+                return -1;
+            }
+            val->flag = FLAG_S5;
+            return 0;
         }
-        val->flag = FLAG_S5;
-        return 0;
     }
     if (n < S_SIZE_MIN) {
         LOG(LOG_E, "ss: request too small (%zd)\n", n);
@@ -983,11 +1045,20 @@ int on_request(struct poolhd *pool, struct eval *val, int et)
     int error = 0;
     bool skip_conn = 0;
     
-    if ((params.mode & MODE_SOCKS5) && *buff->data == S_VER5) {
+    if (val->flag == FLAG_S5_AUTH) {
         if ((error = handle_s5(pool, val, buff, n, &dst)) > 0) {
             return -1;
         }
         skip_conn = 1;
+    }
+    else if ((params.mode & MODE_SOCKS5) && *buff->data == S_VER5) {
+        if ((error = handle_s5(pool, val, buff, n, &dst)) > 0) {
+            return -1;
+        }
+        skip_conn = 1;
+    }
+    else if (params.auth_required) {
+        return -1;
     }
     else if ((params.mode & MODE_SOCKS4) && *buff->data == S_VER4) {
         val->flag = FLAG_S4;

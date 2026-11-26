@@ -175,6 +175,10 @@ struct params {
     bool daemonize;
     const char *pid_file;
     int pid_fd;
+
+    char auth_user[128];
+    char auth_pass[128];
+    bool auth_required;
 };
 
 extern struct params params;

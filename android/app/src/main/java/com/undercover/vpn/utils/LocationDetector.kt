@@ -77,21 +77,32 @@ object LocationDetector {
 
     private fun checkIpIsRussia(): Boolean {
         val endpoints = listOf(
+            "https://api.sypexgeo.net/json/",
             "https://ipwho.is/",
             "https://api.country.is/",
+            "https://ipinfo.io/json",
+            "http://ip-api.com/json/",
         )
         for (endpoint in endpoints) {
             try {
                 val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
-                    connectTimeout = 3500
-                    readTimeout = 3500
+                    connectTimeout = 3000
+                    readTimeout = 3000
                     useCaches = false
-                    setRequestProperty("User-Agent", "Undercover/0.8")
+                    setRequestProperty("User-Agent", "Undercover/0.10")
                 }
                 if (conn.responseCode == 200) {
                     val body = conn.inputStream.bufferedReader().use { it.readText() }
                     val json = JSONObject(body)
-                    val countryCode = (json.optString("country_code").ifEmpty { json.optString("country") }).uppercase()
+                    val countryCode = when {
+                        json.has("country") && json.optJSONObject("country") != null -> {
+                            json.optJSONObject("country")?.optString("iso").orEmpty()
+                        }
+                        json.has("country_code") -> json.optString("country_code")
+                        json.has("countryCode") -> json.optString("countryCode")
+                        else -> json.optString("country")
+                    }.uppercase()
+
                     if (countryCode.isNotEmpty()) {
                         return countryCode == "RU"
                     }
