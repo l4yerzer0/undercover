@@ -20,12 +20,12 @@ dependencies {
 }
 
 val versionProps = Properties().apply {
-    val propFile = rootProject.file("version.properties")
+    val propFile = file("../android/version.properties").takeIf { it.exists() } ?: rootProject.file("version.properties")
     if (propFile.exists()) {
         load(propFile.inputStream())
     }
 }
-val versionName: String = versionProps.getProperty("VERSION_NAME", "0.7")
+val versionName: String = versionProps.getProperty("VERSION_NAME", "0.8")
 val semverVersion = if (versionName.count { ch: Char -> ch == '.' } == 1) "$versionName.0" else versionName
 
 compose.desktop {

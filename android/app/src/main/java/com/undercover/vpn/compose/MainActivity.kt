@@ -220,6 +220,9 @@ class MainActivity :
         connection.reconnect()
         RemoteControlManager.restore()
         com.undercover.vpn.routing.RuleSetManager.ensureUpdatedInBackground()
+        lifecycleScope.launch(Dispatchers.IO) {
+            com.undercover.vpn.utils.LocationDetector.detectIsRussia(applicationContext)
+        }
 
         lifecycleScope.launch(Dispatchers.IO) {
             if (Settings.hasSeenOnboarding && !Settings.isProMode) {

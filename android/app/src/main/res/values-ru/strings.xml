@@ -22,8 +22,30 @@
     <string name="dossier_fake_isp">(Ложный провайдер)</string>
     <string name="dossier_randomized_device">(Случайное устройство)</string>
     <string name="onboarding_slide1_text">Все, что вы делаете в сети — [ЗАСЕКРЕЧЕНО]</string>
-    <string name="onboarding_slide2_text">Все способы обхода блокировок и цензуры собраны в одном приложении. Все, что вам нужно, есть прямо здесь.</string>
-    <string name="onboarding_slide3_text">Создайте прикрытие, защитите свои данные и полностью уйдите в подполье.</string>
+    <string name="onboarding_slide2_text">Полностью открытый код. Ноль телеметрии. Безопасность</string>
+    <string name="onboarding_slide3_text">Разрешения приложения</string>
+    <string name="onboarding_manifest_title">UNDERCOVER // МАНИФЕСТ</string>
+    <string name="onboarding_feat_opensource_title">100% Открытый исходный код</string>
+    <string name="onboarding_feat_opensource_desc">Полная прозрачность. Код клиента и ядра доступен для независимого аудита на GitHub.</string>
+    <string name="onboarding_feat_telemetry_title">Ноль телеметрии и трекеров</string>
+    <string name="onboarding_feat_telemetry_desc">Никаких встроенных трекеров, рекламных SDK, сбора аналитики или логов. Ваша приватность священна.</string>
+    <string name="onboarding_feat_security_title">Криптографическая защита</string>
+    <string name="onboarding_feat_security_desc">Современные протоколы (VLESS, Reality, ShadowTLS, WireGuard) для надёжного шифрования трафика и обхода ТСПУ.</string>
+
+    <string name="onboarding_permissions_tag">[ СИСТЕМНЫЕ РАЗРЕШЕНИЯ ]</string>
+    <string name="onboarding_permissions_title">Разрешения приложения</string>
+    <string name="onboarding_permissions_desc">Undercover запрашивает только минимально необходимые разрешения Android для стабильной защиты соединения:</string>
+    <string name="onboarding_perm_vpn_title">VPN-туннель (VpnService)</string>
+    <string name="onboarding_perm_vpn_desc">Создание защищенного туннеля для маршрутизации и шифрования трафика выбранных приложений и сайтов.</string>
+    <string name="onboarding_perm_notif_title">Уведомления</string>
+    <string name="onboarding_perm_notif_desc">Отображение состояния подключения в статус-баре и защита фонового процесса от выгрузки системой.</string>
+    <string name="onboarding_perm_camera_title">Камера</string>
+    <string name="onboarding_perm_camera_desc">Используется исключительно для быстрого сканирования QR-кодов с конфигурациями и подписками.</string>
+    <string name="onboarding_perm_battery_title">Работа в фоновом режиме</string>
+    <string name="onboarding_perm_battery_desc">Исключение из оптимизации батареи, чтобы Android не обрывал VPN-соединение при заблокированном экране.</string>
+    <string name="onboarding_perm_granted">[ РАЗРЕШЕНО ]</string>
+    <string name="onboarding_perm_grant">[ РАЗРЕШИТЬ ]</string>
+
     <string name="onboarding_start">НАЧАТЬ</string>
     <string name="onboarding_empty_title">Сейчас здесь пусто</string>
     <string name="onboarding_empty_desc">Давайте добавим первое подключение</string>

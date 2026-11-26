@@ -302,6 +302,7 @@ class ProfileImportHandler(private val context: Context) {
             activeUserProf.primaryServerId = profile.id
             com.undercover.vpn.database.UserProfileManager.update(activeUserProf)
         }
+        applyRussianRoutingIfFirstProfile()
 
         return ImportResult.Success(profile)
     }
@@ -367,6 +368,7 @@ class ProfileImportHandler(private val context: Context) {
             activeUserProf.primaryServerId = profile.id
             com.undercover.vpn.database.UserProfileManager.update(activeUserProf)
         }
+        applyRussianRoutingIfFirstProfile()
 
         return ImportResult.Success(profile)
     }
@@ -506,10 +508,41 @@ class ProfileImportHandler(private val context: Context) {
                 activeUserProf.primaryServerId = profile.id
                 com.undercover.vpn.database.UserProfileManager.update(activeUserProf)
             }
+            applyRussianRoutingIfFirstProfile()
 
             ImportResult.Success(profile)
         } catch (e: Exception) {
             ImportResult.Error(e.message ?: "Unknown error importing JSON configuration")
+        }
+    }
+
+    private suspend fun applyRussianRoutingIfFirstProfile() {
+        try {
+            val allProfiles = ProfileManager.list()
+            // Only auto-apply if this is the first server/subscription in the app
+            if (allProfiles.size <= 1) {
+                if (!com.undercover.vpn.database.Settings.isProMode) {
+                    val isRussia = com.undercover.vpn.utils.LocationDetector.detectIsRussia(context)
+                    if (isRussia) {
+                        android.util.Log.i("ProfileImportHandler", "First profile imported: user in Russia (simple mode), applying RU routing defaults")
+                        com.undercover.vpn.database.Settings.routingDirectRuSites = true
+                        com.undercover.vpn.database.Settings.routingDirectRuApps = true
+                        com.undercover.vpn.database.Settings.routingByeDpiYouTube = true
+                        com.undercover.vpn.database.Settings.routingByeDpiDiscord = true
+
+                        val activeProf = com.undercover.vpn.database.UserProfileManager.getActiveProfile()
+                        activeProf.routingDirectRuSites = true
+                        activeProf.routingDirectRuApps = true
+                        activeProf.routingByeDpiYouTube = true
+                        activeProf.routingByeDpiDiscord = true
+                        com.undercover.vpn.database.UserProfileManager.update(activeProf)
+
+                        com.undercover.vpn.routing.RuleSetManager.ensureUpdatedInBackground()
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("ProfileImportHandler", "Failed to check or apply RU routing: ${e.message}")
         }
     }
 }

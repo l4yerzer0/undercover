@@ -193,6 +193,7 @@ object Settings {
     var appTheme by dataStore.int(SettingsKey.APP_THEME) { 0 }
     var hasSeenOnboarding by dataStore.boolean(SettingsKey.HAS_SEEN_ONBOARDING) { false }
     var isProMode by dataStore.boolean(SettingsKey.IS_PRO_MODE) { false }
+    var isUserInRussia by dataStore.boolean(SettingsKey.IS_USER_IN_RUSSIA) { false }
 
     var tailscaleSSHFontFamily by dataStore.string(SettingsKey.TAILSCALE_SSH_FONT_FAMILY)
     var tailscaleSSHFontSize by dataStore.int(SettingsKey.TAILSCALE_SSH_FONT_SIZE) { 14 }

@@ -76,8 +76,30 @@
     <string name="dossier_fake_isp">(Fake ISP)</string>
     <string name="dossier_randomized_device">(Randomized Device)</string>
     <string name="onboarding_slide1_text">Everything you do online is [REDACTED]</string>
-    <string name="onboarding_slide2_text">All methods for bypassing blockages and censorship are collected in one app. Everything you need is right here.</string>
-    <string name="onboarding_slide3_text">Create your cover, protect your data, and go fully Undercover.</string>
+    <string name="onboarding_slide2_text">Fully open source. Zero telemetry. Security.</string>
+    <string name="onboarding_slide3_text">App Permissions</string>
+    <string name="onboarding_manifest_title">UNDERCOVER // MANIFEST</string>
+    <string name="onboarding_feat_opensource_title">100% Open Source</string>
+    <string name="onboarding_feat_opensource_desc">Full transparency. The client and engine code are available for independent public audit on GitHub.</string>
+    <string name="onboarding_feat_telemetry_title">Zero Telemetry &amp; Trackers</string>
+    <string name="onboarding_feat_telemetry_desc">No trackers, analytics SDKs, IP logging, or third-party data collection. Your privacy is paramount.</string>
+    <string name="onboarding_feat_security_title">Cryptographic Security</string>
+    <string name="onboarding_feat_security_desc">Modern cryptographic protocols (VLESS, Reality, ShadowTLS, WireGuard) protecting your traffic from censorship.</string>
+
+    <string name="onboarding_permissions_tag">[ SYSTEM PERMISSIONS ]</string>
+    <string name="onboarding_permissions_title">App Permissions</string>
+    <string name="onboarding_permissions_desc">Undercover requests only essential Android permissions required for stable connection protection:</string>
+    <string name="onboarding_perm_vpn_title">VPN Tunnel (VpnService)</string>
+    <string name="onboarding_perm_vpn_desc">Creates a secure virtual tunnel to route and encrypt traffic of selected apps and websites.</string>
+    <string name="onboarding_perm_notif_title">Notifications</string>
+    <string name="onboarding_perm_notif_desc">Keeps VPN status visible in the status bar and prevents Android from killing the background service.</string>
+    <string name="onboarding_perm_camera_title">Camera</string>
+    <string name="onboarding_perm_camera_desc">Used solely for scanning QR codes to instantly import configurations and subscriptions.</string>
+    <string name="onboarding_perm_battery_title">Background Execution</string>
+    <string name="onboarding_perm_battery_desc">Exemption from battery optimization so your VPN connection remains active when the screen is locked.</string>
+    <string name="onboarding_perm_granted">[ GRANTED ]</string>
+    <string name="onboarding_perm_grant">[ GRANT ]</string>
+
     <string name="onboarding_start">START</string>
     <string name="onboarding_empty_title">It\'s empty here right now</string>
     <string name="onboarding_empty_desc">Let\'s add your first connection</string>
