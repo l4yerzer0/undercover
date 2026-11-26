@@ -22,6 +22,7 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
                 implementation("io.ktor:ktor-http:2.3.9")
                 implementation(compose.runtime)
                 implementation(compose.foundation)
@@ -35,6 +36,7 @@ kotlin {
             dependsOn(commonMain)
             dependencies {
                 compileOnly("org.json:json:20240303")
+                implementation("com.github.mwiede:jsch:0.2.20")
             }
         }
         val androidMain by getting {
