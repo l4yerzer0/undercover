@@ -35,9 +35,46 @@ object XrayConfigGenerator {
         }
     }
 
+    data class XrayBridgeAuth(
+        val basePort: Int,
+        val username: String,
+        val password: String,
+    )
+
+    fun buildSocksInbound(
+        tag: String = "socks-in",
+        port: Int = LOCAL_SOCKS_PORT,
+        auth: XrayBridgeAuth? = null,
+    ): JSONObject {
+        val inbound = JSONObject().apply {
+            put("tag", tag)
+            put("port", port)
+            put("listen", LOCAL_SOCKS_HOST)
+            put("protocol", "socks")
+        }
+        val settings = JSONObject().apply {
+            put("udp", true)
+            if (auth != null) {
+                put("auth", "password")
+                val accountObj = JSONObject().apply {
+                    put("user", auth.username)
+                    put("pass", auth.password)
+                }
+                val accounts = JSONArray()
+                accounts.put(accountObj)
+                put("accounts", accounts)
+            } else {
+                put("auth", "noauth")
+            }
+        }
+        inbound.put("settings", settings)
+        return inbound
+    }
+
     fun generateXrayConfigFromUri(
         uriString: String,
         socksPort: Int = LOCAL_SOCKS_PORT,
+        auth: XrayBridgeAuth? = null,
     ): String? {
         val effective = resolveEffectiveUri(uriString)?.trim() ?: return null
         val outbound = when {
@@ -55,16 +92,7 @@ object XrayConfigGenerator {
         dns.put("servers", JSONArray().put("8.8.8.8").put("77.88.88.88").put("1.1.1.1"))
         root.put("dns", dns)
 
-        val socksInbound = JSONObject().apply {
-            put("tag", "socks-in")
-            put("port", socksPort)
-            put("listen", LOCAL_SOCKS_HOST)
-            put("protocol", "socks")
-            put("settings", JSONObject().apply {
-                put("auth", "noauth")
-                put("udp", true)
-            })
-        }
+        val socksInbound = buildSocksInbound("socks-in", socksPort, auth)
         root.put("inbounds", JSONArray().put(socksInbound))
 
         val directOutbound = JSONObject().apply {
@@ -76,7 +104,12 @@ object XrayConfigGenerator {
         return root.toString(2)
     }
 
-    fun adjustInboundPort(xrayJson: String, port: Int, tag: String): String {
+    fun adjustInbound(
+        xrayJson: String,
+        port: Int,
+        tag: String,
+        auth: XrayBridgeAuth? = null,
+    ): String {
         return try {
             val root = JSONObject(xrayJson)
             val inbounds = root.optJSONArray("inbounds")
@@ -84,6 +117,17 @@ object XrayConfigGenerator {
                 val inb = inbounds.getJSONObject(0)
                 inb.put("port", port)
                 inb.put("tag", tag)
+                if (auth != null) {
+                    val settings = inb.optJSONObject("settings") ?: JSONObject().also { inb.put("settings", it) }
+                    settings.put("auth", "password")
+                    val accountObj = JSONObject().apply {
+                        put("user", auth.username)
+                        put("pass", auth.password)
+                    }
+                    val accounts = JSONArray()
+                    accounts.put(accountObj)
+                    settings.put("accounts", accounts)
+                }
             }
             root.toString(2)
         } catch (_: Exception) {
@@ -91,30 +135,31 @@ object XrayConfigGenerator {
         }
     }
 
+    fun adjustInboundPort(xrayJson: String, port: Int, tag: String): String =
+        adjustInbound(xrayJson, port, tag, null)
+
     fun combineXrayConfigs(
         primaryXrayJson: String?,
         secondaryXrayJson: String?,
+        basePort: Int = LOCAL_SOCKS_PORT,
+        auth: XrayBridgeAuth? = null,
     ): String? {
         val list = mutableListOf<Pair<Int, String>>()
         if (!primaryXrayJson.isNullOrBlank()) list.add(0 to primaryXrayJson)
         if (!secondaryXrayJson.isNullOrBlank()) list.add(1 to secondaryXrayJson)
-        return combineMultiXrayConfigs(list)
+        return combineMultiXrayConfigs(list, basePort, auth)
     }
 
     /**
      * Combines any number of Xray configs into a single multi-inbound Xray configuration.
-     * Each entry is (slotIndex, xrayJson) where slotIndex 0 -> port 10808, slotIndex 1 -> 10809, etc.
+     * Each entry is (slotIndex, xrayJson) where slotIndex 0 -> port basePort, slotIndex 1 -> basePort + 1, etc.
      */
-    fun combineMultiXrayConfigs(indexedConfigs: List<Pair<Int, String>>): String? {
+    fun combineMultiXrayConfigs(
+        indexedConfigs: List<Pair<Int, String>>,
+        basePort: Int = LOCAL_SOCKS_PORT,
+        auth: XrayBridgeAuth? = null,
+    ): String? {
         if (indexedConfigs.isEmpty()) return null
-        if (indexedConfigs.size == 1) {
-            val (slotIndex, json) = indexedConfigs.first()
-            return if (slotIndex == 0) {
-                json
-            } else {
-                adjustInboundPort(json, LOCAL_SOCKS_PORT + slotIndex, "socks-$slotIndex")
-            }
-        }
 
         return try {
             val combined = JSONObject()
@@ -130,17 +175,9 @@ object XrayConfigGenerator {
                 val root = JSONObject(xrayJson)
                 val inboundTag = "socks-$slotIndex"
                 val outboundTag = "out-$slotIndex"
-                val port = LOCAL_SOCKS_PORT + slotIndex
+                val port = basePort + slotIndex
 
-                inbounds.put(
-                    JSONObject().apply {
-                        put("tag", inboundTag)
-                        put("port", port)
-                        put("listen", LOCAL_SOCKS_HOST)
-                        put("protocol", "socks")
-                        put("settings", JSONObject().put("auth", "noauth").put("udp", true))
-                    },
-                )
+                inbounds.put(buildSocksInbound(inboundTag, port, auth))
 
                 val srcOutbounds = root.optJSONArray("outbounds") ?: JSONArray()
                 val proxyOutbound = srcOutbounds.optJSONObject(0) ?: JSONObject()

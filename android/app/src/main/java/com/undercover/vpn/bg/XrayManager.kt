@@ -20,6 +20,59 @@ object XrayManager {
     @Volatile
     private var activeConfigText: String? = null
 
+    @Volatile
+    var activeAuth: XrayConfigGenerator.XrayBridgeAuth? = null
+        private set
+
+    val currentPort: Int
+        get() = activeAuth?.basePort ?: XrayConfigGenerator.LOCAL_SOCKS_PORT
+
+    val currentAuth: XrayConfigGenerator.XrayBridgeAuth?
+        get() = activeAuth
+
+    private var authenticatorInstalled = false
+
+    fun ensureAuthenticator() {
+        if (authenticatorInstalled) return
+        authenticatorInstalled = true
+        java.net.Authenticator.setDefault(object : java.net.Authenticator() {
+            override fun getPasswordAuthentication(): java.net.PasswordAuthentication? {
+                val auth = activeAuth ?: return null
+                if (requestingPort == auth.basePort) {
+                    return java.net.PasswordAuthentication(auth.username, auth.password.toCharArray())
+                }
+                return null
+            }
+        })
+    }
+
+    fun allocatePort(): Int {
+        var port = 0
+        for (attempt in 0..10) {
+            try {
+                java.net.ServerSocket(0).use { socket ->
+                    port = socket.localPort
+                }
+                if (port in 1024..65530) break
+            } catch (_: Exception) {
+            }
+        }
+        return if (port > 0) port else 20808
+    }
+
+    fun prepareSession(): XrayConfigGenerator.XrayBridgeAuth {
+        val port = allocatePort()
+        val bytes = ByteArray(24)
+        java.security.SecureRandom().nextBytes(bytes)
+        val hex = bytes.joinToString("") { "%02x".format(it) }
+        val user = "uc_" + hex.take(8)
+        val pass = hex.substring(8)
+        val auth = XrayConfigGenerator.XrayBridgeAuth(basePort = port, username = user, password = pass)
+        activeAuth = auth
+        ensureAuthenticator()
+        return auth
+    }
+
     val isRunning: Boolean
         get() = process?.isAlive == true
 
@@ -63,6 +116,7 @@ object XrayManager {
     fun ensureForMultiConfig(
         context: Context,
         endpoints: List<Pair<Int, Pair<String?, String?>>>,
+        auth: XrayConfigGenerator.XrayBridgeAuth? = activeAuth,
     ) {
         val indexedXray = mutableListOf<Pair<Int, String>>()
         for ((slotIndex, pathAndTag) in endpoints) {
@@ -74,11 +128,21 @@ object XrayManager {
                 indexedXray.add(slotIndex to xray)
             }
         }
-        val combinedXray = XrayConfigGenerator.combineMultiXrayConfigs(indexedXray)
+        if (indexedXray.isEmpty()) {
+            stop()
+            return
+        }
+        val effectiveAuth = auth ?: activeAuth
+        val combinedXray = XrayConfigGenerator.combineMultiXrayConfigs(
+            indexedConfigs = indexedXray,
+            basePort = effectiveAuth?.basePort ?: XrayConfigGenerator.LOCAL_SOCKS_PORT,
+            auth = effectiveAuth,
+        )
         if (combinedXray == null) {
             stop()
             return
         }
+        activeAuth = effectiveAuth
         startWithJson(context, combinedXray)
     }
 
@@ -214,6 +278,7 @@ object XrayManager {
         val proc = process ?: return
         process = null
         activeConfigText = null
+        activeAuth = null
         try {
             proc.destroy()
             if (proc.isAlive) {

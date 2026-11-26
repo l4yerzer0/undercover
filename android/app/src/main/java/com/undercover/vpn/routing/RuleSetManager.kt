@@ -91,22 +91,25 @@ object RuleSetManager {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val updateMutex = Mutex()
 
-    private fun dir(): File =
+    private fun dir(): File? = try {
         File(Application.application.filesDir, "rule-sets").apply { mkdirs() }
+    } catch (_: Throwable) {
+        null
+    }
 
-    private fun fileFor(spec: RuleSetSpec): File = File(dir(), spec.fileName)
+    private fun fileFor(spec: RuleSetSpec): File? = dir()?.let { File(it, spec.fileName) }
 
     fun specForTag(tag: String): RuleSetSpec? = SPECS.firstOrNull { it.tag == tag }
 
     fun isAvailable(tag: String): Boolean {
         val spec = specForTag(tag) ?: return false
-        val file = fileFor(spec)
+        val file = fileFor(spec) ?: return false
         return file.exists() && file.length() > 0L
     }
 
     fun filePath(tag: String): String? {
         val spec = specForTag(tag) ?: return null
-        val file = fileFor(spec)
+        val file = fileFor(spec) ?: return null
         return if (file.exists() && file.length() > 0L) file.absolutePath else null
     }
 
@@ -155,7 +158,7 @@ object RuleSetManager {
     }
 
     private fun downloadSpec(spec: RuleSetSpec): Boolean {
-        val target = fileFor(spec)
+        val target = fileFor(spec) ?: return false
         val tmp = File(target.parentFile, "${spec.fileName}.tmp")
         var conn: HttpURLConnection? = null
         try {

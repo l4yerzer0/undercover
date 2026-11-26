@@ -27,11 +27,12 @@ object LatencyProbe {
             val startedAt = System.nanoTime()
             val url = URL(PROBE_URL)
             val rawConn = if (com.undercover.vpn.bg.XrayManager.isRunning) {
+                com.undercover.vpn.bg.XrayManager.ensureAuthenticator()
                 val proxy = java.net.Proxy(
                     java.net.Proxy.Type.SOCKS,
                     java.net.InetSocketAddress(
                         com.undercover.vpn.shared.parser.XrayConfigGenerator.LOCAL_SOCKS_HOST,
-                        com.undercover.vpn.shared.parser.XrayConfigGenerator.LOCAL_SOCKS_PORT,
+                        com.undercover.vpn.bg.XrayManager.currentPort,
                     ),
                 )
                 url.openConnection(proxy)

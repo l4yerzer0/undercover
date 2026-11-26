@@ -177,9 +177,11 @@ object RoutingConfig {
         userProfile: UserProfile? = null,
         channels: List<ResolvedChannel> = emptyList(),
         keepSubscriptionRouting: Boolean = false,
+        xrayAuth: XrayConfigGenerator.XrayBridgeAuth? = null,
+        isProMode: Boolean? = null,
     ): String {
         val activeProfile = userProfile ?: runBlocking { UserProfileManager.getActiveProfile() }
-        val isPro = Settings.isProMode
+        val isPro = isProMode ?: try { Settings.isProMode } catch (_: Throwable) { false }
 
         val directApps = activeProfile.directApps
         val byeDpiApps = if (byeDpiPort != null) activeProfile.byeDpiApps else emptySet()
@@ -238,9 +240,59 @@ object RoutingConfig {
         return try {
             val config = JSONObject(configJson)
             stripGenerated(config)
+            stripExposedInbounds(config)
 
             if (!keepSubscriptionRouting) {
                 stripForeignRouting(config)
+            }
+
+            // Route direct apps completely outside the VPN interface at Android kernel level
+            // via tun.exclude_package -> VpnService.addDisallowedApplication. This hides the VPN
+            // transport flag and prevents leaks.
+            if (effectiveDirectApps.isNotEmpty()) {
+                val inbounds = config.optJSONArray("inbounds")
+                if (inbounds != null) {
+                    for (i in 0 until inbounds.length()) {
+                        val inb = inbounds.optJSONObject(i) ?: continue
+                        if (inb.optString("type") == "tun") {
+                            val inc = inb.optJSONArray("include_package")
+                            if (inc == null || inc.length() == 0) {
+                                val existingExc = inb.optJSONArray("exclude_package")
+                                val excList = mutableListOf<String>()
+                                if (existingExc != null) {
+                                    for (j in 0 until existingExc.length()) {
+                                        val p = existingExc.optString(j)
+                                        if (p.isNotBlank()) excList.add(p)
+                                    }
+                                }
+                                for (app in effectiveDirectApps) {
+                                    if (!excList.contains(app)) {
+                                        excList.add(app)
+                                    }
+                                }
+                                inb.put("exclude_package", JSONArray(excList))
+                            }
+                            break
+                        }
+                    }
+                }
+            }
+
+            // If an Xray bridge session is active with dynamic port & credentials, update primary socks outbounds
+            if (xrayAuth != null) {
+                config.optJSONArray("outbounds")?.let { outbounds ->
+                    for (i in 0 until outbounds.length()) {
+                        val ob = outbounds.optJSONObject(i) ?: continue
+                        if (ob.optString("type") == "socks") {
+                            val server = ob.optString("server")
+                            if (server == "127.0.0.1" || server == "localhost") {
+                                ob.put("server_port", xrayAuth.basePort)
+                                ob.put("username", xrayAuth.username)
+                                ob.put("password", xrayAuth.password)
+                            }
+                        }
+                    }
+                }
             }
 
             if (effectiveDirectApps.isNotEmpty() || directDomains.isNotEmpty() || directRuleSetTags.isNotEmpty()) {
@@ -275,7 +327,7 @@ object RoutingConfig {
                         chDomains.addAll(cat.fallbackDomains)
                     }
                 }
-                ensureChannelOutbound(config, rc)
+                ensureChannelOutbound(config, rc, xrayAuth)
                 if (chDomains.isNotEmpty() || chRuleSets.isNotEmpty()) {
                     ensureChannelDns(config, rc)
                 }
@@ -415,7 +467,7 @@ object RoutingConfig {
     /**
      * Removes rules, rule_sets, and outbounds generated on an earlier run.
      */
-    private fun stripGenerated(config: JSONObject) {
+    internal fun stripGenerated(config: JSONObject) {
         config.optJSONObject("route")?.let { route ->
             route.optJSONArray("rules")?.let { rules ->
                 removeMatching(rules) { rule ->
@@ -445,6 +497,30 @@ object RoutingConfig {
 
         config.optJSONArray("outbounds")?.let { outbounds ->
             removeMatching(outbounds) { isGeneratedOutbound(it.optString("tag")) }
+        }
+
+        config.optJSONArray("inbounds")?.let { inbounds ->
+            for (i in 0 until inbounds.length()) {
+                val inb = inbounds.optJSONObject(i) ?: continue
+                if (inb.optString("type") == "tun") {
+                    inb.remove("exclude_package")
+                }
+            }
+        }
+    }
+
+    /**
+     * Strips foreign listening inbounds (mixed, socks, http, etc.) so that imported configs
+     * cannot expose open proxy ports on loopback or 0.0.0.0 that untrusted apps could probe.
+     */
+    internal fun stripExposedInbounds(config: JSONObject) {
+        val inbounds = config.optJSONArray("inbounds") ?: return
+        val hasTun = (0 until inbounds.length()).any { inbounds.optJSONObject(it)?.optString("type") == "tun" }
+        if (hasTun) {
+            removeMatching(inbounds) { inb ->
+                val type = inb.optString("type")
+                type != "tun"
+            }
         }
     }
 
@@ -540,7 +616,11 @@ object RoutingConfig {
         outbound.put("version", "5")
     }
 
-    private fun ensureChannelOutbound(config: JSONObject, resolved: ResolvedChannel) {
+    private fun ensureChannelOutbound(
+        config: JSONObject,
+        resolved: ResolvedChannel,
+        xrayAuth: XrayConfigGenerator.XrayBridgeAuth? = null,
+    ) {
         val outbounds = outbounds(config)
         if (findByTag(outbounds, resolved.outboundTag) != null) return
 
@@ -549,8 +629,13 @@ object RoutingConfig {
             outbound.put("type", "socks")
             outbound.put("tag", resolved.outboundTag)
             outbound.put("server", BYEDPI_ADDRESS)
-            outbound.put("server_port", XrayConfigGenerator.LOCAL_SOCKS_PORT + resolved.slotIndex)
+            val port = (xrayAuth?.basePort ?: XrayConfigGenerator.LOCAL_SOCKS_PORT) + resolved.slotIndex
+            outbound.put("server_port", port)
             outbound.put("version", "5")
+            if (xrayAuth != null) {
+                outbound.put("username", xrayAuth.username)
+                outbound.put("password", xrayAuth.password)
+            }
             outbounds.put(outbound)
         } else if (!resolved.configJson.isNullOrBlank()) {
             try {

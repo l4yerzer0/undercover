@@ -244,12 +244,26 @@ class BoxService(private val service: Service, private val platformInterface: Pl
             }
         }
 
+        val primaryUsesXray = com.undercover.vpn.shared.parser.SubscriptionNodesHelper.loadXrayConfigForNode(
+            profile.typed.path,
+            userProfile.primaryNodeTag ?: "proxy",
+        ) != null
+        val anyXray = primaryUsesXray || resolvedChannels.any { it.usesXray }
+
+        val xrayAuth = if (anyXray) {
+            XrayManager.prepareSession()
+        } else {
+            XrayManager.stop()
+            null
+        }
+
         val generated = RoutingConfig.applyMulti(
             configJson = migrated,
             byeDpiPort = byeDpiPort,
             userProfile = userProfile,
             channels = resolvedChannels,
             keepSubscriptionRouting = profile.typed.keepSubscriptionRouting,
+            xrayAuth = xrayAuth,
         )
 
         // Persist so the profile on disk always reflects what the UI says. Generation
@@ -263,10 +277,15 @@ class BoxService(private val service: Service, private val platformInterface: Pl
 
         com.undercover.vpn.routing.RuleSetManager.ensureUpdatedInBackground()
 
-        XrayManager.ensureForMultiConfig(
-            context = service,
-            endpoints = xrayEndpoints,
-        )
+        if (anyXray) {
+            XrayManager.ensureForMultiConfig(
+                context = service,
+                endpoints = xrayEndpoints,
+                auth = xrayAuth,
+            )
+        } else {
+            XrayManager.stop()
+        }
 
         return generated
     }

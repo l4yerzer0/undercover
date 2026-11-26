@@ -25,7 +25,7 @@ val versionProps = Properties().apply {
         load(propFile.inputStream())
     }
 }
-val versionName: String = versionProps.getProperty("VERSION_NAME", "0.9")
+val versionName: String = versionProps.getProperty("VERSION_NAME", "0.10")
 val semverVersion = if (versionName.count { ch: Char -> ch == '.' } == 1) "$versionName.0" else versionName
 
 compose.desktop {
