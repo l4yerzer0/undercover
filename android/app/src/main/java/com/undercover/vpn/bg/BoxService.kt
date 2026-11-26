@@ -249,6 +249,7 @@ class BoxService(private val service: Service, private val platformInterface: Pl
             byeDpiPort = byeDpiPort,
             userProfile = userProfile,
             channels = resolvedChannels,
+            keepSubscriptionRouting = profile.typed.keepSubscriptionRouting,
         )
 
         // Persist so the profile on disk always reflects what the UI says. Generation

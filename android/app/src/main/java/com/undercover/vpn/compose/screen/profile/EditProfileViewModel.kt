@@ -34,6 +34,7 @@ data class EditProfileUiState(
     val remoteUrl: String = "",
     val autoUpdate: Boolean = false,
     val autoUpdateInterval: Int = 60,
+    val keepSubscriptionRouting: Boolean = false,
     val lastUpdated: Date? = null,
     // Original values for change detection
     val originalName: String = "",
@@ -41,6 +42,7 @@ data class EditProfileUiState(
     val originalRemoteUrl: String = "",
     val originalAutoUpdate: Boolean = false,
     val originalAutoUpdateInterval: Int = 60,
+    val originalKeepSubscriptionRouting: Boolean = false,
     // State flags
     val hasChanges: Boolean = false,
     val isLoading: Boolean = true,
@@ -89,6 +91,8 @@ class EditProfileViewModel(application: Application) : AndroidViewModel(applicat
                         originalAutoUpdate = typedProfile.autoUpdate,
                         autoUpdateInterval = typedProfile.autoUpdateInterval,
                         originalAutoUpdateInterval = typedProfile.autoUpdateInterval,
+                        keepSubscriptionRouting = typedProfile.keepSubscriptionRouting,
+                        originalKeepSubscriptionRouting = typedProfile.keepSubscriptionRouting,
                         lastUpdated = typedProfile.lastUpdated,
                         isLoading = false,
                     )
@@ -183,11 +187,21 @@ class EditProfileViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    fun updateKeepSubscriptionRouting(enabled: Boolean) {
+        _uiState.update { state ->
+            state.copy(
+                keepSubscriptionRouting = enabled,
+                hasChanges = checkHasChanges(state.copy(keepSubscriptionRouting = enabled)),
+            )
+        }
+    }
+
     private fun checkHasChanges(state: EditProfileUiState): Boolean = state.name != state.originalName ||
         state.icon != state.originalIcon ||
         state.remoteUrl != state.originalRemoteUrl ||
         state.autoUpdate != state.originalAutoUpdate ||
-        state.autoUpdateInterval != state.originalAutoUpdateInterval
+        state.autoUpdateInterval != state.originalAutoUpdateInterval ||
+        state.keepSubscriptionRouting != state.originalKeepSubscriptionRouting
 
     fun saveChanges() {
         val state = _uiState.value
@@ -211,12 +225,22 @@ class EditProfileViewModel(application: Application) : AndroidViewModel(applicat
                 profile.typed.autoUpdate = state.autoUpdate
                 profile.typed.autoUpdateInterval = state.autoUpdateInterval
 
+                val routingChanged = state.keepSubscriptionRouting != state.originalKeepSubscriptionRouting
+                profile.typed.keepSubscriptionRouting = state.keepSubscriptionRouting
+
                 // Save to database
                 ProfileManager.update(profile)
 
                 // Reconfigure updater if auto-update was enabled
                 if (autoUpdateChanged && state.autoUpdate) {
                     UpdateProfileWork.reconfigureUpdater()
+                }
+
+                if (routingChanged) {
+                    val activeUserProf = com.undercover.vpn.database.UserProfileManager.getActiveProfile()
+                    if (profile.id == Settings.selectedProfile || profile.id == activeUserProf.primaryServerId) {
+                        runCatching { Libbox.newStandaloneCommandClient().serviceReload() }
+                    }
                 }
 
                 // Update UI state with new original values
@@ -227,6 +251,7 @@ class EditProfileViewModel(application: Application) : AndroidViewModel(applicat
                         originalRemoteUrl = state.remoteUrl,
                         originalAutoUpdate = state.autoUpdate,
                         originalAutoUpdateInterval = state.autoUpdateInterval,
+                        originalKeepSubscriptionRouting = state.keepSubscriptionRouting,
                         hasChanges = false,
                         isSaving = false,
                     )

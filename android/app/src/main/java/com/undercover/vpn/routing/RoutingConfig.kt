@@ -176,6 +176,7 @@ object RoutingConfig {
         byeDpiPort: Int?,
         userProfile: UserProfile? = null,
         channels: List<ResolvedChannel> = emptyList(),
+        keepSubscriptionRouting: Boolean = false,
     ): String {
         val activeProfile = userProfile ?: runBlocking { UserProfileManager.getActiveProfile() }
         val isPro = Settings.isProMode
@@ -237,6 +238,10 @@ object RoutingConfig {
         return try {
             val config = JSONObject(configJson)
             stripGenerated(config)
+
+            if (!keepSubscriptionRouting) {
+                stripForeignRouting(config)
+            }
 
             if (effectiveDirectApps.isNotEmpty() || directDomains.isNotEmpty() || directRuleSetTags.isNotEmpty()) {
                 ensureDirectOutbound(config)
@@ -441,6 +446,70 @@ object RoutingConfig {
         config.optJSONArray("outbounds")?.let { outbounds ->
             removeMatching(outbounds) { isGeneratedOutbound(it.optString("tag")) }
         }
+    }
+
+    /**
+     * Cleans up subscription-provided routing and rule-sets so that the Undercover
+     * client's rules and ByeDPI engine take full precedence without conflicts,
+     * broken remote rule-set downloads, or hijacked DNS routing.
+     */
+    private fun stripForeignRouting(config: JSONObject) {
+        config.optJSONObject("route")?.let { route ->
+            route.optJSONArray("rules")?.let { rules ->
+                removeMatching(rules) { rule ->
+                    !isInfrastructurePreamble(rule)
+                }
+            }
+            // Strip any foreign rule_sets that might be unreachable or broken
+            route.remove("rule_set")
+
+            // Ensure route.final points to an existing main outbound
+            if (!route.has("final") || route.optString("final").isEmpty()) {
+                val outbounds = config.optJSONArray("outbounds")
+                val mainTag = findMainOutboundTag(outbounds)
+                if (mainTag != null) {
+                    route.put("final", mainTag)
+                }
+            }
+        }
+
+        // Clean dns.rules referencing rule_sets (they would cause Libbox validation errors)
+        config.optJSONObject("dns")?.let { dns ->
+            dns.optJSONArray("rules")?.let { rules ->
+                removeMatching(rules) { it.has("rule_set") }
+            }
+        }
+    }
+
+    private fun isInfrastructurePreamble(rule: JSONObject): Boolean {
+        val action = rule.optString("action")
+        if (action == "sniff" || action == "hijack-dns" || action == "resolve") return true
+        if (rule.optString("protocol") == "dns") return true
+        if (rule.has("inbound") && !rule.has("domain") && !rule.has("domain_suffix") &&
+            !rule.has("rule_set") && !rule.has("ip_cidr") && !rule.has("geoip") && !rule.has("geosite")
+        ) {
+            return true
+        }
+        return false
+    }
+
+    private fun findMainOutboundTag(outbounds: JSONArray?): String? {
+        if (outbounds == null) return null
+        for (i in 0 until outbounds.length()) {
+            val ob = outbounds.optJSONObject(i) ?: continue
+            val tag = ob.optString("tag")
+            val type = ob.optString("type")
+            if (type == "selector" || tag == "proxy") return tag
+        }
+        for (i in 0 until outbounds.length()) {
+            val ob = outbounds.optJSONObject(i) ?: continue
+            val tag = ob.optString("tag")
+            val type = ob.optString("type")
+            if (type !in setOf("direct", "block", "dns") && !isGeneratedOutbound(tag)) {
+                return tag
+            }
+        }
+        return null
     }
 
     private fun removeMatching(array: JSONArray, predicate: (JSONObject) -> Boolean) {

@@ -469,6 +469,38 @@ fun EditProfileScreen(
                                     isError = uiState.autoUpdateIntervalError != null,
                                 )
                             }
+
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                                thickness = 1.dp,
+                            )
+
+                            // Keep Subscription Routing Toggle
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Маршрутизация из подписки",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                    )
+                                    Text(
+                                        text = if (uiState.keepSubscriptionRouting) {
+                                            "Используются оригинальные правила и списки провайдера"
+                                        } else {
+                                            "Отключена: действуют правила и ByeDPI клиента (рекомендуется)"
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                    )
+                                }
+                                DossierSwitch(
+                                    checked = uiState.keepSubscriptionRouting,
+                                    onCheckedChange = viewModel::updateKeepSubscriptionRouting,
+                                )
+                            }
                         }
                     }
                 }
@@ -534,6 +566,38 @@ fun EditProfileScreen(
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
+                            }
+
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                                thickness = 1.dp,
+                            )
+
+                            // Keep Config Routing Toggle for Local profiles
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Маршрутизация из конфига",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                    )
+                                    Text(
+                                        text = if (uiState.keepSubscriptionRouting) {
+                                            "Используются оригинальные правила и списки JSON"
+                                        } else {
+                                            "Отключена: действуют правила и ByeDPI клиента (рекомендуется)"
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                    )
+                                }
+                                DossierSwitch(
+                                    checked = uiState.keepSubscriptionRouting,
+                                    onCheckedChange = viewModel::updateKeepSubscriptionRouting,
+                                )
                             }
                         }
                     }
