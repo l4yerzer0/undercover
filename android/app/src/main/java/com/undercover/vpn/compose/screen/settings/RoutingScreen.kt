@@ -310,15 +310,15 @@ fun RoutingScreen(navController: NavController) {
                 },
             )
 
-            if (isProMode) {
-                DossierNavRow(
-                    title = "Прямое подключение (DIRECT)",
-                    subtitle = "Выбрано приложений: $directAppsCount",
-                    onClick = {
-                        navController.navigate("settings/routing/apps/${RoutingSection.DIRECT.name}")
-                    },
-                )
+            DossierNavRow(
+                title = "Выбрать приложения напрямую (DIRECT)",
+                subtitle = if (directAppsCount > 0) "Выбрано приложений: $directAppsCount" else "Нажмите, чтобы исключить приложения из VPN",
+                onClick = {
+                    navController.navigate("settings/routing/apps/${RoutingSection.DIRECT.name}")
+                },
+            )
 
+            if (isProMode || byeDpiEnabled) {
                 DossierNavRow(
                     title = "Обход блокировок (ByeDPI)",
                     subtitle = if (byeDpiEnabled) {
@@ -330,23 +330,27 @@ fun RoutingScreen(navController: NavController) {
                         navController.navigate("settings/routing/apps/${RoutingSection.BYEDPI.name}")
                     },
                 )
+            }
 
-                // Section 3: Custom Domains
-                DossierSectionTitle(title = "ПОЛЬЗОВАТЕЛЬСКИЕ САЙТЫ")
+            // Section 3: Custom Domains
+            DossierSectionTitle(title = "ПОЛЬЗОВАТЕЛЬСКИЕ САЙТЫ")
 
-                DossierNavRow(
-                    title = "Свои сайты напрямую (DIRECT)",
-                    subtitle = if (customDirectDomains.isEmpty()) "Нажмите, чтобы добавить свои домены" else "Добавлено доменов: ${customDirectDomains.size}",
-                    onClick = { domainDialogSection = RoutingSection.DIRECT },
-                )
+            DossierNavRow(
+                title = "Свои сайты напрямую (DIRECT)",
+                subtitle = if (customDirectDomains.isEmpty()) "Нажмите, чтобы добавить свои домены в обход VPN" else "Добавлено доменов: ${customDirectDomains.size}",
+                onClick = { domainDialogSection = RoutingSection.DIRECT },
+            )
 
+            if (isProMode || byeDpiEnabled) {
                 DossierNavRow(
                     title = "Свои сайты через ByeDPI",
                     subtitle = if (customByeDpiDomains.isEmpty()) "Нажмите, чтобы добавить домены для ByeDPI" else "Добавлено доменов: ${customByeDpiDomains.size}",
                     onClick = { domainDialogSection = RoutingSection.BYEDPI },
                 )
+            }
 
-                // Section 4: Multi-Server Channels
+            // Section 4: Multi-Server Channels (PRO only)
+            if (isProMode) {
                 val channels = activeUserProfile?.channels.orEmpty()
                 DossierSectionTitle(title = stringResource(R.string.dossier_active_channels_label, channels.size + 1))
 

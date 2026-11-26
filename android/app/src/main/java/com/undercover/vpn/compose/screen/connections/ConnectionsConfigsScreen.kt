@@ -402,7 +402,7 @@ fun ConnectionsConfigsScreen(
                                             .padding(horizontal = 6.dp, vertical = 2.dp),
                                     ) {
                                         Text(
-                                            text = if (isRemote) "REMOTE" else "LOCAL",
+                                            text = (if (isRemote) stringResource(R.string.profile_type_remote) else stringResource(R.string.profile_type_local)).uppercase(),
                                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                             color = if (isRemote) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                                         )
@@ -419,11 +419,14 @@ fun ConnectionsConfigsScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 val baseSubtitle = when (profile.typed.type) {
-                                    TypedProfile.Type.Local -> "Локальный профиль"
-                                    TypedProfile.Type.Remote -> "Обновлено: ${RelativeTimeFormatter.format(context, profile.typed.lastUpdated)}"
+                                    TypedProfile.Type.Local -> stringResource(R.string.profile_type_local)
+                                    TypedProfile.Type.Remote -> stringResource(
+                                        R.string.last_updated_format,
+                                        RelativeTimeFormatter.format(context, profile.typed.lastUpdated),
+                                    )
                                 }
                                 val subtitle = if (nodes.isNotEmpty()) {
-                                    "$baseSubtitle · Серверов: ${nodes.size}"
+                                    "$baseSubtitle · ${stringResource(R.string.servers_count, nodes.size)}"
                                 } else {
                                     baseSubtitle
                                 }

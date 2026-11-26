@@ -176,6 +176,7 @@
     <string name="basic_information">Основная информация</string>
     <string name="remote_configuration">Подписка</string>
     <string name="last_updated_format">Последнее обновление: %s</string>
+    <string name="servers_count">Серверов: %d</string>
     <string name="content">Содержимое</string>
     <string name="json_viewer">Просмотр JSON</string>
     <string name="json_editor">Редактор JSON</string>

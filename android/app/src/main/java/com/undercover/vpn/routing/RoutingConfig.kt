@@ -180,16 +180,14 @@ object RoutingConfig {
         val activeProfile = userProfile ?: runBlocking { UserProfileManager.getActiveProfile() }
         val isPro = Settings.isProMode
 
-        val directApps = if (isPro) activeProfile.directApps else emptySet()
-        val byeDpiApps = if (isPro && byeDpiPort != null) activeProfile.byeDpiApps else emptySet()
+        val directApps = activeProfile.directApps
+        val byeDpiApps = if (byeDpiPort != null) activeProfile.byeDpiApps else emptySet()
 
         val directDomains = mutableListOf<String>()
         if (activeProfile.routingDirectRuSites) {
             directDomains.addAll(RU_DOMAINS_PRESET)
         }
-        if (isPro) {
-            directDomains.addAll(activeProfile.directDomains)
-        }
+        directDomains.addAll(activeProfile.directDomains)
 
         val allRuleSetSpecs = LinkedHashMap<String, RuleSetManager.RuleSetSpec>()
         val directRuleSetTags = mutableListOf<String>()
@@ -224,9 +222,7 @@ object RoutingConfig {
             if (activeProfile.routingByeDpiDiscord) {
                 byeDpiDomains.addAll(DISCORD_DOMAINS_PRESET)
             }
-            if (isPro) {
-                byeDpiDomains.addAll(activeProfile.byeDpiDomains)
-            }
+            byeDpiDomains.addAll(activeProfile.byeDpiDomains)
         }
 
         val effectiveDirectApps = (directApps + fallbackRuApps).distinct()

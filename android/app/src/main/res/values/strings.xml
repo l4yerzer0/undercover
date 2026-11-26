@@ -173,6 +173,7 @@
     <string name="basic_information">Basic Information</string>
     <string name="remote_configuration">Subscription</string>
     <string name="last_updated_format">Last updated: %s</string>
+    <string name="servers_count">Servers: %d</string>
     <string name="content">Content</string>
     <string name="json_viewer">JSON Viewer</string>
     <string name="json_editor">JSON Editor</string>
