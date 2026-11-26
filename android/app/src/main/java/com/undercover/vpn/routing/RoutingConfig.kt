@@ -216,10 +216,12 @@ object RoutingConfig {
 
         val byeDpiDomains = mutableListOf<String>()
         if (byeDpiPort != null) {
-            if (activeProfile.routingByeDpiYouTube) {
+            val fallbackVpnYoutube = com.undercover.vpn.byedpi.ByeDpiRuntimeState.isYouTubeVpnFallback
+            val fallbackVpnDiscord = com.undercover.vpn.byedpi.ByeDpiRuntimeState.isDiscordVpnFallback
+            if (activeProfile.routingByeDpiYouTube && !fallbackVpnYoutube) {
                 byeDpiDomains.addAll(YOUTUBE_DOMAINS_PRESET)
             }
-            if (activeProfile.routingByeDpiDiscord) {
+            if (activeProfile.routingByeDpiDiscord && !fallbackVpnDiscord) {
                 byeDpiDomains.addAll(DISCORD_DOMAINS_PRESET)
             }
             byeDpiDomains.addAll(activeProfile.byeDpiDomains)

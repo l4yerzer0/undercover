@@ -20,7 +20,7 @@ import java.util.Date
 
 class ProfileImportHandler(private val context: Context) {
     sealed class ImportResult {
-        data class Success(val profile: Profile) : ImportResult()
+        data class Success(val profile: Profile, val needsRoutingSetup: Boolean = false) : ImportResult()
 
         data class Error(val message: String) : ImportResult()
     }
@@ -302,9 +302,9 @@ class ProfileImportHandler(private val context: Context) {
             activeUserProf.primaryServerId = profile.id
             com.undercover.vpn.database.UserProfileManager.update(activeUserProf)
         }
-        applyRussianRoutingIfFirstProfile()
+        val needsSetup = applyRussianRoutingIfFirstProfile()
 
-        return ImportResult.Success(profile)
+        return ImportResult.Success(profile, needsRoutingSetup = needsSetup)
     }
 
     private suspend fun importRemoteProfile(name: String, url: String, assignedProfileId: Long = 0L): ImportResult {
@@ -368,9 +368,9 @@ class ProfileImportHandler(private val context: Context) {
             activeUserProf.primaryServerId = profile.id
             com.undercover.vpn.database.UserProfileManager.update(activeUserProf)
         }
-        applyRussianRoutingIfFirstProfile()
+        val needsSetup = applyRussianRoutingIfFirstProfile()
 
-        return ImportResult.Success(profile)
+        return ImportResult.Success(profile, needsRoutingSetup = needsSetup)
     }
 
     private fun extractSelectorTag(config: String): String? {
@@ -508,15 +508,15 @@ class ProfileImportHandler(private val context: Context) {
                 activeUserProf.primaryServerId = profile.id
                 com.undercover.vpn.database.UserProfileManager.update(activeUserProf)
             }
-            applyRussianRoutingIfFirstProfile()
+            val needsSetup = applyRussianRoutingIfFirstProfile()
 
-            ImportResult.Success(profile)
+            ImportResult.Success(profile, needsRoutingSetup = needsSetup)
         } catch (e: Exception) {
             ImportResult.Error(e.message ?: "Unknown error importing JSON configuration")
         }
     }
 
-    private suspend fun applyRussianRoutingIfFirstProfile() {
+    private suspend fun applyRussianRoutingIfFirstProfile(): Boolean {
         try {
             val allProfiles = ProfileManager.list()
             // Only auto-apply if this is the first server/subscription in the app
@@ -525,6 +525,7 @@ class ProfileImportHandler(private val context: Context) {
                     val isRussia = com.undercover.vpn.utils.LocationDetector.detectIsRussia(context)
                     if (isRussia) {
                         android.util.Log.i("ProfileImportHandler", "First profile imported: user in Russia (simple mode), applying RU routing defaults")
+                        com.undercover.vpn.database.Settings.byeDpiEnabled = true
                         com.undercover.vpn.database.Settings.routingDirectRuSites = true
                         com.undercover.vpn.database.Settings.routingDirectRuApps = true
                         com.undercover.vpn.database.Settings.routingByeDpiYouTube = true
@@ -538,11 +539,13 @@ class ProfileImportHandler(private val context: Context) {
                         com.undercover.vpn.database.UserProfileManager.update(activeProf)
 
                         com.undercover.vpn.routing.RuleSetManager.ensureUpdatedInBackground()
+                        return true
                     }
                 }
             }
         } catch (e: Exception) {
             android.util.Log.w("ProfileImportHandler", "Failed to check or apply RU routing: ${e.message}")
         }
+        return false
     }
 }

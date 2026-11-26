@@ -127,6 +127,9 @@ fun ConnectionsConfigsScreen(
                                 is ProfileImportHandler.ImportResult.Success -> {
                                     withContext(Dispatchers.Main) {
                                         Toast.makeText(context, R.string.onboarding_profile_imported, Toast.LENGTH_SHORT).show()
+                                        if (result.needsRoutingSetup) {
+                                            navController.navigate("setup_routing")
+                                        }
                                     }
                                 }
                                 is ProfileImportHandler.ImportResult.Error -> {
@@ -890,6 +893,9 @@ fun ConnectionsConfigsScreen(
                                             is ProfileImportHandler.ImportResult.Success -> {
                                                 withContext(Dispatchers.Main) {
                                                     Toast.makeText(context, R.string.onboarding_profile_imported, Toast.LENGTH_SHORT).show()
+                                                    if (result.needsRoutingSetup) {
+                                                        navController.navigate("setup_routing")
+                                                    }
                                                 }
                                             }
                                             is ProfileImportHandler.ImportResult.Error -> {
@@ -962,6 +968,9 @@ fun ConnectionsConfigsScreen(
                                         is ProfileImportHandler.ImportResult.Success -> {
                                             withContext(Dispatchers.Main) {
                                                 Toast.makeText(context, R.string.onboarding_profile_imported, Toast.LENGTH_SHORT).show()
+                                                if (importResult.needsRoutingSetup) {
+                                                    navController.navigate("setup_routing")
+                                                }
                                             }
                                         }
                                         is ProfileImportHandler.ImportResult.Error -> {

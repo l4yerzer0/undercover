@@ -103,6 +103,7 @@ class BoxService(private val service: Service, private val platformInterface: Pl
     }
 
     private var lastProfileName = ""
+    private var healthCheckJob: kotlinx.coroutines.Job? = null
 
     private suspend fun startService() {
         try {
@@ -181,6 +182,9 @@ class BoxService(private val service: Service, private val platformInterface: Pl
                 notification.show(lastProfileName, R.string.status_started)
             }
             notification.start()
+            if (Settings.byeDpiEnabled) {
+                launchByeDpiHealthCheck()
+            }
         } catch (e: Exception) {
             stopAndAlert(Alert.StartService, e.message)
             return
@@ -392,6 +396,9 @@ class BoxService(private val service: Service, private val platformInterface: Pl
     }
 
     private fun closeService() {
+        healthCheckJob?.cancel()
+        healthCheckJob = null
+        com.undercover.vpn.byedpi.ByeDpiRuntimeState.resetFallback()
         XrayManager.stop()
         runBlocking {
             ByeDpiManager.stop()
@@ -400,6 +407,22 @@ class BoxService(private val service: Service, private val platformInterface: Pl
             commandServer.closeService()
         }.onFailure {
             commandServer.setError("android: close service: ${it.message}")
+        }
+    }
+
+    @OptIn(DelicateCoroutinesApi::class)
+    private fun launchByeDpiHealthCheck() {
+        healthCheckJob?.cancel()
+        healthCheckJob = GlobalScope.launch(Dispatchers.IO) {
+            kotlinx.coroutines.delay(1500)
+            val port = ByeDpiManager.port ?: return@launch
+            val prevYt = com.undercover.vpn.byedpi.ByeDpiRuntimeState.isYouTubeVpnFallback
+            val prevDiscord = com.undercover.vpn.byedpi.ByeDpiRuntimeState.isDiscordVpnFallback
+            val status = com.undercover.vpn.byedpi.ByeDpiRuntimeState.checkHealth(port)
+            if (status.ytWorking == prevYt || status.discordWorking == prevDiscord) {
+                Log.w(TAG, "ByeDPI status changed (ytPassed=${status.ytWorking}, discordPassed=${status.discordWorking}). Reloading service...")
+                serviceReload0()
+            }
         }
     }
 

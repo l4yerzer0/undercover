@@ -98,12 +98,30 @@ fun SFANavHost(
         modifier = modifier,
     ) {
         composable("onboarding") {
-            com.undercover.vpn.compose.screen.onboarding.OnboardingScreen(onFinish = {
+            com.undercover.vpn.compose.screen.onboarding.OnboardingScreen(
+                onFinish = {
+                    kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        com.undercover.vpn.database.Settings.hasSeenOnboarding = true
+                    }
+                    navController.navigate(Screen.Dashboard.route) {
+                        popUpTo("onboarding") { inclusive = true }
+                    }
+                },
+                onOpenSetupRouting = {
+                    navController.navigate("setup_routing") {
+                        popUpTo("onboarding") { inclusive = true }
+                    }
+                },
+            )
+        }
+
+        composable("setup_routing") {
+            com.undercover.vpn.compose.screen.setup.SetupRoutingScreen(onFinish = {
                 kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                     com.undercover.vpn.database.Settings.hasSeenOnboarding = true
                 }
                 navController.navigate(Screen.Dashboard.route) {
-                    popUpTo("onboarding") { inclusive = true }
+                    popUpTo("setup_routing") { inclusive = true }
                 }
             })
         }

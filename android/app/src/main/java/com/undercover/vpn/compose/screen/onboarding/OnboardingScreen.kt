@@ -64,7 +64,10 @@ import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun OnboardingScreen(onFinish: () -> Unit) {
+fun OnboardingScreen(
+    onFinish: () -> Unit,
+    onOpenSetupRouting: () -> Unit = onFinish,
+) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val pagerState = rememberPagerState(pageCount = { 5 })
@@ -118,7 +121,11 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                     when (result) {
                         is ProfileImportHandler.ImportResult.Success -> {
                             Toast.makeText(context, R.string.onboarding_profile_imported, Toast.LENGTH_SHORT).show()
-                            onFinish()
+                            if (result.needsRoutingSetup) {
+                                onOpenSetupRouting()
+                            } else {
+                                onFinish()
+                            }
                         }
                         is ProfileImportHandler.ImportResult.Error -> {
                             Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
@@ -544,7 +551,11 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                         when (result) {
                             is ProfileImportHandler.ImportResult.Success -> {
                                 Toast.makeText(context, R.string.onboarding_profile_imported, Toast.LENGTH_SHORT).show()
-                                onFinish()
+                                if (result.needsRoutingSetup) {
+                                    onOpenSetupRouting()
+                                } else {
+                                    onFinish()
+                                }
                             }
                             is ProfileImportHandler.ImportResult.Error -> {
                                 Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
